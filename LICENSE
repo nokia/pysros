@@ -1,29 +1,303 @@
-BSD 3-Clause License
 
 Copyright (c) 2021, Nokia
 All rights reserved.
 
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
+# SOFTWARE LICENCE AGREEMENT FOR pySROS LIBRARY #
 
-1. Redistributions of source code must retain the above copyright notice, this
-   list of conditions and the following disclaimer.
 
-2. Redistributions in binary form must reproduce the above copyright notice,
-   this list of conditions and the following disclaimer in the documentation
-   and/or other materials provided with the distribution.
+**PLEASE READ THIS LICENSE CAREFULLY BEFORE DOWNLOADING, INSTALLING, OR USING 
+THE SOFTWARE.  BY DOWNLOADING, INSTALLING, OR OTHERWISE USING THE SOFTWARE, 
+YOU ARE AGREEING THAT YOU HAVE READ THIS LICENSE, UNDERSTAND IT, AND AGREE 
+(INDIVIDUALLY, OR, IF EMPLOYED, ON BEHALF OF THE ENTITY WHICH EMPLOYS YOU) TO BE 
+BOUND BY ITS TERMS AND CONDITIONS.  IF YOU DO NOT AGREE TO ALL OF THE TERMS AND 
+CONDITIONS OF THIS LICENSE OR, IF THE LICENSE IS TO BE USED BY OR ON BEHALF OF AN 
+ENTITY AND YOU ARE NOT AUTHORIZED BY THE ENTITY, THEN DO NOT INSTALL OR USE THE 
+SOFTWARE.**
 
-3. Neither the name of the copyright holder nor the names of its
-   contributors may be used to endorse or promote products derived from
-   this software without specific prior written permission.
 
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+This Software License Agreement (“LICENSE”) is between Nokia of America Corporation, a 
+Delaware corporation with a principal office at 600-700 Mountain Avenue, Murray Hill, New 
+Jersey 07974 (“Licensor”), and you individually, if you are agreeing to it in your own capacity, or 
+if you are authorized to enter into this LICENSE on behalf of your company or other 
+organization, then the entity for whose benefit you act (“End User” or “you”). Licensor, End User, 
+and you are sometimes referred to herein individually as a “Party” and collectively as the 
+“Parties.”     
+
+This LICENSE is effective on the date that you first download, install, or use the Software 
+(“Effective Date”).
+
+NOW, THEREFORE, in consideration of the mutual agreements and covenants herein 
+contained and intending to be legally bound thereby, the Parties agree as follows:
+
+1. SOFTWARE
+
+    As used in this LICENSE, the “Software” is the pySROS software library found in the locations 
+identified in Appendix A, and the associated materials (the "Documentation").  
+   
+
+2. LICENSE
+
+    a. Licensor hereby grants to End User a non-exclusive, non-transferable, non-sublicensable, 
+and personal license under Licensor copyrights existing as of the Effective Date to use the 
+Software and Documentation in the form furnished to End User, or as modified pursuant to 
+Section 2(b), in either case solely in End User’s environment and in connection with Nokia’s 
+SR OS product.  
+
+    b. End User may (i) configure or customize the Software within the parameters of the 
+Software’s features and functionality, or (ii) fix bugs, modify or otherwise create derivative 
+works of the Software, provided, however, that in the case of bug fixes, modification or other 
+derivative works, (x) End User promptly provides Licensor (at the address set forth in 
+Section 12(f)) with a copy of all such bug fixes, modifications or other derivative works, and 
+(y) End User grants to Licensor and its affiliates, a non-exclusive, perpetual, royalty-free 
+license to use such bug fixes, modifications or other derivative works for its business 
+purposes.  
+
+    c. All bug fixes, modifications and other derivative works of the Software shall only be usable to 
+the extent of the license granted for the original Software.
+
+
+
+3. OWNERSHIP AND INTELLECTUAL PROPERTY RIGHTS
+
+    a. The Software and Documentation are not sold to End User.  Instead, the End User 
+receives the license under Section 2.  End User acknowledges and agrees that Licensor and its 
+third party licensors own and retain full ownership rights in Software and Documentation and all 
+Intellectual Property Rights therein.  "Intellectual Property Rights" means any and all rights 
+under patent law, copyright law, trade secret law, trademark law, and any and all other 
+proprietary rights.
+
+   b. No rights or licenses are granted, directly or indirectly, whether by implication or under 
+any theory of estoppel, under any Intellectual Property Rights of Licensor or of any third party 
+except those expressly set forth in Section 2 of this Agreement or in licenses described in 
+Section 5 below.   
+
+   c. Nothing contained herein will be construed as conferring by implication, estoppel or 
+otherwise any license or right under any patent, whether or not the exercise of any right herein 
+granted necessarily employs an invention of any existing or later issued patent except to the 
+extent necessary for End User to use the Software as prescribed in Section 2 above. 
+
+
+4. FOSS
+
+    a. The Software contains free or open source software (FOSS) that is integrated with the 
+Software, and to which third party license obligations apply.   Appendix B attached hereto 
+contains information (accurate to the best of Licensor’s knowledge) indicating the license under 
+which such FOSS was released, and containing required acknowledgements, legends and/or 
+notices.  Unless otherwise dictated by a FOSS license (such as GPL, LGPL, and Affero GPL) 
+that requires Licensor to grant the same rights to the parties to whom we distribute the FOSS, 
+End User’s rights to use, copy, and further distribute (if applicable) the FOSS are governed by 
+this LICENSE.  
+   
+   b. If End User modifies any FOSS, then notwithstanding any other provisions to the 
+contrary, (a) End User agrees to promptly provide to Licensor copies of the modified FOSS, and 
+(b) Licensor will have no  liability or obligation to provide support, maintenance, warranty or 
+indemnity with respect to the modified FOSS or any Licensor products with which the modified 
+version of the FOSS interacts.
+
+
+5. TERM 
+   
+    a. Unless terminated by Licensor as provided in this LICENSE, the license granted herein 
+becomes effective on the Effective Date.  
+   
+   b. This LICENSE will terminate automatically and without provision of notice by Licensor if 
+End User fails to comply with any of the terms or conditions of this LICENSE.
+   
+   c. Upon expiration or termination of the LICENSE for any reason, End User agrees that 
+End User will cease all use of the Software and Documentation and all Confidential Information 
+and promptly return all of the Software, Documentation and all Confidential Information and 
+copies thereof to Licensor or destroy all Software, Documentation and all Confidential 
+Information and all copies thereof and certify to Licensor such destruction in writing within thirty 
+(30) days of such termination or expiration.
+
+
+6. NO WARRANTY/MAINTENANCE 
+   
+    a. Licensor shall not be held to any liability for errors or omissions in the Software.
+   
+    b. Neither the execution of this LICENSE nor anything in this LICENSE or in the Software, 
+Documentation or other Confidential Information will be construed as an obligation upon 
+Licensor to furnish any person, including End User, any assistance of any kind whatsoever, or 
+any information other than the Software, or to revise, supplement, or elaborate upon the 
+Software.
+   
+   c. THE SOFTWARE, DOCUMENTATION OR OTHER INFORMATION FURNISHED 
+UNDER THIS AGREEMENT IS LICENSED “AS IS” WITH ALL FAULTS, LATENT AND 
+PATENT AND WITHOUT ANY WARRANTY OF ANY TYPE.  LICENSOR MAKES NO 
+REPRESENTATIONS OR WARRANTIES, EXPRESSED OR IMPLIED.  BY WAY OF 
+EXAMPLE, BUT NOT OF LIMITATION, LICENSOR MAKES NO REPRESENTATIONS OF 
+MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE OR THAT THE USE OF 
+THE SOFTWARE, DOCUMENTATION OR OTHER INFORMATION FURNISHED UNDER 
+THIS AGREEMENT WILL NOT INFRINGE ANY PATENT OR OTHER INTELLECTUAL 
+PROPERTY RIGHT OF ANY THIRD PARTY AND IT SHALL BE THE SOLE RESPONSIBILITY 
+OF END USER TO MAKE SUCH DETERMINATION AS IS NECESSARY WITH RESPECT TO 
+THE ACQUISITION OF LICENSES UNDER PATENTS OR OTHER INTELLECTUAL 
+PROPERTY RIGHTS OF THIRD PARTIES. 
+
+    Some jurisdictions do not allow the exclusion of implied warranties or limitations on how long an 
+implied warranty lasts, so the above limitations may not apply to End User.  This warranty gives 
+End User specific legal rights and End User may also have other rights which vary from one 
+jurisdiction to another.
+
+	d. In the event Licensor and End User enter into a support or maintenance agreement 
+applicable to the Software, the terms and conditions of such agreement shall amend and 
+supercede the corresponding terms of this LICENSE, but only with respect to the provision of 
+assistance by Licensor to End User in connection with the Software. 
+
+
+7. LIMITATION OF LIABILITY 
+   
+    a. LICENSOR SHALL NOT BE HELD TO ANY LIABILITY WITH RESPECT TO ANY 
+CLAIM BY END USER OR ANY OTHER THIRD PARTY ON ACCOUNT OF, OR ARISING 
+FROM, THE USE OF OR INABILITY TO USE THE SOFTWARE, DOCUMENTATION OR 
+OTHER INFORMATION FURNISHED UNDER THIS AGREEMENT.
+   
+    b. Except for End User’s breach of Section 4 or violation of the license provisions in this 
+LICENSE, neither Licensor nor End User shall be liable for incidental, indirect, special, 
+exemplary, or consequential loss or damages of any nature, or for lost profits, savings or 
+revenues of any kind, however caused under this LICENSE, whether or not the applicable Party 
+has been advised of the possibility of such damages.  This provision will survive failure of an 
+exclusive remedy.
+   
+   c. TO THE EXTENT THAT ANY EXCLUSION OF DAMAGES ABOVE IS NOT VALID, 
+END USER AGREES THAT IN NO EVENT WILL LICENSOR’S AND ITS AFFILIATES’ TOTAL 
+LIABILITY UNDER OR RELATED TO THIS LICENSE (INCLUDING BUT NOT LIMITED TO ITS 
+LIABILITY UNDER SECTION 10) EXCEED FIVE THOUSAND U.S. DOLLARS (US $5,000).
+   
+   d. THE PARTIES AGREE THAT THE LIMITATIONS OF THIS SECTION ARE ESSENTIAL 
+AND THAT END USER WOULD NOT BE PERMITTED TO USE THE SOFTWARE ABSENT 
+THE TERMS OF THIS SECTION.  THIS SECTION WILL SURVIVE AND APPLY EVEN IF ANY 
+REMEDY SPECIFIED IN THIS LICENSE MAY BE FOUND TO HAVE FAILED OF ITS 
+ESSENTIAL PURPOSE.  
+
+
+8. FEEDBACK
+
+    In return for this license, if End User provides Licensor or any of its affiliates with any reports on 
+bugs or errors in the Software, or reports on the operation of the Software, or suggested 
+modifications (collectively, "Feedback") during the term of this LICENSE, Licensor and its 
+affiliates shall have the right to use such Feedback for any purpose without payment or 
+accounting to End User. End User agrees that under no circumstances will any Feedback 
+provided by End User contain any confidential information of End User or of any other third 
+party.
+
+
+9. EXPORT 
+
+    The Parties acknowledge that Software, Documentation, and Confidential Information may be 
+subject to the export laws and regulations of the United States, the European Union and/or 
+other countries (cumulatively, "Export Laws").  End User shall not use, distribute, export, re-
+export, transfer, or transmit the Software, Documentation and Confidential Information (even if 
+incorporated into other items) in violation of the Export Laws.  If requested by Licensor, End 
+User shall sign written assurances and other export-related documents as may be required for 
+Licensor to comply with the Export Laws.
+
+
+10. PRIVACY  
+
+    Nothing herein will be deemed to grant any right to use the Software, Documentation, or 
+Confidential Information in any manner that violates any law or regulation relating to privacy of 
+information.  End User shall indemnify and hold harmless Licensor, its affiliates and their 
+respective authorized resellers and distributors against all liability for claims of any party relating 
+to the use of the Software or Documentation in violation of any privacy-related law or regulation.
+
+
+11. US GOVERNMENT USE
+
+    The Software is commercial computer software.  If the user or End User of the Software is an 
+agency, department, or other entity of the United States Government, the use, duplication, 
+reproduction, release, modification, disclosure, or transfer of the Software, or any related 
+documentation of any kind, including technical data and manuals, is restricted by a license 
+agreement or by the terms of this LICENSE in accordance with Federal Acquisition Regulation 
+12.212 for civilian purposes and Defense Federal Acquisition Regulation Supplement 227.7202 
+for military purposes. The Software was developed fully at private expense. All other use is 
+prohibited.
+
+
+12. GENERAL
+
+    a. Except as specifically provided for herein, the waiver from time to time by a Party of any 
+of their rights or their failure to exercise any remedy will not operate or be construed as a 
+continuing waiver of the same or of any other of such Party’s rights or remedies provided in this 
+LICENSE.
+   
+    b. If any term, covenant or condition of this LICENSE or the application thereof to any Party 
+or circumstances is, to any extent, held to be invalid or unenforceable, then the remainder of 
+this LICENSE, or the application of such term, covenant or condition to parties or circumstances 
+other than those as to which it is held invalid or unenforceable, will not be affected thereby and 
+each term, covenant or condition of this LICENSE will be valid and be enforced to the fullest 
+extent permitted by law.
+   
+    c. Licensor shall not be liable for any loss, damage, delay, or failure of performance 
+resulting directly or indirectly from any cause which is beyond its reasonable control, including, 
+but not limited to, acts of God, extraordinary traffic conditions, riots, civil disturbances, wars, 
+states of belligerency or acts of the public enemy, strikes, work stoppages, or the laws, 
+regulations, acts, or failure to act of any governmental authority.  
+   
+    d. This LICENSE takes precedence over any conflicting terms or legends which may 
+appear in or on the Software, Documentation, or Confidential Information.
+   
+    e. Section headings contained in this LICENSE are inserted for convenience of reference 
+only, will not be deemed to be a part of this LICENSE for any purpose, and will not in any way 
+define or affect the meaning, construction or scope of any of the provisions hereof.
+   
+    f. All notices to Licensor, and all copies of bug fixes, modifications and other derivative 
+works of the Software, shall be provided to Licensor at the following email address:  [enter 
+address here]
+
+    Changes to the foregoing email address may be made by Licensor upon reasonable notice to 
+End User. 
+
+    g. The laws of the State of New York of the United States of America (without giving effect 
+to conflicts of law principles) govern all matters arising out of or relating to this LICENSE, 
+including, without limitation, its construction, interpretation, performance, and enforcement, 
+except if End User is using the Software or Documentation outside of North America or South 
+America, in which case the laws of France govern all matters arising out of or relating to this 
+LICENSE.
+   
+    h. The application of the United Nations Convention of Contracts for the International Sale 
+of Goods is expressly excluded from this LICENSE.
+   
+    i. All disputes between the parties will be finally settled in accordance with the Rules of 
+Conciliation and Arbitration of the International Chamber of Commerce by three (3) arbitrators 
+designated in conformity with the Rules. In cases where the laws of State of New York of the 
+United States of America apply, the arbitration must take place in New York, New York.  In 
+cases where the laws of France apply, the arbitration must take place in Geneva, Switzerland.  
+   
+    j. The Parties hereto have entered into this LICENSE in contemplation of personal 
+performance, each by the other, and intend that the licenses and rights granted hereunder to a 
+Party not be extended to entities other than such Party’s affiliates without the other Party’s 
+express written consent. An “affiliate” means an entity that controls, is controlled by, or is under 
+common control with a Party. Any purported assignment in violation of this LICENSE is void. 
+Notwithstanding the preceding sentence, all of Licensor’s rights, title, obligations, and interest in 
+this LICENSE and any licenses and rights granted to it hereunder may be assigned to (i) any 
+affiliate of Licensor; or (ii) any direct or indirect successor to all or any portion of the business of 
+Licensor or its affiliates, which successor will thereafter be deemed substituted for Licensor as 
+the Party hereto, effective upon such assignment.
+
+
+13. ENTIRE AGREEMENT 
+
+    This LICENSE sets forth the entire agreement and understanding between the Parties as to the 
+subject matter hereof and merges all prior discussions between them.  Neither of the Parties 
+shall be bound by any warranties, understandings or representations with respect to such 
+subject matter other than as expressly provided herein, in prior written agreements, or in a 
+writing signed with or subsequent to the execution hereof by an authorized representative of the 
+Party to be bound thereby. 
+
+
+##### APPENDIX A:  Elements of the pySROS Library #####
+
+- https://github.com/nokia/pysros
+- https://pypi.org/project/pysros
+- The Nokia Support Portal
+
+
+##### APPENDIX B:  Free and Open Source Software #####
+
+- ncclient - license found at:  https://github.com/ncclient/ncclient/blob/master/LICENSE
+- lxml - license found at:  https://lxml.de/index.html#license
+
+
+
+
