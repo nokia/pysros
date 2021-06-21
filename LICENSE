@@ -15,23 +15,23 @@ ENTITY AND YOU ARE NOT AUTHORIZED BY THE ENTITY, THEN DO NOT INSTALL OR USE THE
 SOFTWARE.**
 
 
-This Software License Agreement (“LICENSE”) is between Nokia of America Corporation, a 
+This Software License Agreement ("LICENSE") is between Nokia of America Corporation, a 
 Delaware corporation with a principal office at 600-700 Mountain Avenue, Murray Hill, New 
-Jersey 07974 (“Licensor”), and you individually, if you are agreeing to it in your own capacity, or 
+Jersey 07974 ("Licensor"), and you individually, if you are agreeing to it in your own capacity, or 
 if you are authorized to enter into this LICENSE on behalf of your company or other 
-organization, then the entity for whose benefit you act (“End User” or “you”). Licensor, End User, 
-and you are sometimes referred to herein individually as a “Party” and collectively as the 
-“Parties.”     
+organization, then the entity for whose benefit you act ("End User" or "you"). Licensor, End User, 
+and you are sometimes referred to herein individually as a "Party" and collectively as the 
+"Parties."     
 
 This LICENSE is effective on the date that you first download, install, or use the Software 
-(“Effective Date”).
+("Effective Date").
 
 NOW, THEREFORE, in consideration of the mutual agreements and covenants herein 
 contained and intending to be legally bound thereby, the Parties agree as follows:
 
 1. SOFTWARE
 
-    As used in this LICENSE, the “Software” is the pySROS software library found in the locations 
+    As used in this LICENSE, the "Software" is the pySROS software library found in the locations 
 identified in Appendix A, and the associated materials (the "Documentation").  
    
 
@@ -40,11 +40,11 @@ identified in Appendix A, and the associated materials (the "Documentation").
     a. Licensor hereby grants to End User a non-exclusive, non-transferable, non-sublicensable, 
 and personal license under Licensor copyrights existing as of the Effective Date to use the 
 Software and Documentation in the form furnished to End User, or as modified pursuant to 
-Section 2(b), in either case solely in End User’s environment and in connection with Nokia’s 
+Section 2(b), in either case solely in End User's environment and in connection with Nokia's 
 SR OS product.  
 
     b. End User may (i) configure or customize the Software within the parameters of the 
-Software’s features and functionality, or (ii) fix bugs, modify or otherwise create derivative 
+Software's features and functionality, or (ii) fix bugs, modify or otherwise create derivative 
 works of the Software, provided, however, that in the case of bug fixes, modification or other 
 derivative works, (x) End User promptly provides Licensor (at the address set forth in 
 Section 12(f)) with a copy of all such bug fixes, modifications or other derivative works, and 
@@ -81,11 +81,11 @@ extent necessary for End User to use the Software as prescribed in Section 2 abo
 
     a. The Software contains free or open source software (FOSS) that is integrated with the 
 Software, and to which third party license obligations apply.   Appendix B attached hereto 
-contains information (accurate to the best of Licensor’s knowledge) indicating the license under 
+contains information (accurate to the best of Licensor's knowledge) indicating the license under 
 which such FOSS was released, and containing required acknowledgements, legends and/or 
 notices.  Unless otherwise dictated by a FOSS license (such as GPL, LGPL, and Affero GPL) 
 that requires Licensor to grant the same rights to the parties to whom we distribute the FOSS, 
-End User’s rights to use, copy, and further distribute (if applicable) the FOSS are governed by 
+End User's rights to use, copy, and further distribute (if applicable) the FOSS are governed by 
 this LICENSE.  
    
    b. If End User modifies any FOSS, then notwithstanding any other provisions to the 
@@ -122,7 +122,7 @@ any information other than the Software, or to revise, supplement, or elaborate 
 Software.
    
    c. THE SOFTWARE, DOCUMENTATION OR OTHER INFORMATION FURNISHED 
-UNDER THIS AGREEMENT IS LICENSED “AS IS” WITH ALL FAULTS, LATENT AND 
+UNDER THIS AGREEMENT IS LICENSED "AS IS" WITH ALL FAULTS, LATENT AND 
 PATENT AND WITHOUT ANY WARRANTY OF ANY TYPE.  LICENSOR MAKES NO 
 REPRESENTATIONS OR WARRANTIES, EXPRESSED OR IMPLIED.  BY WAY OF 
 EXAMPLE, BUT NOT OF LIMITATION, LICENSOR MAKES NO REPRESENTATIONS OF 
@@ -152,7 +152,7 @@ CLAIM BY END USER OR ANY OTHER THIRD PARTY ON ACCOUNT OF, OR ARISING
 FROM, THE USE OF OR INABILITY TO USE THE SOFTWARE, DOCUMENTATION OR 
 OTHER INFORMATION FURNISHED UNDER THIS AGREEMENT.
    
-    b. Except for End User’s breach of Section 4 or violation of the license provisions in this 
+    b. Except for End User's breach of Section 4 or violation of the license provisions in this 
 LICENSE, neither Licensor nor End User shall be liable for incidental, indirect, special, 
 exemplary, or consequential loss or damages of any nature, or for lost profits, savings or 
 revenues of any kind, however caused under this LICENSE, whether or not the applicable Party 
@@ -160,7 +160,7 @@ has been advised of the possibility of such damages.  This provision will surviv
 exclusive remedy.
    
    c. TO THE EXTENT THAT ANY EXCLUSION OF DAMAGES ABOVE IS NOT VALID, 
-END USER AGREES THAT IN NO EVENT WILL LICENSOR’S AND ITS AFFILIATES’ TOTAL 
+END USER AGREES THAT IN NO EVENT WILL LICENSOR'S AND ITS AFFILIATES' TOTAL 
 LIABILITY UNDER OR RELATED TO THIS LICENSE (INCLUDING BUT NOT LIMITED TO ITS 
 LIABILITY UNDER SECTION 10) EXCEED FIVE THOUSAND U.S. DOLLARS (US $5,000).
    
@@ -218,7 +218,7 @@ prohibited.
 
     a. Except as specifically provided for herein, the waiver from time to time by a Party of any 
 of their rights or their failure to exercise any remedy will not operate or be construed as a 
-continuing waiver of the same or of any other of such Party’s rights or remedies provided in this 
+continuing waiver of the same or of any other of such Party's rights or remedies provided in this 
 LICENSE.
    
     b. If any term, covenant or condition of this LICENSE or the application thereof to any Party 
@@ -242,8 +242,8 @@ only, will not be deemed to be a part of this LICENSE for any purpose, and will 
 define or affect the meaning, construction or scope of any of the provisions hereof.
    
     f. All notices to Licensor, and all copies of bug fixes, modifications and other derivative 
-works of the Software, shall be provided to Licensor at the following email address:  [enter 
-address here]
+works of the Software, shall be provided to Licensor in writing by contacting your Nokia 
+    representative.
 
     Changes to the foregoing email address may be made by Licensor upon reasonable notice to 
 End User. 
@@ -266,10 +266,10 @@ cases where the laws of France apply, the arbitration must take place in Geneva,
    
     j. The Parties hereto have entered into this LICENSE in contemplation of personal 
 performance, each by the other, and intend that the licenses and rights granted hereunder to a 
-Party not be extended to entities other than such Party’s affiliates without the other Party’s 
-express written consent. An “affiliate” means an entity that controls, is controlled by, or is under 
+Party not be extended to entities other than such Party's affiliates without the other Party's 
+express written consent. An "affiliate" means an entity that controls, is controlled by, or is under 
 common control with a Party. Any purported assignment in violation of this LICENSE is void. 
-Notwithstanding the preceding sentence, all of Licensor’s rights, title, obligations, and interest in 
+Notwithstanding the preceding sentence, all of Licensor's rights, title, obligations, and interest in 
 this LICENSE and any licenses and rights granted to it hereunder may be assigned to (i) any 
 affiliate of Licensor; or (ii) any direct or indirect successor to all or any portion of the business of 
 Licensor or its affiliates, which successor will thereafter be deemed substituted for Licensor as 
@@ -288,16 +288,15 @@ Party to be bound thereby.
 
 ##### APPENDIX A:  Elements of the pySROS Library #####
 
-- https://github.com/nokia/pysros
-- https://pypi.org/project/pysros
-- The Nokia Support Portal
+Locations of the pySROS library:
 
+- [pySROS library on GitHub](https://github.com/nokia/pysros)
+- [pySROS library on PyPI](https://pypi.org/project/pysros)
+- [The Nokia Support Portal](https://online.networks.nokia.com)
+- [The Nokia Network Developer Portal](https://network.developer.nokia.com)
 
 ##### APPENDIX B:  Free and Open Source Software #####
 
 - ncclient - license found at:  https://github.com/ncclient/ncclient/blob/master/LICENSE
 - lxml - license found at:  https://lxml.de/index.html#license
-
-
-
 
