@@ -1,0 +1,10 @@
+module example {
+    prefix "example";
+    namespace "urn:nokia.com:yang:example";
+    list listname {
+        key listkey;
+        leaf listkey {
+            type string;
+        }
+    }
+}

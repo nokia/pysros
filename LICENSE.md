@@ -1,7 +1,3 @@
-
-Copyright (c) 2021, Nokia
-All rights reserved.
-
 # SOFTWARE LICENCE AGREEMENT FOR pySROS LIBRARY #
 
 
