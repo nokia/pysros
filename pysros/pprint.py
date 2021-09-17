@@ -649,6 +649,25 @@ class KeyValueTable(ATable):
             self.printHeader(self._title)
         else:
             self.printDoubleLine()
+        self.printColumnHeaders()
         self.printKVs(data)
         self.printFooter()
+
+    def printColumnHeaders(self):
+        """Print the column headers and a separator line.
+
+        .. code-block:: python
+           :caption: Example :py:meth:`.KeyValueTable.printColumnHeaders` using the Table defined in
+                     this :ref:`pysros-pprint-Table-example-usage`
+           :name: pysros-pprint-KeyValueTable-printColumnHeaders-example-usage
+
+           >>> def table_printColumnHeaders_example(table):
+           ...     table.printColumnHeaders()
+           ...
+           >>> table_printColumnHeaders_example(table)
+           Column0                        Column1
+        """
+        if any(col.name for col in self._columns):
+            self.printKV(*[col.name for col in self._columns])
+            self.printSingleLine()
 

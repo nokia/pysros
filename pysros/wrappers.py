@@ -177,10 +177,10 @@ class Container(Wrapper):
     def __init__(self, value = None):
         super().__init__(value if value is not None else {})
 
-    @staticmethod
-    def _check_data_type(value):
+    @classmethod
+    def _check_data_type(cls, value):
         if not isinstance(value, dict):
-            raise make_exception(pysros_err_type_must_be, expected="dict", actual=value.__class__.__name__)
+            raise make_exception(pysros_err_unsupported_type_for_wrapper, wrapper_name=cls.__name__)
 
 class LeafList(Wrapper):
     """YANG leaf-list data structure node wrapper.
@@ -198,10 +198,10 @@ class LeafList(Wrapper):
     def __init__(self, value = None):
         super().__init__(value if value is not None else [])
 
-    @staticmethod
-    def _check_data_type(values):
+    @classmethod
+    def _check_data_type(cls, values):
         if not isinstance(values, list):
-            raise make_exception(pysros_err_type_must_be, expected="list", actual=values.__class__.__name__)
+            raise make_exception(pysros_err_unsupported_type_for_wrapper, wrapper_name=cls.__name__)
         for value in values:
             Leaf._check_data_type(value)
 
@@ -220,7 +220,7 @@ class Leaf(Wrapper):
     @staticmethod
     def _check_data_type(data):
         if not isinstance(data, (str, int, bool, _Empty)):
-            raise make_exception(pysros_err_unsupported_type_for_leaf)
+            raise make_exception(pysros_err_unsupported_type_for_wrapper, wrapper_name = 'Leaf')
 
 
 class _Singleton(type):

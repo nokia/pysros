@@ -36,3 +36,8 @@ References
 
    `Nokia Network Developer Portal <https://network.developer.nokia.com>`_
       Additional resources for developing with SR OS
+
+
+.. Reviewed by PLM 20210902
+.. Reviewed by TechComms 20210902
+

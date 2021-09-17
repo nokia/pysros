@@ -1,5 +1,3 @@
-.. sectionauthor::jcumming
-
 .. image:: _static/nokia-logo-blue-on-white.png
    :align: right
    :width: 200px
@@ -12,7 +10,17 @@ our customer documentation and consulting with standards bodies to ensure that
 terminology is inclusive and aligned with the industry. Our future customer
 documentation will be updated accordingly.
 
-Document Number: 3HE17936AAAA TQZZA
+.. Reviewed by PLM 20210902
+
+.. list-table::
+   :header-rows: 0
+
+   * - pySROS release: 21.7.2
+   * - Document Number: 3HE 17936 AAAB TQZZA
+
+
+.. Reviewed by PLM 20210902
+.. Reviewed by TechComms 20210902
 
 
 .. toctree::

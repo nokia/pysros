@@ -49,6 +49,10 @@ class ModelWalker:
     def is_root(self):
         return not self.path
 
+    @property
+    def is_state(self):
+        return not self.current.config
+
     def go_to_parent(self):
         if not self.path:
             raise make_exception(pysros_err_cannot_call_go_to_parent)
@@ -220,6 +224,16 @@ class ModelWalker:
 
     def has_local_keys_specified(self):
         return len(self.get_local_key_names()) == len(self.local_keys)
+
+    def has_local_key_named(self, name):
+        return name in self.get_local_key_names()
+
+    def has_field_named(self, name):
+        return self.has_child(name) and self.get_child_dds(name) in (Model.StatementType.leaf_, Model.StatementType.leaf_list_)
+
+    @property
+    def is_local_key(self):
+        return self.get_name().name in self.get_parent().get_local_key_names()
 
     def has_child(self, child_name:Union[str, Identifier] = None):
         if child_name:

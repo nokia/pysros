@@ -57,6 +57,8 @@ def connect(*, host, port=830, username, password, yang_directory=None,
                            the specific node. If this argument is used, YANG modules are not downloaded
                            from the SR OS node.
     :type yang_directory: str, optional
+    :param rebuild: Trigger the rebuild of an already cached YANG schema.
+    :type rebuild: bool, optional
     :param timeout: Timeout of the transport protocol in seconds. Default 300.
     :type timeout: int, optional
     :return: Connection object for specific SR OS node.
@@ -231,7 +233,7 @@ class Connection:
                 with contextlib.suppress(FileNotFoundError):
                     os.unlink(f.name)
                 raise
-        os.rename(f.name, cache_name)
+        os.replace(f.name, cache_name)
 
         return model_builder.root
 
@@ -257,8 +259,8 @@ class Connection:
     def _find_module(self, yang_name):
         if os.path.isfile(f"""{self.yang_directory}/nokia-combined/{yang_name}.yang"""):
             return f"""{self.yang_directory}/nokia-combined/{yang_name}.yang"""
-        for candidate in map(str, pathlib.Path(self.yang_directory).rglob(f"{yang_name}*.yang")):
-            if re.search(f"[/]{yang_name}(?:[@]\\d{{4}}[-]\\d{{2}}[-]\\d{{2}})?.yang$", candidate):
+        for candidate in pathlib.Path(self.yang_directory).rglob(f"{yang_name}*.yang"):
+            if candidate.parts and re.fullmatch(f"{yang_name}(?:[@]\\d{{4}}[-]\\d{{2}}[-]\\d{{2}})?.yang", str(candidate.parts[-1])):
                 return candidate
         raise make_exception(pysros_err_can_not_find_yang, yang_name=yang_name)
 
@@ -278,12 +280,15 @@ class Connection:
         return match.group(1)
 
     def _get_yang_models(self):
-        subtree       = to_ele("""
+        subtree = to_ele("""
             <modules-state xmlns="urn:ietf:params:xml:ns:yang:ietf-yang-library">
                 <module-set-id/>
                 <module/>
             </modules-state>""")
-        yangs_resp    = self._nc.get(filter=("subtree", subtree))
+        try:
+            yangs_resp = self._nc.get(filter=("subtree", subtree))
+        except nc_RPCError as e:
+            raise SrosMgmtError(str(e).strip()) from None
         module_set_id = yangs_resp.xpath(
             "/ncbase:rpc-reply/ncbase:data/library:modules-state/library:module-set-id",
             self._common_namespaces
@@ -380,18 +385,25 @@ class Datastore:
         else:
             return self.nc.get_config(source=self.target, with_defaults=self._get_defaults(defaults))
 
-    def _get(self, path, *, defaults=False, custom_walker=None):
+    def _get(self, path, *, defaults=False, custom_walker=None, config_only=False):
         model_walker = custom_walker if custom_walker else FilteredDataModelWalker.user_path_parse(self.connection.root, path)
+
+        if config_only and model_walker.is_state:
+            raise make_exception(pysros_err_no_data_found)
+
         rd = RequestData(self.connection.root, self.connection._ns_map)
         current = rd.process_path(model_walker)
         config = rd.to_xml()
 
-        if self.target == "running":
-            response = self._operation_get(config, defaults, path)
-        else:
-            if model_walker.current.config == False:
-                raise make_exception(pysros_err_can_get_state_from_running_only)
-            response = self._operation_get_config(config, defaults, path)
+        try:
+            if self.target == "running":
+                response = self._operation_get(config, defaults, path)
+            else:
+                if model_walker.current.config == False:
+                    raise make_exception(pysros_err_can_get_state_from_running_only)
+                response = self._operation_get_config(config, defaults, path)
+        except nc_RPCError as e:
+            raise SrosMgmtError(str(e).strip()) from None
 
         if self.debug:
             print("GET response")
@@ -423,7 +435,7 @@ class Datastore:
                 except LookupError:
                     raise e from None
                 return res
-        return current.to_model()
+        return current.to_model(config_only=config_only)
 
     def _set(self, path, value, action):
         if self.target == 'running':
@@ -461,6 +473,8 @@ class Datastore:
                 raise make_exception(pysros_err_cannot_delete_from_state)
             elif self.target == "candidate":
                 raise make_exception(pysros_err_can_check_state_from_running_only)
+        if exist_reason == Datastore._ExistReason.delete and model_walker.is_local_key:
+            raise make_exception(pysros_err_invalid_operation_on_key)
         if model_walker.has_missing_keys():
             raise make_exception(pysros_err_invalid_path_operation_missing_keys)
         model_walker.go_to_last_with_presence()
@@ -483,7 +497,7 @@ class Datastore:
                 raise make_exception(pysros_err_commit_conflicts_detected) from None
             raise SrosMgmtError(str(e).strip()) from None
 
-    def get(self, path, *, defaults=False):
+    def get(self, path, *, defaults=False, config_only=False):
         """ Obtain a pySROS data structure containing the contents of the supplied path.  See the
         :ref:`pysros-data-model`
         section for more information about the pySROS data structure.
@@ -497,6 +511,8 @@ class Datastore:
         :type defaults: bool
         :return: A pySROS data structure.  This may be a simple value or a more complicated structure
                  depending on the path requested.
+        :param config_only: Obtain configuration data only.  Items marked as ``config false`` in YANG are not returned.
+        :type config_only: bool
         :rtype: :class:`pysros.wrappers.Leaf`, :class:`pysros.wrappers.LeafList`, :class:`pysros.wrappers.Container`
         :raises RuntimeError: Error if the connection was lost.
         :raises InvalidPathError: Error if the path is malformed.
@@ -513,11 +529,10 @@ class Datastore:
            c = connect()
            current_operational_name = c.running.get("/nokia-state:state/system/oper-name")
 
-        .. Reviewed by PLM 20210708
-        .. Reviewed by TechComms 20210712
+        .. Reviewed by PLM 20210902
         """
         with self._process_connected():
-            return self._get(path, defaults=defaults)
+            return self._get(path, defaults=defaults, config_only=config_only)
 
     def set(self, path, value):
         """Set a pySROS data structure to the supplied path. See the :ref:`pysros-data-model` section for more
@@ -551,7 +566,7 @@ class Datastore:
 
            c = connect()
            payload = "my-router-name"
-           c.running.set("/nokia-config:configure/system/name", payload)
+           c.candidate.set("/nokia-conf:configure/system/name", payload)
 
         .. code-block:: python
            :caption: Example 2 - Configuring a more complex structure
@@ -565,10 +580,9 @@ class Datastore:
            data = Container({'interface-name': Leaf('demo1'), 'port': Leaf('1/1/c1/1:0'),
                   'ipv4': Container({'primary': Container({'prefix-length': Leaf(24),
                   'address': Leaf('5.5.5.1')})}), 'admin-state': Leaf('enable')})
-           c.running.set(path, data)
+           c.candidate.set(path, data)
 
-        .. Reviewed by PLM 20210708
-        .. Reviewed by TechComms 20210713
+        .. Reviewed by PLM 20210820
         """
         with self._process_connected():
             self._set(path, value, Datastore._SetAction.set)

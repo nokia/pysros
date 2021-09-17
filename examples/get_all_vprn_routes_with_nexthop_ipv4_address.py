@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 
-### getAllVprnRoutesWithNexthopIpv4Address.py
+### get_all_vprn_routes_with_nexthop_ipv4_address.py
 #   Copyright 2021 Nokia
-#   Example to get all VPRN routes with a given next-hop IP address
 ###
+
+"""Example to get all VPRN routes with a given next-hop IP address"""
 
 import sys
 import ipaddress
 from pysros.management import connect
-from pysros.exceptions import *
-from pysros.pprint import Table
+from pysros.exceptions import ModelProcessingError
+from pysros.pprint import Table  # pylint: disable=no-name-in-module
 
 credentials = {
     "host": "192.168.168.70",
@@ -18,42 +19,65 @@ credentials = {
     "port": 830,
 }
 
-def get_connection(credentials):
+
+def get_connection(creds):
+    """Function definition to obtain a Connection object to a specific SR OS device
+    and access the model-driven information."""
     try:
-        c = connect(
-            host=credentials["host"],
-            username=credentials["username"],
-            password=credentials["password"],
-            port=credentials["port"],
+        connection_object = connect(
+            host=creds["host"],
+            username=creds["username"],
+            password=creds["password"],
+            port=creds["port"],
         )
-    except Exception as e:
-        print("Failed to connect:", e)
-        sys.exit(-1)
-    return c
+        return connection_object
+    except RuntimeError as error1:
+        print(
+            "Failed to connect during the creation of the Connection object.  Error:",
+            error1,
+        )
+        sys.exit(101)
+    except ModelProcessingError as error2:
+        print("Failed to create model-driven schema.  Error:", error2)
+        sys.exit(102)
+    except Exception as error3:  # pylint: disable=broad-except
+        print("Failed to connect:", error3)
+        sys.exit(103)
+
 
 def get_input_args():
+    """Obtain and evaluate input arguments"""
     if len(sys.argv) > 1:
         try:
             searched_ip_address = ipaddress.IPv4Address(sys.argv[1])
-        except Exception as e:
-            print("Argument is not valid ipv4 address: ", e)
+        except Exception as error:  # pylint: disable=broad-except
+            print("Argument is not valid ipv4 address: ", error)
             sys.exit(-1)
     else:
-        print("This script expects one argument:\n<ipv4-address> - <[0-255].[0-255].[0-255].[0-255]>\n")
+        print(
+            # pylint: disable=line-too-long
+            "This script expects one argument:\n<ipv4-address> - <[0-255].[0-255].[0-255].[0-255]>\n"
+        )
         sys.exit(-1)
 
     return searched_ip_address
 
+
 def print_table(route_list, searched_ip_address):
+    """Setup and print the SR OS style table"""
     # compute total width of table
     cols = [(30, "Route"), (20, "Vprn"), (20, "Traffic Type"), (20, "Ipv Type")]
     width = sum([col[0] for col in cols])
 
     # init and print table
-    table = Table("Route List (nexthop: {})".format(searched_ip_address), cols, width=width)
+    table = Table(
+        "Route List (nexthop: {})".format(searched_ip_address), cols, width=width
+    )
     table.print(route_list)
 
+
 def keys_exists(obj, *keys):
+    """Confirm whether all the required keys exist"""
     for key in keys:
         if key in obj:
             obj = obj[key]
@@ -61,14 +85,17 @@ def keys_exists(obj, *keys):
             return False
     return True
 
+
 def main():
+    """Main procedure to get all VPRN routes with a given next-hop IP address"""
+    # pylint: disable=too-many-locals,too-many-nested-blocks,too-many-branches
 
     # get input argument
     searched_ip_address = get_input_args()
 
     # connect to router and get state for all vprn
-    c = get_connection(credentials)
-    state = c.running.get("/nokia-state:state/service/vprn")
+    connection_object = get_connection(credentials)
+    state = connection_object.running.get("/nokia-state:state/service/vprn")
 
     if_list = []
     # iterate all vprns
@@ -95,19 +122,35 @@ def main():
         for traffic_type in ["multicast", "unicast"]:
             for ipv_type in ["ipv4", "ipv6"]:
                 # check if route exists or continue
-                if keys_exists(vrtr_state, "route-table", traffic_type, ipv_type, "route"):
-                    routes_state = vrtr_state["route-table"][traffic_type][ipv_type]["route"]
+                if keys_exists(
+                    vrtr_state, "route-table", traffic_type, ipv_type, "route"
+                ):
+                    routes_state = vrtr_state["route-table"][traffic_type][ipv_type][
+                        "route"
+                    ]
                     # iterate all routes
                     for route_name in routes_state:
                         if "nexthop" in routes_state[route_name]:
                             # iterate all nexthop
                             for nexthop_id in routes_state[route_name]["nexthop"]:
-                                if keys_exists(routes_state[route_name]["nexthop"][nexthop_id], "if-index"):
-                                    nexthop_if_index = routes_state[route_name]["nexthop"][nexthop_id]["if-index"].data
+                                if keys_exists(
+                                    routes_state[route_name]["nexthop"][nexthop_id],
+                                    "if-index",
+                                ):
+                                    nexthop_if_index = routes_state[route_name][
+                                        "nexthop"
+                                    ][nexthop_id]["if-index"].data
                                     nexthop_if_index = int(nexthop_if_index)
                                     # add route if nexthop interface in interface index list
                                     if nexthop_if_index in if_index_list:
-                                        route_list.append((route_name, vrtr_name, traffic_type, ipv_type))
+                                        route_list.append(
+                                            (
+                                                route_name,
+                                                vrtr_name,
+                                                traffic_type,
+                                                ipv_type,
+                                            )
+                                        )
 
         # iterate all static routes if they exist
         if keys_exists(vrtr_state, "static-routes"):
@@ -115,11 +158,11 @@ def main():
                 # if a route with a next-hop exists
                 if keys_exists(vrtr_state["static-routes"]["route"][route], "next-hop"):
                     # identify whether the address portion of the CIDR address is IPv4 or IPv6
-                    version = ipaddress.ip_address(route[0].split('/')[0]).version
+                    version = ipaddress.ip_address(route[0].split("/")[0]).version
                     if version == 4:
-                        route_list.append((route[0], vrtr_name, route[1], 'ipv4'))
+                        route_list.append((route[0], vrtr_name, route[1], "ipv4"))
                     elif version == 6:
-                        route_list.append((route[0], vrtr_name, route[1], 'ipv6'))
+                        route_list.append((route[0], vrtr_name, route[1], "ipv6"))
                     else:
                         print("Unknown whether ipv4 or ipv6")
                         sys.exit(-1)
@@ -128,11 +171,10 @@ def main():
     print_table(route_list, searched_ip_address)
 
     # disconnect from router
-    c.disconnect()
+    connection_object.disconnect()
 
     return 0
 
+
 if __name__ == "__main__":
     main()
-
-

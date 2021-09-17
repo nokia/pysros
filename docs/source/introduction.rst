@@ -1,5 +1,3 @@
-.. sectionauthor:: jcumming
-
 .. _overview:
 
 ********
@@ -8,8 +6,6 @@ Overview
 
 Introduction
 ############
-
-.. sectionauthor:: jcumming
 
 The pySROS libraries provide a model-driven management interface for
 Python developers to integrate with supported Nokia routers
@@ -23,28 +19,22 @@ When a developer uses only libraries and constructs supported on SR OS, a
 single application may be executed from a development machine or ported
 directly to an SR OS node where the application is executed without modification.
 
+.. Reviewed by PLM 20210902
+.. Reviewed by TechComms 20210902
+
+
+
 License
 #######
 
-.. sectionauthor:: jcumming
-
 The license is located :download:`here <../../LICENSE.md>`.
 
-*Please read this license carefully before downloading, installing, or using
-the software.  By downloading, installing, or otherwise using the software,
-you are agreeing that you have read this license, understand it, and agree
-(individually, or, if employed, on behalf of the entity which employs you) to be
-bound by its terms and conditions.  If you do not agree to all of the terms and
-conditions of this license, or if the license is to be used by or on behalf of an
-entity and you are not authorized by the entity, do not install or use the
-software.*
+.. Reviewed by PLM 20210902
+.. Reviewed by TechComms 20210902
 
-*This documentation is covered under the same license.*
 
 Pre-requisites
 ##############
-
-.. sectionauthor:: jcumming
 
 To use the pySROS libraries, the following pre-requisites must be met:
 
@@ -61,12 +51,12 @@ To use the pySROS libraries, the following pre-requisites must be met:
 All the required software is included and installed automatically on the SR OS node, including
 the Python 3 interpreter and all supported Python libraries.
 
+.. Reviewed by PLM 20210902
+.. Reviewed by TechComms 20210902
 
 
 YANG modeling
 #############
-
-.. sectionauthor:: jcumming
 
 It is assumed that the developer has a working knowledge of model-driven
 management in a networking environment and of YANG models and their constituent
@@ -74,12 +64,14 @@ parts.
 
 The `Nokia YANG models are available for each release of SR OS on GitHub <https://github.com/nokia/7x50_YangModels>`_.
 
+.. Reviewed by PLM 20210902
+.. Reviewed by TechComms 20210902
+
+
 .. _modeled-paths:
 
 Modeled paths
 **************
-
-.. sectionauthor:: jcumming
 
 At the root of the pySROS libraries is Nokia's model-driven management concepts
 built into SR OS.
@@ -93,7 +85,7 @@ a path format based on
 `RFC 6020 <https://datatracker.ietf.org/doc/html/rfc6020#section-9.13>`_ and
 `RFC 7951 <https://datatracker.ietf.org/doc/html/rfc7951#section-6.11>`_.
 This path format describes the YANG models to which it is referencing, including
-all YANG lists, YANG list keys, and their key-values (although in some instances,
+all YANG lists, YANG list keys, and their key values (although in some instances,
 these may be omitted).
 
 The JSON instance path can be obtained directly from an SR OS router running
@@ -134,10 +126,13 @@ See the following for examples:
    /openconfig-interfaces:interfaces/interface[name="1/1/c2/1"]/subinterfaces/subinterface[index=0]/openconfig-if-ip:ipv4/addresses
 
 
+.. Reviewed by PLM 20210902
+.. Reviewed by TechComms 20210902
+
+
+
 Schema aware
 ************
-
-.. sectionauthor:: jcumming
 
 The pySROS libraries are YANG schema aware.  Each element has knowledge
 of its path, model, and data type in the YANG model.
@@ -148,9 +143,9 @@ of the following upon connection (using :py:meth:`pysros.management.connect`).
    * Download the YANG models from the targeted nodes using
      `YANG library as described in RFC 8525 <https://tools.ietf.org/html/rfc8525>`_ and `get-schema as defined
      in RFC 6022 <https://tools.ietf.org/html/rfc6022>`_ (default).  For this to work the YANG models must
-     be available from the SR OS device and the schema-path set correctly (for more information on this see the
+     be available from the SR OS device and the schema-path set correctly (for more information, see the
      SR OS System Management Guide).
-   * Compile a YANG model or set of YANG models located on a filesystem and referenced by the developer.
+   * Compile a YANG model or set of YANG models located on a file system and referenced by the developer.
 
 .. note ::
 
@@ -158,10 +153,13 @@ of the following upon connection (using :py:meth:`pysros.management.connect`).
    connection to a node is slower than subsequent connections as the schema is generated
    from the YANG models and cached.
 
+
+.. Reviewed by PLM 20210902
+.. Reviewed by TechComms 20210902
+
+
 pySROS schema cache
 *******************
-
-.. sectionauthor:: jcumming
 
 The pySROS libraries use a model-driven schema which is generated from YANG models.  This schema is stored on
 your local machine [#f1]_.  The location is dependent on your operating system:
@@ -183,11 +181,12 @@ your local machine [#f1]_.  The location is dependent on your operating system:
 
 .. [#f1] Not applicable when executing a Python application using the pySROS libraries on SR OS
 
+.. Reviewed by PLM 20210902
+.. Reviewed by TechComms 20210902
+
 
 Network communication
 #####################
-
-.. sectionauthor:: jcumming
 
 When executing applications remotely, the pySROS
 libraries use NETCONF for communication between the remote node and the SR OS node.  To facilitate this, the SR OS node must be
@@ -196,10 +195,12 @@ configured to allow NETCONF access from the location that the application is run
 For more information about configuring SR OS to use NETCONF, see the SR OS System
 Management Guide.
 
+.. Reviewed by PLM 20210902
+.. Reviewed by TechComms 20210902
+
+
 Installation
 ############
-
-.. sectionauthor:: jcumming
 
 Multiple installation methods are available:
 
@@ -207,7 +208,7 @@ Multiple installation methods are available:
 * `Nokia support portal`_
 * `GitHub`_
 
-.. note:: It is recommended to use Python virtual environments where appropriate.
+.. note:: Nokia recommends using Python virtual environments where appropriate.
 
 PyPI
 ****
@@ -228,6 +229,12 @@ To upgrade to the latest version of the pySROS libraries, use the following:
 
    pip install --upgrade pysros
 
+
+.. Reviewed by PLM 20210902
+.. Reviewed by TechComms 20210902
+
+
+
 Nokia support portal
 ********************
 The pySROS libraries are available for `download from the portal <https://customer.nokia.com/support>`_ for registered
@@ -239,6 +246,9 @@ The obtained file can be unzipped and subsequently installed using:
 
    python3 setup.py install
 
+
+.. Reviewed by PLM 20210902
+.. Reviewed by TechComms 20210902
 
 
 GitHub
@@ -254,12 +264,14 @@ The obtained file can be installed using the ``git`` tool:
    python3 setup.py install
 
 
+.. Reviewed by PLM 20210902
+.. Reviewed by TechComms 20210902
+
+
 .. _pysros-data-model:
 
 The pySROS data model
 #####################
-
-.. sectionauthor:: jcumming
 
 The pySROS libraries provide YANG model-aware Python 3 data structures to the
 developer that can be manipulated and traversed with Python in the same way
@@ -267,6 +279,10 @@ as any other Python structure.
 
 YANG-modeled data structures are converted into Python 3 data structures as
 follows:
+
+.. Reviewed by PLM 20210902
+.. Reviewed by TechComms 20210902
+
 
 .. _yang_to_python_structures:
 
@@ -292,6 +308,10 @@ Data structure conversions
      - Value (Type derived as shown in :ref:`yang_to_python_types`)
    * - Container
      - Dict
+
+
+.. Reviewed by PLM 20210902
+.. Reviewed by TechComms 20210902
 
 
 .. _yang_to_python_types:
@@ -351,6 +371,10 @@ Type conversions
          string, allowing the developer to cast the element into a specified type.
 
 
+.. Reviewed by PLM 20210902
+.. Reviewed by TechComms 20210902
+
+
 Wrappers
 ********
 To assist with data manipulation, data structures obtained from SR OS are wrapped with
@@ -362,7 +386,7 @@ YANG containers are wrapped in the :py:class:`pysros.wrappers.Container` class.
 YANG leaf-lists are wrapped in the :py:class:`pysros.wrappers.LeafList` class.
 
 YANG leafs are wrapped in the :py:class:`pysros.wrappers.Leaf` class.  Use the ``data`` variable to
-obtain the value of the leaf without the wrapper.  Example: :ref:`leaf-dot-data-example` is provided below.
+obtain the value of the leaf without the wrapper, as in the following example: :ref:`leaf-dot-data-example`.
 
 Example:
 
@@ -377,13 +401,17 @@ Example:
    example
 
 
+.. Reviewed by PLM 20210902
+.. Reviewed by TechComms 20210902
+
+
 YANG schema metadata
 ********************
 Additional metadata information from the model-driven schema is available to developers for each element
 in a data structure obtained from SR OS using the pySROS libraries.  This metadata can be queried on demand
 by calling the ``schema`` method against the element.
 
-Metadata currently available:
+Metadata currently available includes:
 
 .. list-table:: Supported schema metadata
    :widths: 20 50
@@ -409,10 +437,12 @@ Example:
    >>> name.schema.module
    'nokia-conf'
 
+.. Reviewed by PLM 20210902
+.. Reviewed by TechComms 20210902
+
+
 Getting Started
 ###############
-
-.. sectionauthor:: jcumming
 
 Making a connection
 *******************
@@ -436,6 +466,7 @@ Example:
    :name: connect-example
 
    from pysros.management import connect
+   from pysros.exceptions import *
    import sys
 
    def get_connection():
@@ -455,20 +486,24 @@ Example:
        c = get_connection()
 
 
+.. Reviewed by PLM 20210902
+.. Reviewed by TechComms 20210902
+
+
 Obtaining data
 **************
 
-Obtaining model-driven data from an SR OS device uses the :py:meth:`pysros.management.Datastore.get` method.  This method takes
-a single JSON instance path (see the :ref:`modeled-paths` section) and returns a data structure.
+Use the :py:meth:`pysros.management.Datastore.get` method to obtain model-driven data from an SR OS device.  
+This method takes a single JSON instance path (see the :ref:`modeled-paths` section) and returns a data structure.
 
 The :py:meth:`pysros.management.Datastore.get` method can be performed against the ``running`` or the ``candidate`` datastore
-when *configuration* data is required.  When *state* data is required it can only be performed against the
+when *configuration* data is required.  When *state* data is required, it can only be performed against the
 ``running`` datastore.
 
 .. note::
 
    When combined configuration and state schemas are in use, such as OpenConfig, the :py:meth:`pysros.management.Datastore.get`
-   method will obtain both configuration and state information
+   method obtains both configuration and state information unless the ``config_only=True`` flag is provided.
 
 Example:
 
@@ -488,6 +523,8 @@ Example:
               'admin-state': Leaf('enable')})}, 'admin-state': Leaf('enable')})
 
 
+.. Reviewed by PLM 20210902
+.. Reviewed by TechComms 20210902
 
 
 Configuring SR OS routers
@@ -520,7 +557,7 @@ The pySROS data structure format for this configuration is as shown:
               'admin-state': Leaf('enable'),
               'gnmi': Container({'admin-state': Leaf('enable')})})
 
-To configure the SR OS device use the :py:meth:`pysros.management.Datastore.set` method as follows:
+To configure the SR OS device, use the :py:meth:`pysros.management.Datastore.set` method as follows:
 
 .. code-block:: python
    :caption: Configuration example using :py:meth:`pysros.management.Datastore.set`
@@ -555,7 +592,7 @@ Objects obtained using :py:meth:`pysros.management.Datastore.get` may be returne
    c.candidate.set(path, payload)
 
 
-The :py:meth:`pysros.management.Datastore.set` method also excepts payloads that do not include the pySROS wrapper information.
+The :py:meth:`pysros.management.Datastore.set` method also accepts payloads that do not include the pySROS wrapper information.
 This enables the developer to simply structure their own data.
 
 .. code-block:: python
@@ -570,21 +607,26 @@ This enables the developer to simply structure their own data.
    c.candidate.set(path, payload)
 
 
+.. Reviewed by PLM 20210902
+.. Reviewed by TechComms 20210902
+
 
 Next steps
 ##########
 
-.. sectionauthor:: jcumming
+The :ref:`pysros-examples` section for more details and examples.
 
-The :ref:`pysros-examples` section for further details and examples.
+.. Reviewed by PLM 20210902
+.. Reviewed by TechComms 20210902
+
 
 Feedback, Support and Assistance
 ################################
-
-.. sectionauthor:: jcumming
 
 All feedback, issues, errors, improvements, and suggestions may be submitted
 via the
 `Nokia support portal <https://customer.nokia.com/support>`_ or through your
 Nokia representative.
 
+.. Reviewed by PLM 20210902
+.. Reviewed by TechComms 20210902
