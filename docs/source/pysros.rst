@@ -1,11 +1,11 @@
-pysros package
-==============
+:mod:`pysros` - Model-driven SR OS interface
+============================================
 
 .. automodule:: pysros
 
 
-pysros.management module
-------------------------
+:mod:`pysros.management` - Connection and data handling
+-------------------------------------------------------
 
 .. automodule:: pysros.management
    :members:
@@ -15,16 +15,16 @@ pysros.management module
 .. autodata:: pysros.management.Empty
    :no-value:
 
-pysros.pprint module
---------------------
+:mod:`pysros.pprint` - Specialized output formatting
+----------------------------------------------------
 
 .. automodule:: pysros.pprint
    :members:
    :undoc-members:
    :show-inheritance:
 
-pysros.wrappers module
-----------------------
+:mod:`pysros.wrappers` - Model-driven class wrappers
+----------------------------------------------------
 
 .. automodule:: pysros.wrappers
    :members:
@@ -36,8 +36,8 @@ pysros.wrappers module
    :undoc-members:
    :show-inheritance:
 
-pysros.exceptions module
-------------------------
+:mod:`pysros.exceptions` - pySROS specific exceptions
+-----------------------------------------------------
 
 .. automodule:: pysros.exceptions
    :members:

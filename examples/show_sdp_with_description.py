@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 
-### showSdpWithDescription.py
+### show_sdp_with_description.py
 #   Copyright 2021 Nokia
-#   Example to show all SDPs with description
 ###
+
+"""Example to show all SDPs with description"""
 
 # Import the required libraries for the application.
 import sys
 from pysros.management import connect
-from pysros.pprint import Table
+from pysros.pprint import Table  # pylint: disable=no-name-in-module
+
 # Import the exceptions so they can be caught on error.
-from pysros.exceptions import *
+from pysros.exceptions import ModelProcessingError
 
 # Global credentials dictionary for the purposes of this example.  Global variables
 # discouraged in operational applications.
@@ -21,27 +23,35 @@ credentials = {
     "port": 830,
 }
 
-# Function definition to obtain a Connection object to a specific SR OS device
-# and access the model-driven information.
-def get_connection(credentials):
 
-    # Attempt to make the connection and handle any error scenarios.
+def get_connection(creds):
+    """Function definition to obtain a Connection object to a specific SR OS device
+    and access the model-driven information."""
     try:
-        c = connect(
-            host=credentials["host"],
-            username=credentials["username"],
-            password=credentials["password"],
-            port=credentials["port"],
+        connection_object = connect(
+            host=creds["host"],
+            username=creds["username"],
+            password=creds["password"],
+            port=creds["port"],
         )
-    except Exception as e:
-        print("Failed to connect:", e)
-        sys.exit(-1)
+        return connection_object
+    except RuntimeError as error1:
+        print(
+            "Failed to connect during the creation of the Connection object.  Error:",
+            error1,
+        )
+        sys.exit(101)
+    except ModelProcessingError as error2:
+        print("Failed to create model-driven schema.  Error:", error2)
+        sys.exit(102)
+    except Exception as error3:  # pylint: disable=broad-except
+        print("Failed to connect:", error3)
+        sys.exit(103)
 
-    # Return the Connection object.
-    return c
 
 # Fuction definition to output a SR OS style table to the screen
 def print_table(rows):
+    """Setup and print the SR OS style table"""
 
     # Define the columns that will be used in the table.  Each list item
     # is a tuple of (column width, heading).
@@ -54,16 +64,18 @@ def print_table(rows):
     ]
 
     # Initalize the Table object with the heading and columns.
-    table = Table("Service Destination Points with Descriptions", cols, showCount='SDP')
+    table = Table("Service Destination Points with Descriptions", cols, showCount="SDP")
 
     # Print the output passing the data for the rows as an argument to the function.
     table.print(rows)
 
+
 # The main function definition
 def main():
+    """Main function to display all SDPs on an SR OS device"""
 
     # Connect to the router.
-    c = get_connection(credentials)
+    connection_object = get_connection(credentials)
 
     # Initialize the 'sdp_info' list that will be used to store the
     # data obtained that we wish to use in the output.
@@ -71,51 +83,54 @@ def main():
 
     # Obtain the SDP configuration information from the SR OS device.  Ensure all
     # default values are returned in addition to specifically set values.
-    sdp_conf = c.running.get("/nokia-conf:configure/service/sdp", defaults=True)
+    sdp_conf = connection_object.running.get(
+        "/nokia-conf:configure/service/sdp", defaults=True
+    )
 
     # Obtain the SDP state information from the SR OS device.  Ensure all
     # default values are returned in addition to specifically set values.
-    sdp_state = c.running.get("/nokia-state:state/service/sdp", defaults=True)
+    sdp_state = connection_object.running.get(
+        "/nokia-state:state/service/sdp", defaults=True
+    )
 
     # Identify the SDP ID numbers and store this value as the variable 'id' and perform
     # the following operations for every SDP.
-    for id in sdp_conf.keys():
+    for ident in sdp_conf.keys():
 
         # Initalize the description variable as it is referenced later
         description = None
 
         # If the description of the SDP has been configured place the obtained
         # description into the 'description' variable.
-        if "description" in sdp_conf[id].keys():
-            description = sdp_conf[id]["description"].data
+        if "description" in sdp_conf[ident].keys():
+            description = sdp_conf[ident]["description"].data
 
         # Store the administrative state of the SDP from the obtained
         # configuration data.
-        admin_state = sdp_conf[id]["admin-state"].data
+        admin_state = sdp_conf[ident]["admin-state"].data
 
         # Store the far-end IP address of the SDP from the obtained
         # configuration data.
-        far_end = sdp_conf[id]["far-end"]["ip-address"].data
+        far_end = sdp_conf[ident]["far-end"]["ip-address"].data
 
         # Store the operational state of the SDP from the obtained
         # state data.
-        oper_state = sdp_state[id]["sdp-oper-state"].data
+        oper_state = sdp_state[ident]["sdp-oper-state"].data
 
         # Add the collected data to the 'sdp_info' list that will be used as
         # the rows in the tabulated output.
-        sdp_info.append([id, description, admin_state, oper_state, far_end])
+        sdp_info.append([ident, description, admin_state, oper_state, far_end])
 
     # Print the table using the defined print_table function.
     print_table(sdp_info)
 
     # Disconnect from the model-driven interfaces of the SR OS node.
-    c.disconnect()
+    connection_object.disconnect()
 
     # Returning 0 should be considered the same as completing the function with a
     # thumbs up!
     return 0
 
+
 if __name__ == "__main__":
     main()
-		
-

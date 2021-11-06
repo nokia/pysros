@@ -1,3 +1,3 @@
 # pySROS examples #
 
-This folder provide various examples to assist with starting your pySROS development journey.
+This folder provides various examples to assist with starting your pySROS development journey.

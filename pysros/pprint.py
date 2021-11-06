@@ -228,9 +228,9 @@ class ATable:
         """Print a header: text surrounded by single or double lines.
 
         :param title: Text of the header.
-        :param minor: Specifies the style of the lines: minor corresponds with single line instead of double.
+        :param minor: Style of the lines: minor corresponds with single line instead of double.
 
-        ..Reviewed by TechComms 20210705
+        .. Reviewed by TechComms 20211013
         """
         line = self.printSingleLine if minor else self.printDoubleLine
         line()
@@ -241,9 +241,9 @@ class ATable:
         """Print the footer.
         This part of the table indicates if any text in the table was truncated.
 
-        :param minor: Specifies the style of the lines: minor corresponds with single line instead of double.
+        :param minor: Style of the lines: minor corresponds with single line instead of double.
 
-        .. Reviewed by TechComms 20210705
+        .. Reviewed by TechComms 20211013
         """
         line = self.printSingleLine if minor else self.printDoubleLine
         line()
@@ -649,6 +649,25 @@ class KeyValueTable(ATable):
             self.printHeader(self._title)
         else:
             self.printDoubleLine()
+        self.printColumnHeaders()
         self.printKVs(data)
         self.printFooter()
+
+    def printColumnHeaders(self):
+        """Print the column headers and a separator line.
+
+        .. code-block:: python
+           :caption: Example :py:meth:`.KeyValueTable.printColumnHeaders` using the Table defined in
+                     this :ref:`pysros-pprint-Table-example-usage`
+           :name: pysros-pprint-KeyValueTable-printColumnHeaders-example-usage
+
+           >>> def table_printColumnHeaders_example(table):
+           ...     table.printColumnHeaders()
+           ...
+           >>> table_printColumnHeaders_example(table)
+           Column0                        Column1
+        """
+        if any(col.name for col in self._columns):
+            self.printKV(*[col.name for col in self._columns])
+            self.printSingleLine()
 

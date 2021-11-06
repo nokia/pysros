@@ -32,13 +32,6 @@ Copyright 2021 Nokia.
 
 The license is located [here](LICENSE.md).
 
-*Please read this license carefully before downloading, installing, or using the software. 
-By downloading, installing, or otherwise using the software, you are agreeing that you have read this license, 
-understand it, and agree (individually, or, if employed, on behalf of the entity which employs you) to be bound 
-by its terms and conditions. If you do not agree to all of the terms and conditions of this license or, if the 
-license is to be used by or on behalf of an entity and you are not authorized by the entity, then do not 
-install or use the software.*
-
 ## Installation ##
 
 Multiple installation methods are available:
@@ -58,8 +51,14 @@ The pySROS project is [located on PyPi.org](https://pypi.org/project/pysros).
 
 The libraries can be downloaded and installed by using the following:
 
-```
+```shell
 pip install pysros
+```
+
+To upgrade to the latest release use:
+
+```shell
+pip install --upgrade pysros
 ```
 
 ### Nokia support portal ###
@@ -70,7 +69,7 @@ customers.
 
 The obtained file can be unzipped and subsequently installed using:
 
-```
+```shell
 python3 setup.py install
 ```
 
@@ -84,7 +83,7 @@ The pySROS libraries are available for
 
 The obtained file can be installed using:
 
-```
+```shell
 git clone https://github.com/nokia/pysros
 python3 setup.py install
 ```

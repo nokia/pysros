@@ -1,6 +1,6 @@
 # Copyright 2021 Nokia
 
-__all__ = ("SrosMgmtError", "InvalidPathError", "ModelProcessingError", "InternalError", "SrosConfigConflictError")
+__all__ = ("SrosMgmtError", "InvalidPathError", "ModelProcessingError", "InternalError", "SrosConfigConflictError", "ActionTerminatedIncompleteError", )
 
 class SrosMgmtError(Exception):
     """Exception raised by the :mod:`pysros.management` objects when:
@@ -13,6 +13,7 @@ class SrosMgmtError(Exception):
     .. Reviewed by PLM 20210625
     .. Reviewed by TechComms 20210630
     """
+    pass
 
 class InvalidPathError(Exception):
     """Exception raised when a path provided by the user:
@@ -57,6 +58,10 @@ class SrosConfigConflictError(Exception):
     .. Reviewed by PLM 20210625
     .. Reviewed by TechComms 20210630
     """
+    pass
+
+class ActionTerminatedIncompleteError(Exception):
+    """Exception raised when an action completes with a ``terminated-incomplete`` status"""
     pass
 
 def make_exception(arg, **kwarg):
