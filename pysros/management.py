@@ -38,7 +38,7 @@ It contains functions to obtain and manipulate configuration and state data.
 
 
 def connect(*, host, port=830, username, password=None, yang_directory=None,
-            rebuild=False, transport="netconf", timeout=300):
+            rebuild=False, transport="netconf", timeout=300, **kwargs):
     """Create a :class:`.Connection` object.  This function is the main entry point for
     model-driven management of configuration and state for a specific SR OS node using the pySROS library.
 
@@ -133,7 +133,7 @@ def connect(*, host, port=830, username, password=None, yang_directory=None,
     return Connection(host=host, port=port, username=username, password=password,
                       device_params={'name': 'sros'}, manager_params={'timeout': timeout},
                       nc_params={'capabilities':['urn:nokia.com:nc:pysros:pc']},
-                      yang_directory=yang_directory, rebuild=rebuild)
+                      yang_directory=yang_directory, rebuild=rebuild, **kwargs)
 
 def sros():
     """Determine whether the execution environment is an SR OS node
