@@ -28,7 +28,7 @@ from .model_walker import FilteredDataModelWalker
 from .request_data import RequestData
 from .wrappers import Empty, Container, Leaf, LeafList
 
-__all__ = ("connect", "sros", "Connection", "Datastore", "Empty", "SrosMgmtError", "InvalidPathError", "ModelProcessingError", "InternalError", "SrosConfigConflictError")
+__all__ = ("connect", "sros", "Connection", "Datastore", "Empty", "SrosMgmtError", "InvalidPathError", "ModelProcessingError", "InternalError", "SrosConfigConflictError", "ActionTerminatedIncompleteError",)
 __doc__ = """This module contains basic primitives for managing an SR OS node.
 It contains functions to obtain and manipulate configuration and state data.
 
@@ -40,7 +40,8 @@ It contains functions to obtain and manipulate configuration and state data.
 def connect(*, host, port=830, username, password=None, yang_directory=None,
             rebuild=False, transport="netconf", timeout=300):
     """Create a :class:`.Connection` object.  This function is the main entry point for
-    model-driven management of configuration and state for a specific SR OS node using the pySROS library.
+    model-driven management of configuration and state for a specific SR OS node using
+    the pySROS library.
 
     .. note::
        All parameters to connect are ignored when executed on an SR OS node.
@@ -51,11 +52,12 @@ def connect(*, host, port=830, username, password=None, yang_directory=None,
     :type port: int, optional
     :param username: User name.
     :type username: str
-    :param password: User password.
-    :type password: str
-    :param yang_directory: Path (absolute or relative to the local machine) to the YANG modules for
-                           the specific node. If this argument is used, YANG modules are not downloaded
-                           from the SR OS node.
+    :param password: User password.  If the password is not provided the systems SSH key
+                     will be used.
+    :type password: str, optional
+    :param yang_directory: Path (absolute or relative to the local machine) to the YANG modules
+                           for the specific node. If this argument is used, YANG modules are not
+                           downloaded from the SR OS node.
     :type yang_directory: str, optional
     :param rebuild: Trigger the rebuild of an already cached YANG schema.
     :type rebuild: bool, optional
@@ -69,9 +71,9 @@ def connect(*, host, port=830, username, password=None, yang_directory=None,
 
     .. note ::
 
-       When executing a Python application using the pySROS libraries on a remote workstation, the initial
-       connection is slower to complete than subsequent connections as the schema is generated
-       from the YANG models and cached.
+       When executing a Python application using the pySROS libraries on a remote workstation,
+       the initial connection is slower to complete than subsequent connections as the schema
+       is generated from the YANG models and cached.
 
 
     .. code-block:: python
@@ -79,24 +81,24 @@ def connect(*, host, port=830, username, password=None, yang_directory=None,
        :name: pysros-management-connect-example-usage-1
 
        from pysros.management import connect
-       from pysros.exceptions import *
+       from pysros.exceptions import ModelProcessingError
        import sys
 
        def get_connection():
            try:
-               c = connect(host="192.168.74.51",
-                           username="admin",
-                           password="admin")
-           except RuntimeError as e1:
-               print("Failed to connect.  Error:", e1)
+               connection_object = connect(host="192.168.74.51",
+                                           username="admin",
+                                           password="admin")
+           except RuntimeError as runtime_error:
+               print("Failed to connect.  Error:", runtime_error)
                sys.exit(-1)
-           except ModelProcessingError as e2:
-               print("Failed to create model-driven schema.  Error:", e2)
+           except ModelProcessingError as model_proc_error:
+               print("Failed to create model-driven schema.  Error:", model_proc_error)
                sys.exit(-2)
-           return c
+           return connection_object
 
        if __name__ == "__main__":
-           c = get_connection()
+           connection_object = get_connection()
 
 
     .. code-block:: python
@@ -104,29 +106,29 @@ def connect(*, host, port=830, username, password=None, yang_directory=None,
        :name: pysros-management-connect-example-usage-2
 
        from pysros.management import connect
-       from pysros.exceptions import *
+       from pysros.exceptions import ModelProcessingError
        import sys
 
        def get_connection():
            try:
-               c = connect(host="192.168.74.51",
-                           username="admin",
-                           password="admin",
-                           yang_directory="./YANG")
-           except RuntimeError as e1:
-               print("Failed to connect.  Error:", e1)
+               connection_object = connect(host="192.168.74.51",
+                                           username="admin",
+                                           password="admin",
+                                           yang_directory="./YANG")
+           except RuntimeError as runtime_error:
+               print("Failed to connect.  Error:", runtime_error)
                sys.exit(-1)
-           except ModelProcessingError as e2:
-               print("Failed to create model-driven schema.  Error:", e2)
+           except ModelProcessingError as model_proc_error:
+               print("Failed to create model-driven schema.  Error:", model_proc_error)
                sys.exit(-2)
-           return c
+           return connection_object
 
        if __name__ == "__main__":
-           c = get_connection()
+           connection_object = get_connection()
 
 
-    .. reviewed by PLM 20210625
-    .. reviewed by TechComms 20210713
+    .. reviewed by PLM 20211201
+    .. reviewed by TechComms 20211202
     """
     if transport != "netconf":
         raise make_exception(pysros_err_invalid_transport)
@@ -164,11 +166,12 @@ def sros():
 
 class Connection:
     """An object representing a connection to an SR OS device.
-    This object is transport agnostic and manages the connection whether the application is run on the SR OS node
-    or remotely.
+    This object is transport agnostic and manages the connection whether the application
+    is run on the SR OS node or remotely.
 
     .. warning::
-        You **should not** create this class directly. Please use :func:`~pysros.management.connect` instead.
+        You **should not** create this class directly. Please use :func:`~pysros.management.connect`
+        instead.
 
     The underlying transport is NETCONF when executed on a machine that is not running SR OS.
 
@@ -177,8 +180,8 @@ class Connection:
     :ivar candidate: candidate datastore
     :vartype candidate: .Datastore
 
-    .. Reviewed by PLM 20210614
-    .. Reviewed by TechComms 20210705
+    .. Reviewed by PLM 20211201
+    .. Reviewed by TechComms 20211202
     """
     _common_namespaces = {
         "ncbase": "urn:ietf:params:xml:ns:netconf:base:1.0",
@@ -340,11 +343,11 @@ class Connection:
            :name: pysros-management-connection-disconnect-example-usage
 
            from pysros.management import connect
-           c = connect()
-           c.disconnect()
+           connection_object = connect()
+           connection_object.disconnect()
 
-        .. Reviewed by PLM 20210614
-        .. Reviewed by TechComms 20210712
+        .. Reviewed by PLM 20211201
+        .. Reviewed by TechComms 20211202
         """
         with self._process_connected():
             self._nc.close_session()
@@ -352,6 +355,7 @@ class Connection:
     def cli(self, command):
         """Run a single MD-CLI command. A single line of input is allowed.
         This may include MD-CLI output redirection (such as ``no-more``).
+        Some restrictions apply to the commands that may be provided.
 
         :param command: MD-CLI command
         :type command: str
@@ -361,6 +365,8 @@ class Connection:
         :rtype: str
         :raises RuntimeError: Error if the connection was lost.
         :raises SrosMgmtError: Error when command was not successful.
+        :raises ActionTerminatedIncompleteError: Error when command terminated
+                                                 with ``terminated-incomplete`` status.
 
         .. code-block:: python
            :caption: Example
@@ -370,8 +376,8 @@ class Connection:
            connection_object = connect(host='192.168.1.1', username='admin', password='admin')
            print(connection_object.cli('show version'))
 
-        .. Reviewed by PLM 20211001
-        .. Reviewed by TechComms 20211013
+        .. Reviewed by PLM 20211201
+        .. Reviewed by TechComms 20211202
         """
         with self._process_connected():
             output = self._nc.md_cli_raw_command(command)
@@ -510,8 +516,9 @@ class Datastore:
 
     def _exists(self, path, exist_reason):
         model_walker = FilteredDataModelWalker.user_path_parse(self.connection.root, path)
-        #if exists is called as a check before deletion, check for path to avoid incorrect errors
-        #such as pysros_err_can_check_state_from_running_only as we want to handle state delete related errors first
+        # if exists is called as a check before deletion, check for path to avoid
+        # incorrect errors such as pysros_err_can_check_state_from_running_only
+        # as we want to handle state delete related errors first
         if model_walker.current.config == False:
             if exist_reason == Datastore._ExistReason.delete:
                 raise make_exception(pysros_err_cannot_delete_from_state)
@@ -542,26 +549,33 @@ class Datastore:
             raise e from None
 
     def get(self, path, *, defaults=False, config_only=False):
-        """ Obtain a pySROS data structure containing the contents of the supplied path.  See the
+        """Obtain a pySROS data structure containing the contents of the supplied path.  See the
         :ref:`pysros-data-model`
         section for more information about the pySROS data structure.
 
-        :param path: Path to the requested node in the datastore. The path is an instance-identifier based on
-                     `RFC 6020 <https://datatracker.ietf.org/doc/html/rfc6020#section-9.13>`_ and `RFC 7951 <https://datatracker.ietf.org/doc/html/rfc7951#section-6.11>`_.  The path can be obtained from an SR OS device using the ``pwc json-instance-path``
-                     MD-CLI command.
-                     The path may point to a YANG Container, List, Leaf, Leaf-List or a specific List entry.
+        :param path: Path to the requested node in the datastore. The path
+                     is an instance-identifier based on
+                     `RFC 6020 <https://datatracker.ietf.org/doc/html/rfc6020#section-9.13>`_
+                     and `RFC 7951 <https://datatracker.ietf.org/doc/html/rfc7951#section-6.11>`_.
+                     The path can be obtained from an SR OS device using the
+                     ``pwc json-instance-path`` MD-CLI command.
+                     The path may point to a YANG Container, List, Leaf, Leaf-List or a
+                     specific List entry.
         :type path: str
         :param defaults: Obtain default values in addition to specifically set values.
         :type defaults: bool
-        :return: A pySROS data structure.  This may be a simple value or a more complicated structure
-                 depending on the path requested.
-        :param config_only: Obtain configuration data only.  Items marked as ``config false`` in YANG are not returned.
+        :return: A pySROS data structure.  This may be a simple value or a more
+                 complicated structure depending on the path requested.
+        :param config_only: Obtain configuration data only.  Items marked as
+                            ``config false`` in YANG are not returned.
         :type config_only: bool
-        :rtype: :class:`pysros.wrappers.Leaf`, :class:`pysros.wrappers.LeafList`, :class:`pysros.wrappers.Container`
+        :rtype: :class:`pysros.wrappers.Leaf`, :class:`pysros.wrappers.LeafList`,
+                :class:`pysros.wrappers.Container`
         :raises RuntimeError: Error if the connection was lost.
         :raises InvalidPathError: Error if the path is malformed.
-        :raises SrosMgmtError: Error for broader SR OS issues including (non-exhaustive list): passing invalid objects, and
-                setting to an unsupported branch.
+        :raises SrosMgmtError: Error for broader SR OS issues including
+                               (non-exhaustive list): passing invalid objects, and
+                               setting to an unsupported branch.
         :raises TypeError: Error if fields or keys are incorrect.
         :raises InternalError: Error if the schema is corrupted.
 
@@ -570,32 +584,51 @@ class Datastore:
            :name: pysros-management-datastore-get-example-usage
 
            from pysros.management import connect
-           c = connect()
-           current_operational_name = c.running.get("/nokia-state:state/system/oper-name")
+           import sys
+           connection_object = connect()
+           try:
+               oper_name = connection_object.running.get("/nokia-state:state/system/oper-name")
+           except RuntimeError as runtime_error:
+               print("Runtime Error:", runtime_error)
+               sys.exit(100)
+           except InvalidPathError as invalid_path_error:
+               print("Invalid Path Error:", invalid_path_error)
+               sys.exit(101)
+           except SrosMgmtError as sros_mgmt_error:
+               print("SR OS Management Error:", sros_mgmt_error)
+               sys.exit(102)
+           except TypeError as type_error:
+               print("Type Error:", type_error)
+               sys.exit(103)
+           except InternalError as internal_error:
+               print("Internal Error:", internal_error)
+               sys.exit(104)
 
-        .. Reviewed by PLM 20210902
-        .. Reviewed by TechComms 20211013
+
+        .. Reviewed by PLM 20211201
+        .. Reviewed by TechComms 20211202
         """
         with self.connection._process_connected():
             return self._get(path, defaults=defaults, config_only=config_only)
 
     def set(self, path, value):
-        """Set a pySROS data structure to the supplied path. See the :ref:`pysros-data-model` section for more
-        information about the pySROS data structure.
-
+        """Set a pySROS data structure to the supplied path. See the
+        :ref:`pysros-data-model` section for more information about the pySROS data structure.
 
         :param path: Path to the target node in the datastore.  See the path parameter definition in
                      :py:meth:`pysros.management.Datastore.get` for details.
         :type path: str
 
-        :param value: Value to set the node to. When ``path`` points to a Leaf, the value should be a `str`
-                      (optionally wrapped in a :class:`pysros.wrappers.Leaf`). When ``path`` points to a Leaf-List,
+        :param value: Value to set the node to. When ``path`` points to a Leaf, the
+                      value should be a `str` (optionally wrapped in a
+                      :class:`pysros.wrappers.Leaf`). When ``path`` points to a Leaf-List,
                       the value should be a `list` of `str` (optionally wrapped in
-                      a :class:`pysros.wrappers.LeafList`). When ``path`` points to a Container or list item, the
-                      value should be a `dict` (optionally wrapped in a :class:`pysros.wrappers.Container`).
+                      a :class:`pysros.wrappers.LeafList`). When ``path`` points to a
+                      Container or list item, the value should be a `dict` (optionally
+                      wrapped in a :class:`pysros.wrappers.Container`).
                       Valid nested data structures are supported.
 
-        :raises RuntimeError: Error if the connection was lost.
+        :raises RuntimeError: Error if the connection is lost.
         :raises InvalidPathError: Error if the path is malformed.
         :raises SrosMgmtError: Error for broader SR OS issues, including (non-exhaustive list):
                 passing invalid objects, and setting to an unsupported branch.
@@ -609,9 +642,9 @@ class Datastore:
 
            from pysros.management import connect
 
-           c = connect()
+           connection_object = connect()
            payload = "my-router-name"
-           c.candidate.set("/nokia-conf:configure/system/name", payload)
+           connection_object.candidate.set("/nokia-conf:configure/system/name", payload)
 
         .. code-block:: python
            :caption: Example 2 - Configuring a more complex structure
@@ -620,15 +653,15 @@ class Datastore:
            from pysros.management import connect
            from pysros.wrappers import *
 
-           c = connect()
+           connection_object = connect()
            path = '/nokia-conf:configure/router[router-name="Base"]/interface[interface-name="demo1"]'
            data = Container({'interface-name': Leaf('demo1'), 'port': Leaf('1/1/c1/1:0'),
                   'ipv4': Container({'primary': Container({'prefix-length': Leaf(24),
                   'address': Leaf('5.5.5.1')})}), 'admin-state': Leaf('enable')})
-           c.candidate.set(path, data)
+           connection_object.candidate.set(path, data)
 
-        .. Reviewed by PLM 20210820
-        .. Reviewed by TechComms 20211013
+        .. Reviewed by PLM 20211201
+        .. Reviewed by TechComms 20211202
         """
         with self.connection._process_connected():
             self._set(path, value, Datastore._SetAction.set)
@@ -640,7 +673,7 @@ class Datastore:
         :param path: Path to the node in the datastore.  See the path parameter definition in
                      :py:meth:`pysros.management.Datastore.get` for details.
         :type path: str
-        :raises RuntimeError: Error if the connection was lost.
+        :raises RuntimeError: Error if the connection is lost.
         :raises InvalidPathError: Error if the path is malformed.
         :raises SrosMgmtError: Error for broader SR OS issues, including (non-exhaustive list):
                 passing invalid objects, and setting to an unsupported branch.
@@ -653,11 +686,11 @@ class Datastore:
            :name: pysros-management-datastore-delete-example
 
            from pysros.management import connect
-           c = connect()
-           c.candidate.delete('/nokia-conf:configure/log/log-id[name="33"]')
+           connection_object = connect()
+           connection_object.candidate.delete('/nokia-conf:configure/log/log-id[name="33"]')
 
-        .. Reviewed by PLM 20210708
-        .. Reviewed by TechComms 20210713
+        .. Reviewed by PLM 20211201
+        .. Reviewed by TechComms 20211202
         """
         with self.connection._process_connected():
             if not self._exists(path, Datastore._ExistReason.delete):
@@ -672,7 +705,7 @@ class Datastore:
                      :py:meth:`pysros.management.Datastore.get` for details.
         :type path: str
         :rtype: bool
-        :raises RuntimeError: Error if the connection was lost.
+        :raises RuntimeError: Error if the connection is lost.
         :raises InvalidPathError: Error if the path is malformed.
         :raises SrosMgmtError: Error for broader SR OS issues, including (non-exhaustive list):
                 passing invalid objects, and setting to an unsupported branch.
@@ -684,14 +717,14 @@ class Datastore:
            :name: pysros-management-datastore-exists-example
 
            from pysros.management import connect
-           c = connect()
-           if c.running.exists('/nokia-conf:configure/log/log-id[name="33"]') == True:
+           connection_object = connect()
+           if connection_object.running.exists('/nokia-conf:configure/log/log-id[name="33"]') == True:
                print("The log with the ID of 33 is present on the SR OS router")
            else:
                print("This log ID is not present on the SR OS router")
 
-        .. Reviewed by PLM 20210625
-        .. Reviewed by TechComms 20210713
+        .. Reviewed by PLM 20211201
+        .. Reviewed by TechComms 20211202
         """
         with self.connection._process_connected():
             return self._exists(path, Datastore._ExistReason.exist)

@@ -3,6 +3,11 @@
 from .exceptions import *
 from .exceptions import make_exception
 
+__doc__ = """This module contains error definitions for pySROS.
+
+.. reviewed by PLM 20211201
+.. reviewed by TechComms 20211202
+"""
 
 pysros_err_arg_must_be_string = (TypeError, """Argument "module" must be a string""")
 pysros_err_attr_cannot_be_deleted = (AttributeError, "'{obj}' object attribute '{attribute}' cannot be deleted")

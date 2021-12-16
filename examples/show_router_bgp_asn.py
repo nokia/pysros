@@ -124,7 +124,7 @@ def show_router_bgp_asn_output(connection_object, asn):
             '/nokia-conf:configure/router[router-name="Base"]/bgp/neighbor'
         )
     except LookupError as lookup_error:
-        print("Failed to get BGP neighbor configuration.  Are any neigbors configured?")
+        print("Failed to get BGP neighbor configuration.  Are any neighbors configured?")
         print("Error:", lookup_error, end="")
         print(".")
         sys.exit(102)

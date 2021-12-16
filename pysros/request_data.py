@@ -541,7 +541,7 @@ class _ListSetter(_ASetter):
         keys = {}
         for e in value:
             if _get_tag(e) in self._walker.get_local_key_names():
-                keys[_get_tag(e)] = e.text
+                keys[_get_tag(e)] = e.text or ""
         if set(keys.keys()) != set(self._walker.get_local_key_names()):
             raise make_exception(pysros_err_schema_box_keys_mismatch, schema_keys=self._walker.get_local_key_names(), box_keys=list(keys.keys()))
         return self.entry_nocheck(keys)
