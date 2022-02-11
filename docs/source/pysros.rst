@@ -44,6 +44,21 @@
    :undoc-members:
    :show-inheritance:
 
+:mod:`pysros.ehs` - Functions for the event handling system (EHS)
+-------------------------------------------------------------------------
+
+.. module:: pysros.ehs
+   :synopsis: Functions for the SR OS event handling system (EHS)
+
+.. include:: ehs.rst
+
+
+
+
+
+
+
+
 
 
 

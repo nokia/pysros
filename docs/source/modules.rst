@@ -6,6 +6,7 @@ pySROS modules
 
    pysros
 
+
 Libraries specific to SR OS
 ===========================
 
@@ -17,6 +18,6 @@ Python versions of the library are used.
    :maxdepth: 6
 
    utime
-   ehs
+
 
 
