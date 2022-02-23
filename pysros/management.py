@@ -135,7 +135,7 @@ def connect(*, host, port=830, username, password=None, yang_directory=None,
     return Connection(host=host, port=port, username=username, password=password,
                       device_params={'name': 'sros'}, manager_params={'timeout': timeout},
                       nc_params={'capabilities':['urn:nokia.com:nc:pysros:pc']},
-                      yang_directory=yang_directory, rebuild=rebuild)
+                      yang_directory=yang_directory, rebuild=rebuild, hostkey_verify=False)
 
 def sros():
     """Determine whether the execution environment is an SR OS node
