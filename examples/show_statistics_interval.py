@@ -47,8 +47,6 @@ def get_connection(creds):
         sys.exit(103)
 
 
-
-
 def get_input_args():
     """Obtain and process input arguments"""
 
@@ -69,7 +67,9 @@ def get_input_args():
     return interval, count, port_name
 
 
-def print_table(rows, port_name, curr_time, prev_time, i, count):  # pylint: disable=too-many-arguments
+def print_table(
+    rows, port_name, curr_time, prev_time, i, count
+):  # pylint: disable=too-many-arguments
     """Setup and print the SR OS style table"""
 
     # compute total width of table
@@ -91,7 +91,7 @@ def print_table(rows, port_name, curr_time, prev_time, i, count):  # pylint: dis
             port_name, round(curr_time - prev_time, 2), i + 1, count
         ),
         cols,
-        width=width
+        width=width,
     )
     table.print(rows)
 
@@ -112,8 +112,8 @@ def main():
     prev_time = time.time()
 
     # make an initial get
-    port_stats_path = "/nokia-state:state/port[port-id='{}']/statistics".format(
-        port_name
+    port_stats_path = (
+        "/nokia-state:state/port[port-id='{}']/statistics".format(port_name)
     )
     init_port_state = connection_object.running.get(port_stats_path)
 
@@ -133,7 +133,9 @@ def main():
         curr_time = time.time()
         curr_port_state = connection_object.running.get(port_stats_path)
         delta_port_stats = []
-        for item in prev_port_stats:  # pylint: disable=consider-using-dict-items
+        for (
+            item
+        ) in prev_port_stats:  # pylint: disable=consider-using-dict-items
             prev_value = prev_port_stats[item]
             curr_value = curr_port_state[item].data
             delta = curr_value - prev_value
@@ -142,13 +144,13 @@ def main():
         # clear screen
         print("\033c")
         # show delta stats
-        print_table(delta_port_stats, port_name, curr_time, prev_time, i, count)
+        print_table(
+            delta_port_stats, port_name, curr_time, prev_time, i, count
+        )
         prev_time = curr_time
 
     # disconnect from router
     connection_object.disconnect()
-
-    return 0
 
 
 if __name__ == "__main__":

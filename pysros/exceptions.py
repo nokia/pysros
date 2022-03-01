@@ -2,6 +2,13 @@
 
 __all__ = ("SrosMgmtError", "InvalidPathError", "ModelProcessingError", "InternalError", "SrosConfigConflictError", "ActionTerminatedIncompleteError", )
 
+__doc__ = """This module contains exceptions for error handling within pySROS.
+
+.. reviewed by PLM 20211201
+.. reviewed by TechComms 20211202
+"""
+
+
 class SrosMgmtError(Exception):
     """Exception raised by the :mod:`pysros.management` objects when:
 
@@ -50,19 +57,31 @@ class InternalError(Exception):
     pass
 
 class SrosConfigConflictError(Exception):
-    """Exception raised when a configuration commit failed due to conflicts between the ``candidate``
-    datastore and the ``baseline`` datastore.  Retrying the configuration operation usually resolves the
-    situation.  If retrying does not resolve the issue, the connection should be closed using
-    :py:meth:`pysros.management.Connection.disconnect` and the operation restarted to make a new connection.
+    """Exception raised when a configuration commit failed due to conflicts
+    between the ``candidate`` datastore and the ``baseline`` datastore.
+    Retrying the configuration operation usually resolves the situation.
+    If retrying does not resolve the issue, the connection should be closed using
+    :py:meth:`pysros.management.Connection.disconnect` and the operation
+    restarted to make a new connection.
 
-    .. Reviewed by PLM 20210625
-    .. Reviewed by TechComms 20210630
+    .. Reviewed by PLM 20211201
+    .. Reviewed by TechComms 20211202
     """
     pass
 
 class ActionTerminatedIncompleteError(Exception):
-    """Exception raised when an action completes with a ``terminated-incomplete`` status"""
+    """Exception raised when an operation (also known as an action)
+    completes with a ``terminated-incomplete`` status.
+
+    .. Reviewed by PLM 20211201
+    .. Reviewed by TechComms 20211202
+    """
     pass
 
 def make_exception(arg, **kwarg):
+    """Create an exception.
+
+    .. Reviewed by PLM 20211201
+    .. Reviewed by TechComms 20211202
+    """
     return arg[0](arg[1].format(**kwarg))

@@ -4,8 +4,10 @@
 #   Copyright 2021 Nokia
 ###
 
+# pylint: disable=import-error, import-outside-toplevel, line-too-long, too-many-branches, too-many-locals, too-many-statements
+
 """
-Tested on: SR OS 21.10.R1
+Tested on: SR OS 22.2.R1
 
 Example to show how to make a connection and handle exceptions.
 
@@ -18,8 +20,7 @@ Execution on remote machine if make_connection_extended.py is executable
 """
 
 # Import the connect and sros methods from the management pySROS submodule
-from pysros.management import connect  # pylint: disable=import-error
-from pysros.management import sros  # pylint: disable=import-error
+from pysros.management import connect, sros
 
 
 def get_connection():
@@ -36,19 +37,19 @@ def get_connection():
 
     # If the application is executed locally
     if sros():
-        connection_object = connect()
+        connection_object = connect()  # pylint: disable=missing-kwoa
 
     # Else if the application is executed remotely
     else:
         # Import sys for returning specific exit codes
-        import sys  # pylint: disable=import-outside-toplevel
+        import sys
 
         # Import getpass to read the password
-        import getpass  # pylint: disable=import-outside-toplevel
+        import getpass
 
         # Import the exceptions so they can be caught on error
         # fmt: off
-        from pysros.exceptions import ModelProcessingError  # pylint: disable=import-error disable=import-outside-toplevel
+        from pysros.exceptions import ModelProcessingError
         # fmt: on
 
         # Make sure we have the right number of arguments, the host can

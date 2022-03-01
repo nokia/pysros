@@ -388,6 +388,44 @@ The example output for this application is shown here:
 .. Reviewed by TechComms 20210902
 
 
+Efficient YANG list key handling
+********************************
+
+There are occasions where a set of specific entries in a YANG list are required.
+In these situations, use one of the following to obtain the key values for the list.
+
+- Obtain the list from the node which is stored as a Python *dict* and then use ``.keys()`` on the
+  dict to obtain the key values.
+- Use the :py:func:`pysros.management.Datastore.get_list_keys` function to obtain the list of the key values without
+  obtaining the full data structure of the YANG list.
+
+Using the :py:func:`pysros.management. Datastore.get_list_keys` function is significantly
+faster and uses less memory.
+
+The following example compares and contrasts the different methods.
+
+.. literalinclude:: ../../examples/get_list_keys_usage.py
+   :caption: get_list_keys_usage.py
+   :name: get-list-keys-usage-example
+   :language: python
+
+The example output for this application is shown here:
+
+.. code-block:: none
+
+   get without defaults
+    Output: dict_keys(['Base']) Time: 0.1393
+   get with defaults
+    Output: dict_keys(['Base', 'management', 'vpls-management']) Time: 0.7754
+   get_list_keys without defaults
+    Output: ['Base'] Time: 0.0859
+   get_list_keys with defaults
+    Output: ['Base', 'management', 'vpls-management'] Time: 0.1171
+
+.. Reviewed by PLM 20220114
+.. Reviewed by TechComms 20220124
+
+
 Multi-device hardware inventory
 *******************************
 

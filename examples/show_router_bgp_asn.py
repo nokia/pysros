@@ -4,10 +4,10 @@
 #   Copyright 2021 Nokia
 ###
 
-# pylint: disable=line-too-long
+# pylint: disable=import-error, import-outside-toplevel, line-too-long, too-many-branches, too-many-locals, too-many-statements
 
 """
-Tested on: SR OS 21.10.R1
+Tested on: SR OS 22.2.R1
 
 Show all BGP peers for an ASN.
 
@@ -32,10 +32,6 @@ native MD-CLI command.
 /configure system { management-interface cli md-cli environment command-alias alias "asn" mount-point "/show router bgp" }
 """
 
-# pylint: disable=too-many-statements
-# pylint: disable=too-many-branches
-# pylint: disable=too-many-locals
-
 # Import sys for parsing arguments and returning specific exit codes
 import sys
 
@@ -43,20 +39,16 @@ import sys
 import datetime
 
 # Import the connect and sros methods from the management pySROS submodule
-from pysros.management import connect  # pylint: disable=import-error
-from pysros.management import sros  # pylint: disable=import-error
+from pysros.management import connect, sros
 
 
 def usage():
     """Print the usage"""
 
     if sros():
-        # Remove hyphens that are added in the python-script "show-router-bgp-asn" name
-        for i in sys.argv[0]:
-            if i in "-":
-                sys.argv[0] = sys.argv[0].replace(i, " ")
         print("")
-        print("", sys.argv[0], "[<number>]")
+        # Remove hyphens that are added in the python-script "show-router-bgp-asn" name
+        print("", sys.argv[0].replace("-", " "), "[<keyword>]")
     else:
         print("Usage:", sys.argv[0], "username@host [<number>]")
     print(" <number>  - <1..4294967295>")
@@ -68,7 +60,7 @@ def get_remote_connection(my_username, my_host, my_password):
 
     # Import the exceptions so they can be caught on error
     # fmt: off
-    from pysros.exceptions import ModelProcessingError  # pylint: disable=import-error disable=import-outside-toplevel
+    from pysros.exceptions import ModelProcessingError
     # fmt: on
 
     # The try statement coupled with the except statements allow an
@@ -109,11 +101,11 @@ def get_remote_connection(my_username, my_host, my_password):
 def show_router_bgp_asn_output(connection_object, asn):
     """Main function for the show_router_bgp_asn command"""
 
+    bright_cyan = "\u001b[36;1m"
+    bright_green = "\u001b[32;1m"
     bright_red = "\u001b[31;1m"
-    cyan = "\u001b[36m"
-    green = "\u001b[32m"
-    reset = "\u001b[0m"
-    yellow = "\u001b[33m"
+    bright_yellow = "\u001b[33;1m"
+    reset_color = "\u001b[0m"
     bgp_stats = None
 
     oper_name = connection_object.running.get("/nokia-state:state/system/oper-name")
@@ -124,7 +116,9 @@ def show_router_bgp_asn_output(connection_object, asn):
             '/nokia-conf:configure/router[router-name="Base"]/bgp/neighbor'
         )
     except LookupError as lookup_error:
-        print("Failed to get BGP neighbor configuration.  Are any neigbors configured?")
+        print(
+            "Failed to get BGP neighbor configuration.  Are any neighbors configured?"
+        )
         print("Error:", lookup_error, end="")
         print(".")
         sys.exit(102)
@@ -191,13 +185,13 @@ def show_router_bgp_asn_output(connection_object, asn):
     print("{0:<13} {1:<13}/{2:<17}".format("ASN", "Messages Rcvd", "In Queue"), end="")
     print(
         " State|"
-        + cyan
+        + bright_cyan
         + "Rcv"
-        + reset
+        + reset_color
         + "/"
-        + green
+        + bright_green
         + "Act"
-        + reset
+        + reset_color
         + "/Sent (Addr Family)"
     )
     print("{0:<13} {1:<13}/{2:<13}".format("", "Messages Sent", "Out Queue"))
@@ -237,21 +231,21 @@ def show_router_bgp_asn_output(connection_object, asn):
                     == "['IPv4']"
                 ):
                     print(
-                        cyan
+                        bright_cyan
                         + str(
                             bgp_stats[neighbor]["statistics"]["family-prefix"]["ipv4"][
                                 "received"
                             ]
                         )
-                        + reset
+                        + reset_color
                         + "/"
-                        + green
+                        + bright_green
                         + str(
                             bgp_stats[neighbor]["statistics"]["family-prefix"]["ipv4"][
                                 "received"
                             ]
                         )
-                        + reset
+                        + reset_color
                         + "/"
                         + str(
                             bgp_stats[neighbor]["statistics"]["family-prefix"]["ipv4"][
@@ -265,21 +259,21 @@ def show_router_bgp_asn_output(connection_object, asn):
                     == "['IPv6']"
                 ):
                     print(
-                        cyan
+                        bright_cyan
                         + str(
                             bgp_stats[neighbor]["statistics"]["family-prefix"]["ipv6"][
                                 "received"
                             ]
                         )
-                        + reset
+                        + reset_color
                         + "/"
-                        + green
+                        + bright_green
                         + str(
                             bgp_stats[neighbor]["statistics"]["family-prefix"]["ipv6"][
                                 "received"
                             ]
                         )
-                        + reset
+                        + reset_color
                         + "/"
                         + str(
                             bgp_stats[neighbor]["statistics"]["family-prefix"]["ipv6"][
@@ -290,9 +284,9 @@ def show_router_bgp_asn_output(connection_object, asn):
                     )
                 else:
                     print(
-                        green
+                        bright_green
                         + +bgp_stats[neighbor]["statistics"]["session-state"]
-                        + reset
+                        + reset_color
                     )
             elif str(bgp_stats[neighbor]["statistics"]["session-state"]) == "disabled":
                 print(
@@ -301,25 +295,25 @@ def show_router_bgp_asn_output(connection_object, asn):
                     + " ("
                     + str(bgp_stats[neighbor]["statistics"]["last-event"])
                     + ")"
-                    + reset
+                    + reset_color
                 )
             elif (
                 str(bgp_stats[neighbor]["statistics"]["session-state"])
                 == "Idle (shutdown)"
             ):
                 print(
-                    yellow
+                    bright_yellow
                     + str(bgp_stats[neighbor]["statistics"]["session-state"])
-                    + reset
+                    + reset_color
                 )
             else:
                 print(
-                    yellow
+                    bright_yellow
                     + str(bgp_stats[neighbor]["statistics"]["session-state"])
                     + " ("
                     + str(bgp_stats[neighbor]["statistics"]["last-event"])
                     + ")"
-                    + reset
+                    + reset_color
                 )
 
             # Print line 5
@@ -365,12 +359,12 @@ def get_connection_with_argv():
             parsed_asn = sys.argv[1]
 
         # Get a local Connection object
-        connection_object = connect()
+        connection_object = connect()  # pylint: disable=missing-kwoa
 
     # The application is running remotely
     else:
         # Import getpass to read the password
-        import getpass  # pylint: disable=import-outside-toplevel
+        import getpass
 
         # Parse the arguments for connection and optional ASN parameter
         if len(sys.argv) > 3 or len(sys.argv) < 2:

@@ -66,12 +66,19 @@ def get_input_args():
 def print_table(route_list, searched_ip_address):
     """Setup and print the SR OS style table"""
     # compute total width of table
-    cols = [(30, "Route"), (20, "Vprn"), (20, "Traffic Type"), (20, "Ipv Type")]
+    cols = [
+        (30, "Route"),
+        (20, "Vprn"),
+        (20, "Traffic Type"),
+        (20, "Ipv Type"),
+    ]
     width = sum([col[0] for col in cols])
 
     # init and print table
     table = Table(
-        "Route List (nexthop: {})".format(searched_ip_address), cols, width=width
+        "Route List (nexthop: {})".format(searched_ip_address),
+        cols,
+        width=width,
     )
     table.print(route_list)
 
@@ -106,12 +113,16 @@ def main():
             for if_name in vrtr_state["interface"]:
                 if_state = vrtr_state["interface"][if_name]
                 if keys_exists(if_state, "ipv4", "primary", "oper-address"):
-                    oper_address = if_state["ipv4"]["primary"]["oper-address"].data
+                    oper_address = if_state["ipv4"]["primary"][
+                        "oper-address"
+                    ].data
                     ip_address = ipaddress.IPv4Address(oper_address)
                     if_list.append((if_state["if-index"], if_name, ip_address))
 
     # filter interface index list where ipv4 address is searched address
-    if_index_list = [ifs[0].data for ifs in if_list if searched_ip_address == ifs[2]]
+    if_index_list = [
+        ifs[0].data for ifs in if_list if searched_ip_address == ifs[2]
+    ]
 
     route_list = []
     # iterate all vprns
@@ -125,21 +136,25 @@ def main():
                 if keys_exists(
                     vrtr_state, "route-table", traffic_type, ipv_type, "route"
                 ):
-                    routes_state = vrtr_state["route-table"][traffic_type][ipv_type][
-                        "route"
-                    ]
+                    routes_state = vrtr_state["route-table"][traffic_type][
+                        ipv_type
+                    ]["route"]
                     # iterate all routes
                     for route_name in routes_state:
                         if "nexthop" in routes_state[route_name]:
                             # iterate all nexthop
-                            for nexthop_id in routes_state[route_name]["nexthop"]:
+                            for nexthop_id in routes_state[route_name][
+                                "nexthop"
+                            ]:
                                 if keys_exists(
-                                    routes_state[route_name]["nexthop"][nexthop_id],
+                                    routes_state[route_name]["nexthop"][
+                                        nexthop_id
+                                    ],
                                     "if-index",
                                 ):
-                                    nexthop_if_index = routes_state[route_name][
-                                        "nexthop"
-                                    ][nexthop_id]["if-index"].data
+                                    nexthop_if_index = routes_state[
+                                        route_name
+                                    ]["nexthop"][nexthop_id]["if-index"].data
                                     nexthop_if_index = int(nexthop_if_index)
                                     # add route if nexthop interface in interface index list
                                     if nexthop_if_index in if_index_list:
@@ -156,13 +171,21 @@ def main():
         if keys_exists(vrtr_state, "static-routes"):
             for route in vrtr_state["static-routes"]["route"]:
                 # if a route with a next-hop exists
-                if keys_exists(vrtr_state["static-routes"]["route"][route], "next-hop"):
+                if keys_exists(
+                    vrtr_state["static-routes"]["route"][route], "next-hop"
+                ):
                     # identify whether the address portion of the CIDR address is IPv4 or IPv6
-                    version = ipaddress.ip_address(route[0].split("/")[0]).version
+                    version = ipaddress.ip_address(
+                        route[0].split("/")[0]
+                    ).version
                     if version == 4:
-                        route_list.append((route[0], vrtr_name, route[1], "ipv4"))
+                        route_list.append(
+                            (route[0], vrtr_name, route[1], "ipv4")
+                        )
                     elif version == 6:
-                        route_list.append((route[0], vrtr_name, route[1], "ipv6"))
+                        route_list.append(
+                            (route[0], vrtr_name, route[1], "ipv6")
+                        )
                     else:
                         print("Unknown whether ipv4 or ipv6")
                         sys.exit(-1)
@@ -172,8 +195,6 @@ def main():
 
     # disconnect from router
     connection_object.disconnect()
-
-    return 0
 
 
 if __name__ == "__main__":

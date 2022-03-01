@@ -5,6 +5,13 @@ from .errors import *
 
 __all__ = ("TreePrinter", "printTree", "Column", "Padding", "Table", "KeyValueTable", )
 
+__doc__ = """This module contains functions to assist with stylized
+formatting of data.
+
+.. reviewed by PLM 20211201
+.. reviewed by TechComms 20211202
+"""
+
 def _signalLast(iterable):
     iterable = iter(iterable)
     try:
@@ -24,7 +31,8 @@ def _groupByTwo(it):
             break
 
 class TreePrinter:
-    """Object used to print the result of a call to :py:meth:`pysros.management.Datastore.get` as an ASCII tree.
+    """Object used to print the result of a call
+    to :py:meth:`pysros.management.Datastore.get` as an ASCII tree.
 
     :param align: Whether to align values of a container in the same column.
     :type align: bool
@@ -34,10 +42,11 @@ class TreePrinter:
 
 
     .. note::
-       The :py:meth:`pysros.pprint.printTree` function provides a simple way to use this object.
+       The :py:meth:`pysros.pprint.printTree` function provides a
+       simple way to use this object.
 
-    .. Reviewed by PLM 20210625
-    .. Reviewed by TechComms 20210713
+    .. Reviewed by PLM 20211201
+    .. Reviewed by TechComms 20211202
     """
     def __init__(self, *, align=False, depth=None):
         self.align = bool(align)
@@ -96,7 +105,8 @@ class TreePrinter:
         branches.pop()
 
 def printTree(obj, **kwargs):
-    """Print the result of a call to :py:meth:`pysros.management.Datastore.get` as an ASCII tree.
+    """Print the result of a call to :py:meth:`pysros.management.Datastore.get`
+    as an ASCII tree.
 
     See arguments of :class:`.TreePrinter`
 
@@ -117,27 +127,30 @@ def printTree(obj, **kwargs):
        if __name__ == "__main__":
            main()
 
-    .. Reviewed by PLM 20210628
-    .. Reviewed by TechComms 20210705
+    .. Reviewed by PLM 20211201
+    .. Reviewed by TechComms 20211202
     """
     TreePrinter(**kwargs).print(obj)
 
 class Column:
-    """Column descriptor to be used in :class:`pysros.pprint.Table` and :class:`pysros.pprint.KeyValueTable`.
+    """Column descriptor to be used in :class:`pysros.pprint.Table`
+    and :class:`pysros.pprint.KeyValueTable`.
 
     :param width: Width of the column (number of characters).
     :type width: int
-    :param name: Name of the column. This may be None when column headers are not to be printed. Default None.
+    :param name: Name of the column. This may be None when column
+                 headers are not to be printed. Default None.
     :type name: None, str
-    :param align: Alignment of the column: '<' for left, '>' for right and '^' for centered.  Defaults to '<'.
+    :param align: Alignment of the column: '<' for left, '>' for right
+                  and '^' for centered.  Defaults to '<'.
     :type align: str
-    :param padding: Number of padding characters, already accounted for in width.  Default 0.
+    :param padding: Number of padding characters, already accounted
+                    for in width.  Default 0.
     :type padding: int
     :raises ValueError: Error if align is not valid.
 
-    .. Reviewed by PLM 20210628
-    .. Reviewed by TechComms 20210712
-
+    .. Reviewed by PLM 20211201
+    .. Reviewed by TechComms 20211202
     """
     def __init__(self, width, name=None, align='<', padding=0):
         if align != '<' and align != '>' and align != '^':
@@ -262,13 +275,15 @@ class Table(ATable):
 
     :param title: Title of the table.
     :type title: str
-    :param columns: List of column descriptions. Elements of the list can be a :py:class:`pysros.pprint.Column` or
-                    a tuple with parameters to be passed to :py:meth:`pysros.pprint.Column.create`.
+    :param columns: List of column descriptions. Elements of the list can
+                    be a :py:class:`pysros.pprint.Column` or a tuple with
+                    parameters to be passed to :py:meth:`pysros.pprint.Column.create`.
     :param width: Width of the table in characters.
     :type width: int
     :param showCount: Indicate if a count of rows should be shown in the footer.
                       In case no count is required, pass in None.
-                      In case a count is required, pass in the name of the object represented in a row.
+                      In case a count is required, pass in the name of the object
+                      represented in a row.
     :param summary: Optional block of text to be displayed in the footer.
     :type summary: str
 
@@ -287,15 +302,15 @@ class Table(ATable):
            rows = [["row0col0", "row0col1"], ["row1col0", "row1col1"]]
            cols = [(30, "Column0"), (30, "Column1")]
            width = sum([col[0] for col in cols])
-           table = Table("This is my tables title", columns=cols, showCount="CounterName", summary=summary, width=width)
+           table = Table("This is my tables title", columns=cols,
+                         showCount="CounterName", summary=summary, width=width)
            return table, rows
 
        if __name__ == "__main__":
            table, rows = simple_table_builder_example()
 
-    .. Reviewed by PLM 20210628
-    .. Reviewed by TechComms 20210712
-
+    .. Reviewed by PLM 20211201
+    .. Reviewed by TechComms 20211202
     """
     def __init__(self, title, columns, width=79, showCount=None, summary=None):
         super().__init__(title, width=width)

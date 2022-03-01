@@ -4,8 +4,10 @@
 #   Copyright 2021 Nokia
 ###
 
+# pylint: disable=import-error, import-outside-toplevel, line-too-long, too-many-branches, too-many-locals, too-many-statements
+
 """
-Tested on: SR OS 21.10.R1
+Tested on: SR OS 22.2.R1
 
 Example to show how to make a connection and handle exceptions with an
 optional argument.
@@ -22,8 +24,7 @@ Execution on remote machine if show_system_summary.py is executable
 import sys
 
 # Import the connect and sros methods from the management pySROS submodule
-from pysros.management import connect  # pylint: disable=import-error
-from pysros.management import sros  # pylint: disable=import-error
+from pysros.management import connect, sros
 
 
 def usage():
@@ -32,8 +33,6 @@ def usage():
         print("Usage:", sys.argv[0], "[<parameter>]")
     else:
         print("Usage:", sys.argv[0], "username@host [<parameter>]")
-    print(" <parameter>  - (foo|bar|baz|quux)")
-    print(" Default      - foo")
 
 
 def get_remote_connection(my_username, my_host, my_password):
@@ -42,7 +41,7 @@ def get_remote_connection(my_username, my_host, my_password):
 
     # Import the exceptions so they can be caught on error
     # fmt: off
-    from pysros.exceptions import ModelProcessingError  # pylint: disable=import-error disable=import-outside-toplevel
+    from pysros.exceptions import ModelProcessingError
     # fmt: on
 
     # The try statement coupled with the except statements allow an
@@ -103,12 +102,12 @@ def get_connection_with_argv():
             parameter = sys.argv[1]
 
         # Get a local Connection object
-        connection_object = connect()
+        connection_object = connect()  # pylint: disable=missing-kwoa
 
     # The application is running remotely
     else:
         # Import getpass to read the password
-        import getpass  # pylint: disable=import-outside-toplevel
+        import getpass
 
         # Parse the arguments for username, host and optional argument parameters
         if len(sys.argv) > 3 or len(sys.argv) < 2:

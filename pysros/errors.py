@@ -3,6 +3,11 @@
 from .exceptions import *
 from .exceptions import make_exception
 
+__doc__ = """This module contains error definitions for pySROS.
+
+.. reviewed by PLM 20211201
+.. reviewed by TechComms 21211202
+"""
 
 pysros_err_arg_must_be_string = (TypeError, """Argument "module" must be a string""")
 pysros_err_attr_cannot_be_deleted = (AttributeError, "'{obj}' object attribute '{attribute}' cannot be deleted")
@@ -21,7 +26,7 @@ pysros_err_cannot_remove_node = (ModelProcessingError, "Cannot remove {node}")
 pysros_err_cannot_specify_non_key_leaf = (InvalidPathError, "Cannot specify non-key leaf as path attribute")
 pysros_err_commit_conflicts_detected = (SrosConfigConflictError, "Commit failed - conflict detected, configuration changes cleared")
 pysros_err_could_not_create_conn = (RuntimeError, "Cannot create connection - {reason}")
-pysros_err_data_missing = (SrosMgmtError, "Data missing")
+pysros_err_data_missing = (SrosMgmtError, "Entry does not exist")
 pysros_err_depth_must_be_positive = (ValueError, "Depth must be > 0")
 pysros_err_duplicate_found = (SrosMgmtError, "Entry cannot contain duplicates - {duplicate}")
 pysros_err_empty_path = (InvalidPathError, "Empty path")
@@ -59,7 +64,7 @@ pysros_err_type_must_be = (TypeError, "must be {expected:.50s}, not {actual:.50s
 pysros_err_unended_quoted_string = (InvalidPathError, "Unended quoted string")
 pysros_err_unexpected_change_of_path_ctx = (ModelProcessingError, "Unexpected change of path ctx")
 pysros_err_unexpected_end_of_yang = (ModelProcessingError, "Unexpected end of YANG")
-pysros_err_unexpected_token = (ModelProcessingError, "Unexpected token {token} in {filename}:{lineno}")
+pysros_err_unexpected_token = (ModelProcessingError, "Unexpected token {token}")
 pysros_err_unexpected_value_of_type = (TypeError, "Unexpected value of type '{val_type}' in '{type}'")
 pysros_err_unknown_child = (SrosMgmtError, "Cannot find child with name '{child_name}' in path '{path}'")
 pysros_err_unknown_dds = (InternalError, "Unknown data definition statement type {dds}")
@@ -76,3 +81,4 @@ pysros_err_unsupported_type_for_wrapper = (TypeError, "Unsupported type for {wra
 pysros_err_use_deepcopy = (NotImplementedError, "Use '.deepcopy' instead")
 pysros_err_wrong_rhs =(ModelProcessingError, "Invalid argument to the right of the plus symbol")
 pysros_err_wrong_netconf_response = (SrosMgmtError, "Wrong NETCONF response")
+pysros_err_target_should_be_list = (InvalidPathError, "Target should be a list")

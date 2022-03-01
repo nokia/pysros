@@ -8,7 +8,7 @@ from typing import Dict, DefaultDict, List, Set
 
 from .errors import *
 from .identifier import Identifier, NoModule, LazyBindModule
-from .model import Model
+from .model import Model, BuildingModel, StorageConstructionModel
 from .model_path import ModelPath
 from .model_walker import ModelWalker, DataModelWalker
 from .tokenizer import yang_parser
@@ -92,7 +92,7 @@ class YangHandler:
         "yin-element",
     )
 
-    def __init__(self, builder: "ModelBuilder", root: Model):
+    def __init__(self, builder: "ModelBuilder", root: BuildingModel):
         self.builder = builder
         self.root = root
         self.path = [root]
@@ -105,7 +105,7 @@ class YangHandler:
         self.prefix = None
         self.ignore_depth = 0
 
-    def enter(self, name, arg, filename, lineno):
+    def enter(self, name, arg):
         if self.ignore_depth or name not in self.TAGS_SHOULD_BE_PROCESSED:
             self.ignore_depth += 1
             return
@@ -118,21 +118,21 @@ class YangHandler:
         if name == 'typedef':
             new_id = self.get_identifier(arg, name in self.TAGS_FORCE_MODULE)
             assert not new_id.is_lazy_bound()
-            new = Model(new_id, Model.StatementType.typedef_, None, filename, lineno)
+            new = BuildingModel(new_id, BuildingModel.StatementType.typedef_, None)
             self.path.append(new)
         elif name in self.TAGS_WITH_MODEL:
             new_id = self.get_identifier(arg, name in self.TAGS_FORCE_MODULE)
-            new = Model(new_id, Model.StatementType[name.replace("-", "_") + "_"], self.model, filename, lineno)
+            new = BuildingModel(new_id, BuildingModel.StatementType[name.replace("-", "_") + "_"], self.model)
             self.path.append(new)
         elif name in ("augment", "deviation"):
             new_id = self.get_identifier(name, name in self.TAGS_FORCE_MODULE)
-            new = Model(new_id, Model.StatementType[name + "_"], None, filename, lineno)
+            new = BuildingModel(new_id, BuildingModel.StatementType[name + "_"], None)
             new.target_path = self.yang_path_to_model_path(arg)
             (self.builder.augments if name == "augment" else self.builder.deviations).append(new)
             self.path.append(new)
         elif name == "grouping":
             new_id = self.get_identifier(arg, name in self.TAGS_FORCE_MODULE)
-            new = Model(new_id, Model.StatementType[name.replace("-", "_") + "_"], None, filename, lineno)
+            new = BuildingModel(new_id, BuildingModel.StatementType[name.replace("-", "_") + "_"], None)
             self.path.append(new)
             assert new_id not in self.builder.groupings
             self.builder.groupings[new_id] = new
@@ -144,7 +144,7 @@ class YangHandler:
                     arg = self.get_identifier(arg, name in self.TAGS_FORCE_MODULE)
             elif name in self.TAGS_ARG_IS_YANG_PATH_NOT_ABSOLUTE_SCHEMA_ID:
                 arg = self.yang_path_to_model_path(arg, absolute_schema_id = False)
-            self.model.blueprint.append((True, (name, arg, filename, lineno)))
+            self.model.blueprint.append((True, (name, arg)))
 
         handle_name = f'handle_early_{name.replace("-", "_DASH_")}'
         if hasattr(self, handle_name):
@@ -162,16 +162,16 @@ class YangHandler:
             self.builder.types_to_resolve[self.model.name] = self.model.yang_type
         elif name in ("action", "rpc"):
             for child in self.model.children:
-                if child.data_def_stm == Model.StatementType.input_:
+                if child.data_def_stm == BuildingModel.StatementType.input_:
                     break
             else:
-                self.enter("input", None, self.model.filename, self.model.lineno)
+                self.enter("input", None)
                 self.leave("input")
             for child in self.model.children:
-                if child.data_def_stm == Model.StatementType.output_:
+                if child.data_def_stm == BuildingModel.StatementType.output_:
                     break
             else:
-                self.enter("output", None, self.model.filename, self.model.lineno)
+                self.enter("output", None)
                 self.leave("output")
 
         popped = self.full_path.pop()
@@ -200,7 +200,7 @@ class YangHandler:
         self.full_path.pop()
 
     def construct_enter(self, instruction):
-        name, arg, filename, lineno = instruction
+        name, arg = instruction
         handle_name = f'handle_{name.replace("-", "_DASH_")}'
         if hasattr(self, handle_name):
             handler = getattr(self, handle_name)
@@ -246,13 +246,13 @@ class YangHandler:
         return self.model.yang_type[-1] if isinstance(self.model.yang_type, YangUnion) else self.model.yang_type
 
     def handle_identity(self, identifier):
-        assert self.model.data_def_stm == Model.StatementType.identity_
+        assert self.model.data_def_stm == BuildingModel.StatementType.identity_
 
     def handle_base(self, ident):
         if self.in_type:
             assert isinstance(self.last_yang_type, IdentityRef)
             self.last_yang_type.add_base(ident)
-        elif self.model.data_def_stm == Model.StatementType.identity_:
+        elif self.model.data_def_stm == BuildingModel.StatementType.identity_:
             self.model.identity_bases.append(ident)
 
     def handle_path(self, arg: str):
@@ -324,7 +324,7 @@ def _dummy_getter(filename):
 class ModelBuilder:
     """API for walking model tree."""
     def __init__(self, yang_getter=_dummy_getter):
-        self.root = Model("root", Model.StatementType["container_"], None, 'root', -1)
+        self.root = BuildingModel("root", BuildingModel.StatementType["container_"], None)
         self.types_to_resolve = dict()
         self.groupings = dict()
         self.resolved_types = dict()
@@ -355,7 +355,7 @@ class ModelBuilder:
         if module_name not in self.all_yangs:
             self.all_yangs.add(module_name)
             self.parsed_yangs.add(module_name)
-        yang_parser(f, YangHandler(self, self.root), module_name)
+        yang_parser(f, YangHandler(self, self.root))
 
     def DEBUG_register_module(self, module_name, f):
         assert module_name not in self.registered_modules
@@ -375,37 +375,40 @@ class ModelBuilder:
         self.resolve_identities()
         self.resolve_leafrefs()
         self.resolve_config()
+        self.delete_blueprints()
+        self.convert_model()
 
     def perform_parse(self, yang_name, yang_handler=None):
         if yang_name in self.parsed_yangs:
             return
         self.parsed_yangs.add(yang_name)
 
-        yang_parser(self.get_module_content(yang_name), yang_handler or YangHandler(self, self.root), yang_name)
+        yang_parser(self.get_module_content(yang_name), yang_handler or YangHandler(self, self.root))
 
 
-    def add_child_to_uses(self, m: Model):
-        if m.data_def_stm == Model.StatementType.uses_:
-            assert not m.children
+    def add_child_to_uses(self, m: BuildingModel):
+        if m.data_def_stm == BuildingModel.StatementType.uses_:
+            assert not m.has_children
             i = m
             while True:
-                if i.data_def_stm == Model.StatementType.module_:
+                if i.data_def_stm == BuildingModel.StatementType.module_:
                     module = i.name.name
                     break
-                elif i.data_def_stm == Model.StatementType.augment_:
+                elif i.data_def_stm == BuildingModel.StatementType.augment_:
                     module = i.name.prefix
                     break
                 i = i.parent
 
-            def resolve_unresolved(m:Model):
+            def resolve_unresolved(m:BuildingModel):
                 if m.name.prefix is LazyBindModule():
-                    m.name._prefix = module
+                    m.prefix = module
 
-            m.children = [i.deepcopy(m) for i in self.groupings[m.name].children]
+            for i in self.groupings[m.name].children:
+                i.deepcopy(m)
             m.recursive_walk(resolve_unresolved)
             return False
 
-    def set_correct_types(self, m:Model):
+    def set_correct_types(self, m:BuildingModel):
         if m.yang_type is None:
             return
 
@@ -425,8 +428,8 @@ class ModelBuilder:
         # first step creates dict, where we find for each identity
         # its all identities, that are directly derived from it.
         directly_derived: DefaultDict[Identifier, List[Identifier]] = defaultdict(list)
-        def find_derived(m:Model):
-            if m.data_def_stm != Model.StatementType.identity_:
+        def find_derived(m:BuildingModel):
+            if m.data_def_stm != BuildingModel.StatementType.identity_:
                 return
             for b in m.identity_bases:
                 directly_derived[b].append(m.name)
@@ -446,7 +449,7 @@ class ModelBuilder:
             add_derived_recursive(derived[id], id)
 
         # last step iterates through all identityrefs and set possible values
-        def identityref_set_value(m:Model):
+        def identityref_set_value(m:BuildingModel):
             if m.yang_type is None:
                 return
             if type(m.yang_type) is IdentityRef:
@@ -459,12 +462,12 @@ class ModelBuilder:
         self.root.recursive_walk(identityref_set_value)
 
     def resolve_leafrefs(self):
-        def replace_leafrefs(m: Model):
+        def replace_leafrefs(m: BuildingModel):
             if not isinstance(m.yang_type, LeafRef):
                 return
 
             w = DataModelWalker(m)
-            assert m.data_def_stm in (Model.StatementType.leaf_, Model.StatementType.leaf_list_)
+            assert m.data_def_stm in (BuildingModel.StatementType.leaf_, BuildingModel.StatementType.leaf_list_)
 
             while isinstance(w.current.yang_type, LeafRef):
                 path = w.current.yang_type.path
@@ -478,21 +481,23 @@ class ModelBuilder:
         self.root.recursive_walk(replace_leafrefs)
 
     def resolve_groupings(self):
-        def inner(m:Model):
-            if m.data_def_stm == Model.StatementType.uses_:
-                assert not m.children
-                m.children = self.groupings[m.name].children
-                return False
+        def inner(m:BuildingModel):
+            if m.data_def_stm == BuildingModel.StatementType.uses_:
+                if m.has_children:
+                    return False
+                for child in self.groupings[m.name].children:
+                    child.deepcopy(m)
         for grouping in self.groupings.values():
             grouping.recursive_walk(inner)
         self.root.recursive_walk(self.add_child_to_uses)
         for augment in self.augments:
             augment.recursive_walk(self.add_child_to_uses)
 
-    def process_augment(self, m:Model):
-        if m.data_def_stm == Model.StatementType.augment_:
+    def process_augment(self, m:BuildingModel):
+        if m.data_def_stm == BuildingModel.StatementType.augment_:
             w = ModelWalker.path_parse(self.root, m.target_path)
-            w.current.children.extend(i.deepcopy(w.current) for i in m.children)
+            for i in m.children:
+                i.deepcopy(w.current)
 
     def resolve_augments(self):
         current = self.augments
@@ -506,7 +511,8 @@ class ModelBuilder:
                 except InvalidPathError as e:
                     remaining.append(augment)
                     continue
-                node.children.extend(i.deepcopy(node) for i in augment.children)
+                for i in augment.children:
+                    i.deepcopy(node)
             if len(remaining) >= len(current):
                 raise make_exception(pysros_err_unresolved_augment)
             current = remaining
@@ -544,25 +550,48 @@ class ModelBuilder:
                         depth += 1 if instruction[0] else -1
                     w.current.blueprint = list(w.current.blueprint) + deviate.blueprint
                 if deviate.name.name == "not-supported":
-                    idx = w.current.parent.children.index(w.current)
-                    if idx < 0:
-                        raise make_exception(pysros_err_cannot_remove_node, node=w.current.name)
-                    del w.current.parent.children[idx]
-                    w.current.parent = None
+                    w.current.delete_from_parent(quiet=False)
 
     def build_blueprints(self):
         handler = YangHandler(self, self.root)
         handler.construct()
 
-    def resolve_config(self):
-        def set_config(m: Model, value: bool):
-            if m.config is None:
-                m.config = value
-            elif  m.config is True and value is False:
-                # RFC 7950: If a node has "config" set to "false", no node underneath it can have
-                # "config" set to "true".
-                raise make_exception(pysros_err_invalid_config)
+    def delete_blueprints(self):
+        def deleter(m: BuildingModel):
+            del m.blueprint
+        self.root.recursive_walk(deleter)
 
-            for c in m.children:
-                set_config(c, m.config)
-        set_config(self.root, True)
+    def resolve_config(self):
+        def false_setter(m: BuildingModel):
+            m.config = False
+        def resolver(m: BuildingModel):
+            if not m.config:
+                m.recursive_walk(false_setter)
+                return False
+
+        self.root.recursive_walk(resolver)
+
+    def convert_model(self):
+        new_root = StorageConstructionModel("root", BuildingModel.StatementType["container_"], None)
+        w = DataModelWalker(self.root)
+
+        stack = [new_root]
+
+        def enter_fnc(w: DataModelWalker):
+            nonlocal stack
+            new = StorageConstructionModel(w.get_name(), w.get_dds(), stack[-1])
+            new.yang_type = w.current.yang_type
+            new.presence_container = w.current.presence_container
+            new.user_ordered = w.current.user_ordered
+            new.local_keys = w.current.local_keys
+            new.target_path = w.current.target_path
+            new.identity_bases = w.current.identity_bases
+            new.config = w.current.config
+            stack.append(new)
+
+        def leave_fnc(w: DataModelWalker):
+            nonlocal stack
+            stack.pop()
+
+        w.recursive_walk(enter_fnc=enter_fnc, leave_fnc=leave_fnc)
+        self.root = Model(new_root._storage, new_root._index, None)

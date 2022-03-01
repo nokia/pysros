@@ -129,6 +129,16 @@ class _AStorage(ABC):
         else:
             raise make_exception(pysros_err_prefix_does_not_have_ns, prefix=model.name.prefix, name=model.name.name)
 
+def subelement(parent, tag, text=None, attrib=None):
+    """Wrapper around etree.Subelement, that raises SrosMgmtError instead of ValueError."""
+    try:
+        result = etree.SubElement(parent, tag, attrib)
+        if text:
+            result.text = text
+        return result
+    except ValueError as err:
+        raise SrosMgmtError(err.args) from None
+
 class _MoStorage(_AStorage):
     """Data storage for containers and list entries(list+local keys).
 
@@ -142,35 +152,35 @@ class _MoStorage(_AStorage):
         self._delete = False
 
     def to_xml(self, ns_map, root):
-        try:
-            root = etree.SubElement(root, self._resolve_xml_name(self._model, ns_map))
-            for k, v in self._local_keys.items():
-                etree.SubElement(root, self._resolve_xml_name(self._walker.get_child(k).current, ns_map)).text = self._walker.get_child(k).get_type().to_string(v)
-            if self._delete:
-                root.attrib["operation"] = "remove"
-            for k, v in self._child.items():
-                if isinstance(v, (_MoStorage, _ListStorage)):
-                    v.to_xml(ns_map, root)
+        root_attr = None if not self._delete else {"operation": "remove"}
+        root = subelement(root, self._resolve_xml_name(self._model, ns_map), None, root_attr)
+        for k, v in self._local_keys.items():
+            if v is FieldValuePlaceholder():
+                self._leaf_placeholder_to_xml(v, root, self._walker.get_child(k), ns_map)
+            else:
+               txt  = self._walker.get_child(k).get_type().to_string(v)
+               subelement(root, self._resolve_xml_name(self._walker.get_child(k).current, ns_map), txt)
+
+        for k, v in self._child.items():
+            if isinstance(v, (_MoStorage, _ListStorage)):
+                v.to_xml(ns_map, root)
+            else:
+                if v is Delete():
+                    subelement(root, self._resolve_xml_name(self._walker.get_child(k).current, ns_map), None, {"operation": "remove"})
+                elif v is FieldValuePlaceholder():
+                    self._leaf_placeholder_to_xml(v, root, self._walker.get_child(k), ns_map)
                 else:
-                    if v is Delete():
-                        etree.SubElement(root, self._resolve_xml_name(self._walker.get_child(k).current, ns_map)).attrib["operation"] = "remove"
-                    elif v is FieldValuePlaceholder():
-                        self._leaf_placeholder_to_xml(v, root, self._walker.get_child(k), ns_map)
-                    else:
-                        self._leaf_to_xml(v, root, self._walker.get_child(k), ns_map)
-        except ValueError as err:
-            if not err.args[0].startswith("All strings must be XML compatible"):
-                raise
-            raise SrosMgmtError(err.args)
+                    self._leaf_to_xml(v, root, self._walker.get_child(k), ns_map)
 
     def _leaf_to_xml(self, value, root, walker, ns_map):
         if walker.get_dds() == Model.StatementType.leaf_:
             value = (value, )
         for i in value:
-            etree.SubElement(root, self._resolve_xml_name(walker.current, ns_map)).text = walker.get_type().to_string(i)
+            txt = walker.get_type().to_string(i)
+            subelement(root, self._resolve_xml_name(walker.current, ns_map), txt)
 
     def _leaf_placeholder_to_xml(self, value, root, walker, ns_map):
-        etree.SubElement(root, self._resolve_xml_name(walker.current, ns_map))
+        subelement(root, self._resolve_xml_name(walker.current, ns_map))
 
     def to_model(self, *, config_only=False):
         if config_only and self._walker.is_state:
@@ -246,7 +256,7 @@ class _ListStorage(_AStorage):
             for entry in self._entries.values():
                 entry.to_xml(ns_map, root)
         else:
-            elem = etree.SubElement(root, self._resolve_xml_name(self._model, ns_map))
+            subelement(root, self._resolve_xml_name(self._model, ns_map))
 
     def to_model(self, *, config_only=False):
         if config_only and self._walker.is_state:
@@ -335,7 +345,7 @@ class _ASetter(ABC):
 
     .. Reviewed by TechComms 20210712
     """
-    def __init__(self, storage:"_ListStorage"):
+    def __init__(self, storage:"_AStorage"):
         self._storage = storage
 
     @property
@@ -343,7 +353,7 @@ class _ASetter(ABC):
         return FilteredDataModelWalker(self._storage._model)
 
     @staticmethod
-    def create_setter(storage:"_ListStorage"):
+    def create_setter(storage:"_AStorage"):
         if isinstance(storage, _MoStorage):
             return _MoDataSetter(storage)
         else:
@@ -364,6 +374,11 @@ class _ASetter(ABC):
         .. Reviewed by TechComms 20210712
         """
         pass
+
+    def entry_placeholder(self):
+        """Set list keys as a placeholders"""
+        raise make_exception(pysros_err_target_should_be_list)
+
 
     def to_model(self, *, config_only=False):
         """Return data in model format.
@@ -484,10 +499,10 @@ class _ListSetter(_ASetter):
         unwrapper = EntryKeysDictProxy(value)
         if not is_wrapped and self._walker.dict_keys(value):
             for k, v in value.items():
-                self.handle_entry_keys_namespaces(v)
+                self._handle_entry_keys_namespaces(v)
                 self.entry(self._tuple_to_dict(k)).set(v)
         elif self._walker.entry_keys(unwrapper):
-            self.handle_entry_keys_namespaces(value)
+            self._handle_entry_keys_namespaces(value)
             self.entry(value).set(value)
         else:
             raise make_exception(pysros_err_malformed_keys, full_path=self._walker, value=value)
@@ -504,7 +519,7 @@ class _ListSetter(_ASetter):
         except:
             raise make_exception(pysros_err_invalid_key_in_path) from None
 
-    def handle_entry_keys_namespaces(self, entry):
+    def _handle_entry_keys_namespaces(self, entry):
         local_keys = [Identifier(self._walker.get_name().prefix, k) for k in self._walker.get_local_key_names()]
         for k in local_keys:
             if k.model_string in entry:
@@ -525,7 +540,7 @@ class _ListSetter(_ASetter):
 
         .. Reviewed by TechComms 20210712
         """
-        self.handle_entry_keys_namespaces(value)
+        self._handle_entry_keys_namespaces(value)
         self._check_and_unwrap_keys(value)
         return _MoDataSetter(self._storage.get_or_create_entry(self._extract_keys(value)))
 
@@ -541,7 +556,7 @@ class _ListSetter(_ASetter):
         keys = {}
         for e in value:
             if _get_tag(e) in self._walker.get_local_key_names():
-                keys[_get_tag(e)] = e.text
+                keys[_get_tag(e)] = e.text or ""
         if set(keys.keys()) != set(self._walker.get_local_key_names()):
             raise make_exception(pysros_err_schema_box_keys_mismatch, schema_keys=self._walker.get_local_key_names(), box_keys=list(keys.keys()))
         return self.entry_nocheck(keys)
@@ -551,6 +566,10 @@ class _ListSetter(_ASetter):
 
     def delete(self):
         raise make_exception(pysros_err_invalid_path_operation_missing_keys)
+
+    def entry_placeholder(self):
+        keys = {key:FieldValuePlaceholder() for key in self._walker.get_local_key_names()}
+        _MoDataSetter(self._storage.get_or_create_entry(keys)).set({})
 
 class _MoDataSetter(_ASetter):
     """Interface managing specific list entry or container.

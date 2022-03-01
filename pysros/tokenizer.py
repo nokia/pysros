@@ -51,21 +51,18 @@ TOKEN_NAME_TO_ID = {
 }
 
 def tokenize(s:str):
-    lineno = 1
     for i in re.finditer(TOKEN_REGEX, s):
         if i.lastgroup in ("WSP", "SINGLELINE_COMMENT"):
             continue
         if i.lastgroup in ("NEW_LINES", "MULTILINE_COMMENT"):
-            lineno += i.group().count('\n')
             continue
         assert i.lastgroup != "REST"
         val = i.group()
         if i.lastgroup == "QUOTED_STR":
             val = val[1:-1]
-            lineno += val.count('\n')
-        yield (TOKEN_NAME_TO_ID[i.lastgroup], val, lineno)
+        yield (TOKEN_NAME_TO_ID[i.lastgroup], val)
 
-def yang_parser(yang, handler, filename):
+def yang_parser(yang, handler):
     it = iter(tokenize(yang))
     stack = collections.deque()
     ahead_token = None
@@ -81,7 +78,7 @@ def yang_parser(yang, handler, filename):
                 return None
             raise make_exception(pysros_err_unexpected_end_of_yang)
         if res[0] not in expected:
-            raise make_exception(pysros_err_unexpected_token, token=res[1], filename=filename, lineno=res[2])
+            raise make_exception(pysros_err_unexpected_token, token=res[1])
         if res[0] == TOKEN_KIND_STR:
             ahead_token = next(it, None)
             while ahead_token and ahead_token[1] == "+":
@@ -112,7 +109,7 @@ def yang_parser(yang, handler, filename):
         else:
             arg = None
 
-        handler.enter(kw, arg, filename, token[2])
+        handler.enter(kw, arg)
         kind = token[0]
         if kind == TOKEN_STMT_END:
             handler.leave(kw)

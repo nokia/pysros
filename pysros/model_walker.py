@@ -174,7 +174,7 @@ class ModelWalker:
                 parent_data["children"].append(data)
                 parent_data = data
 
-            children = self.current.children[:]
+            children = list(self.current.children)
             while children:
                 child = children.pop()
                 if child.data_def_stm in (Model.StatementType.module_, Model.StatementType.submodule_):
@@ -244,7 +244,7 @@ class ModelWalker:
             else:
                 return True
         else:
-            return bool(self.current.children)
+            return self.current.has_children
 
     class _TokenKind(Enum):
         string  = auto()
@@ -431,7 +431,7 @@ class ModelWalker:
         return "/" + "/".join(str(name.name) + "".join(f"[{key}={value}]" for key, value in keys.items()) for name, keys in zip(self.path, self.keys))
 
     def _get_child(self, child_name:Union[str, Identifier]):
-        children = self.current.children[:]
+        children = list(self.current.children)
         while children:
             child = children.pop()
             if child.name == child_name and child.data_def_stm in self._expected_dds and self._is_allowed(child):
@@ -439,6 +439,21 @@ class ModelWalker:
             if child.data_def_stm in self._recursive_visited_dds:
                 children.extend(child.children)
         raise make_exception(pysros_err_unknown_child, child_name=child_name, path=self._get_path())
+
+    def recursive_walk(self, *, enter_fnc=None, leave_fnc=None):
+        children = list(self.current.children)
+        while children:
+            child = children.pop()
+            if child.data_def_stm in self._expected_dds and self._is_allowed(child):
+                self.path.append(child)
+                self.keys.append(dict())
+                enter_fnc and enter_fnc(self)
+                self.recursive_walk(enter_fnc=enter_fnc, leave_fnc=leave_fnc)
+                leave_fnc and leave_fnc(self)
+                self.path.pop()
+                self.keys.pop()
+            if child.data_def_stm in self._recursive_visited_dds:
+                children.extend(child.children)
 
     def _get_path(self):
         return " ".join(str(model.name) for model in self.path)

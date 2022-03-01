@@ -76,6 +76,7 @@ def main():
     connection_object = get_connection(  # pylint: disable=unused-variable
         host="192.168.168.70", credentials=credentials
     )
+    assert connection_object
 
 
 if __name__ == "__main__":

@@ -8,10 +8,11 @@ from .errors import *
 
 __all__ = ("Container", "Leaf", "LeafList")
 
-__doc__ = """This module contains wrappers describing the YANG structure and metadata obtained from SR OS.
+__doc__ = """This module contains wrappers describing the YANG 
+structure and metadata obtained from SR OS.
 
-.. Reviewed by PLM 20210630
-.. Reviewed by TechComms 20211013
+.. Reviewed by PLM 20211201
+.. Reviewed by TechComms 20211202
 """
 
 class Schema:
