@@ -20,9 +20,8 @@ Execution on remote machine if show_port_counters.py is executable
 
 This application to display system information demonstrates how to parse
 different arguments depending on if the application is running locally or
-remotely.  It also demonstrates how to print table headers in a different
-language.  The state element names and text values are displayed in English,
-since this how they appear in the state datastore.
+remotely.  It also demonstrates how to print table headers and element names
+in a different language.
 
 Add the following alias so that the Python application can be run as a
 native MD-CLI command.
@@ -463,7 +462,6 @@ def show_port_counters_output(connection_object, language):
         print_row_with_spacing(
             local_str["spacer"][language], width, local_str["Port"][language], str(port)
         )
-        print("-" * 80)
 
         # Print oper-state values
         print_row_with_spacing(
@@ -482,121 +480,117 @@ def show_port_counters_output(connection_object, language):
                 str(port_config[port]["description"].data),
             )
 
-            # counter-discontinuity-time is a conditional state leaf, check existence
-            if "counter-discontinuity-time" in port_stats[port]["statistics"]:
-                print_row_with_spacing(
-                    local_str["spacer"][language],
-                    width,
-                    local_str["counter-discontinuity-time"][language],
-                    str(
-                        port_stats[port]["statistics"][
-                            "counter-discontinuity-time"
-                        ].data
-                    ),
-                )
-
-            # last-cleared-time is a conditional state leaf, check existence
-            if "last-cleared-time" in port_stats[port]["statistics"]:
-                print_row_with_spacing(
-                    local_str["spacer"][language],
-                    width,
-                    local_str["last-cleared-time"][language],
-                    str(port_stats[port]["statistics"]["last-cleared-time"].data),
-                )
-
-            # Print input statistics
+        # counter-discontinuity-time is a conditional state leaf, check existence
+        if "counter-discontinuity-time" in port_stats[port]["statistics"]:
             print_row_with_spacing(
                 local_str["spacer"][language],
                 width,
-                local_str["in-discards"][language],
-                port_stats[port]["statistics"]["in-discards"].data,
-            )
-            print_row_with_spacing(
-                local_str["spacer"][language],
-                width,
-                local_str["in-errors"][language],
-                port_stats[port]["statistics"]["in-errors"].data,
-            )
-            print_row_with_spacing(
-                local_str["spacer"][language],
-                width,
-                local_str["in-octets"][language],
-                port_stats[port]["statistics"]["in-octets"].data,
-            )
-            print_row_with_spacing(
-                local_str["spacer"][language],
-                width,
-                local_str["in-packets"][language],
-                port_stats[port]["statistics"]["in-packets"].data,
-            )
-            print_row_with_spacing(
-                local_str["spacer"][language],
-                width,
-                local_str["in-unknown-protocol-discards"][language],
-                port_stats[port]["statistics"]["in-unknown-protocol-discards"].data,
-            )
-            print_row_with_spacing(
-                local_str["spacer"][language],
-                width,
-                local_str["in-broadcast-packets"][language],
-                port_stats[port]["statistics"]["in-broadcast-packets"].data,
-            )
-            print_row_with_spacing(
-                local_str["spacer"][language],
-                width,
-                local_str["in-multicast-packets"][language],
-                port_stats[port]["statistics"]["in-multicast-packets"].data,
-            )
-            print_row_with_spacing(
-                local_str["spacer"][language],
-                width,
-                local_str["in-unicast-packets"][language],
-                port_stats[port]["statistics"]["in-unicast-packets"].data,
+                local_str["counter-discontinuity-time"][language],
+                str(port_stats[port]["statistics"]["counter-discontinuity-time"].data),
             )
 
-            # Print output statistics
+        # last-cleared-time is a conditional state leaf, check existence
+        if "last-cleared-time" in port_stats[port]["statistics"]:
             print_row_with_spacing(
                 local_str["spacer"][language],
                 width,
-                local_str["out-discards"][language],
-                port_stats[port]["statistics"]["out-discards"].data,
+                local_str["last-cleared-time"][language],
+                str(port_stats[port]["statistics"]["last-cleared-time"].data),
             )
-            print_row_with_spacing(
-                local_str["spacer"][language],
-                width,
-                local_str["out-errors"][language],
-                port_stats[port]["statistics"]["out-errors"].data,
-            )
-            print_row_with_spacing(
-                local_str["spacer"][language],
-                width,
-                local_str["out-octets"][language],
-                port_stats[port]["statistics"]["out-octets"].data,
-            )
-            print_row_with_spacing(
-                local_str["spacer"][language],
-                width,
-                local_str["out-packets"][language],
-                port_stats[port]["statistics"]["out-packets"].data,
-            )
-            print_row_with_spacing(
-                local_str["spacer"][language],
-                width,
-                local_str["out-broadcast-packets"][language],
-                port_stats[port]["statistics"]["out-broadcast-packets"].data,
-            )
-            print_row_with_spacing(
-                local_str["spacer"][language],
-                width,
-                local_str["out-multicast-packets"][language],
-                port_stats[port]["statistics"]["out-multicast-packets"].data,
-            )
-            print_row_with_spacing(
-                local_str["spacer"][language],
-                width,
-                local_str["out-unicast-packets"][language],
-                port_stats[port]["statistics"]["out-unicast-packets"].data,
-            )
+
+        # Print input statistics
+        print_row_with_spacing(
+            local_str["spacer"][language],
+            width,
+            local_str["in-discards"][language],
+            port_stats[port]["statistics"]["in-discards"].data,
+        )
+        print_row_with_spacing(
+            local_str["spacer"][language],
+            width,
+            local_str["in-errors"][language],
+            port_stats[port]["statistics"]["in-errors"].data,
+        )
+        print_row_with_spacing(
+            local_str["spacer"][language],
+            width,
+            local_str["in-octets"][language],
+            port_stats[port]["statistics"]["in-octets"].data,
+        )
+        print_row_with_spacing(
+            local_str["spacer"][language],
+            width,
+            local_str["in-packets"][language],
+            port_stats[port]["statistics"]["in-packets"].data,
+        )
+        print_row_with_spacing(
+            local_str["spacer"][language],
+            width,
+            local_str["in-unknown-protocol-discards"][language],
+            port_stats[port]["statistics"]["in-unknown-protocol-discards"].data,
+        )
+        print_row_with_spacing(
+            local_str["spacer"][language],
+            width,
+            local_str["in-broadcast-packets"][language],
+            port_stats[port]["statistics"]["in-broadcast-packets"].data,
+        )
+        print_row_with_spacing(
+            local_str["spacer"][language],
+            width,
+            local_str["in-multicast-packets"][language],
+            port_stats[port]["statistics"]["in-multicast-packets"].data,
+        )
+        print_row_with_spacing(
+            local_str["spacer"][language],
+            width,
+            local_str["in-unicast-packets"][language],
+            port_stats[port]["statistics"]["in-unicast-packets"].data,
+        )
+
+        # Print output statistics
+        print_row_with_spacing(
+            local_str["spacer"][language],
+            width,
+            local_str["out-discards"][language],
+            port_stats[port]["statistics"]["out-discards"].data,
+        )
+        print_row_with_spacing(
+            local_str["spacer"][language],
+            width,
+            local_str["out-errors"][language],
+            port_stats[port]["statistics"]["out-errors"].data,
+        )
+        print_row_with_spacing(
+            local_str["spacer"][language],
+            width,
+            local_str["out-octets"][language],
+            port_stats[port]["statistics"]["out-octets"].data,
+        )
+        print_row_with_spacing(
+            local_str["spacer"][language],
+            width,
+            local_str["out-packets"][language],
+            port_stats[port]["statistics"]["out-packets"].data,
+        )
+        print_row_with_spacing(
+            local_str["spacer"][language],
+            width,
+            local_str["out-broadcast-packets"][language],
+            port_stats[port]["statistics"]["out-broadcast-packets"].data,
+        )
+        print_row_with_spacing(
+            local_str["spacer"][language],
+            width,
+            local_str["out-multicast-packets"][language],
+            port_stats[port]["statistics"]["out-multicast-packets"].data,
+        )
+        print_row_with_spacing(
+            local_str["spacer"][language],
+            width,
+            local_str["out-unicast-packets"][language],
+            port_stats[port]["statistics"]["out-unicast-packets"].data,
+        )
 
     # Print the closing delimator
     print("=" * 80)

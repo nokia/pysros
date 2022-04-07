@@ -34,7 +34,7 @@ class RequestData:
 
         .. Reviewed by TechComms 20210712
         """
-        walker = path if isinstance(path, ModelWalker) else FilteredDataModelWalker.path_parse(self._root, path)
+        walker = path if isinstance(path, ModelWalker) else FilteredDataModelWalker.user_path_parse(self._root, path)
         current = _ASetter.create_setter(self._data)
         for elem, keys in zip(walker.path, walker.keys):
             if not isinstance(current, _MoDataSetter):
@@ -44,6 +44,8 @@ class RequestData:
                     raise make_exception(pysros_err_no_data_found)
                 current = current.child_mos.get_or_create(elem.name.name)
                 if keys:
+                    if strict and not current.entry_exists_nocheck(keys):
+                        raise make_exception(pysros_err_no_data_found)
                     current = current.entry_nocheck(keys)
             elif current.keys.can_contains(elem.name.name):
                 current = current.keys.get(elem.name.name)
@@ -497,7 +499,7 @@ class _ListSetter(_ASetter):
         value = self._unwrap(value)
         value = copy.copy(value)
         unwrapper = EntryKeysDictProxy(value)
-        if not is_wrapped and self._walker.dict_keys(value):
+        if value and not is_wrapped and self._walker.dict_keys(value):
             for k, v in value.items():
                 self._handle_entry_keys_namespaces(v)
                 self.entry(self._tuple_to_dict(k)).set(v)
@@ -520,9 +522,17 @@ class _ListSetter(_ASetter):
             raise make_exception(pysros_err_invalid_key_in_path) from None
 
     def _handle_entry_keys_namespaces(self, entry):
+        """Strip namespace prefixes from entry key names.
+        Also raise an error if there are two identical entry keys, one with the namespace prefix and other one without it.
+
+        .. Reviewed by PLM 20220318
+        .. Reviewed by TechComms 20220318
+        """
         local_keys = [Identifier(self._walker.get_name().prefix, k) for k in self._walker.get_local_key_names()]
         for k in local_keys:
             if k.model_string in entry:
+                if k.name in entry:
+                    raise make_exception(pysros_err_malformed_keys, full_path=self._walker, value=entry[k.model_string])
                 entry[k.name] = entry.pop(k.model_string)
 
     def _check_and_unwrap_keys(self, entry):
@@ -551,6 +561,16 @@ class _ListSetter(_ASetter):
         .. Reviewed by PLM 20211018
         """
         return _MoDataSetter(self._storage.get_or_create_entry(self._convert_keys_to_model(self._extract_keys(value))))
+
+    def entry_exists_nocheck(self, value):
+        """Receive entry with specified keys in value without checking for the correct type. Keys are expected
+        as dict(name->value). Additional fields may be present (no verification for extra fields).
+        Return true if entry exists, otherwise false.
+
+        .. Reviewed by PLM 20220318
+        .. Reviewed by TechComms 20220318
+        """
+        return self._storage.has_entry(self._convert_keys_to_model(self._extract_keys(value)))
 
     def entry_xml(self, value):
         keys = {}
@@ -687,6 +707,8 @@ class _MoDataSetter(_ASetter):
         for e in value:
             if not self._walker.has_child(_get_tag(e)):
                 raise make_exception(pysros_err_unknown_child, child_name=_get_tag(e), path=self._walker._get_path())
+            if self._walker.is_region_blocked_in_child(_get_tag(e)):
+                continue
             else:
                 if self._walker.get_child_dds(_get_tag(e)) in (Model.StatementType.leaf_, Model.StatementType.leaf_list_) and _get_tag(e) not in self._walker.get_local_key_names():
                     self.fields.get(_get_tag(e)).set_or_append_as_xml(e)

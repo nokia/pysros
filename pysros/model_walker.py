@@ -305,8 +305,12 @@ class ModelWalker:
     @classmethod
     def user_path_parse(cls, *args, **kwargs):
         res = cls.path_parse(*args, **kwargs)
+        assert isinstance(res, ModelWalker)
         if res.is_root:
             raise make_exception(pysros_err_root_path)
+        for elem in res.path:
+            if elem.is_region_blocked:
+                raise make_exception(pysros_err_unknown_element, element=elem.name.name)
         return res
 
     @classmethod
@@ -368,8 +372,6 @@ class ModelWalker:
                     missing_keys.update(res.current.local_keys)
                     is_root_element = False
                 except Exception as e:
-                    if is_root_element:
-                        raise make_exception(pysros_err_unknown_root_element) from None
                     raise make_exception(pysros_err_unknown_element, element=elem) from None
                 continue
             if i == "[":
@@ -460,6 +462,9 @@ class ModelWalker:
 
     def _is_allowed(self, model):
         return True
+
+    def is_region_blocked_in_child(self, child_name:Union[str, Identifier]):
+        return self._get_child(child_name).is_region_blocked
 
 class DataModelWalker(ModelWalker):
     _expected_dds = (Model.StatementType.container_, Model.StatementType.list_, Model.StatementType.leaf_, Model.StatementType.leaf_list_)

@@ -1,0 +1,19 @@
+Release 22.2
+************
+
+22.2.2
+######
+
+
+22.2.1
+######
+
+* Performance improvements for connections when the YANG
+  schema has already been generated.
+* :py:meth:`pysros.management.Datastore.get_list_keys` method
+  introduced.
+
+.. Reviewed by PLM 20220316
+
+
+

@@ -738,6 +738,8 @@ class Datastore:
         .. Reviewed by TechComms 20211202
         """
         with self.connection._process_connected():
+            if self.target == 'running':
+                raise make_exception(pysros_err_cannot_modify_config)
             if not self._exists(path, Datastore._ExistReason.delete):
                 raise make_exception(pysros_err_data_missing)
             self._delete(path)
