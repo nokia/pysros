@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
-### show_system_summary.py
+### show_port_counters.py
 #   Copyright 2021 Nokia
 ###
 
-# pylint: disable=line-too-long
+# pylint: disable=import-error, import-outside-toplevel, line-too-long, too-many-branches, too-many-locals, too-many-statements
+
 """
 Tested on: SR OS 21.10.R1
 
@@ -19,9 +20,8 @@ Execution on remote machine if show_port_counters.py is executable
 
 This application to display system information demonstrates how to parse
 different arguments depending on if the application is running locally or
-remotely.  It also demonstrates how to print table headers in a different
-language.  The state element names and text values are displayed in English,
-since this how they appear in the state datastore.
+remotely.  It also demonstrates how to print table headers and element names
+in a different language.
 
 Add the following alias so that the Python application can be run as a
 native MD-CLI command.
@@ -36,8 +36,6 @@ native MD-CLI command.
 /configure system { management-interface cli md-cli environment command-alias alias "counters" mount-point "/show port" }
 """
 
-# pylint: disable=too-many-locals
-
 # Import sys for parsing arguments and returning specific exit codes
 import sys
 
@@ -45,8 +43,7 @@ import sys
 import datetime
 
 # Import the connect and sros methods from the management pySROS submodule
-from pysros.management import connect  # pylint: disable=import-error
-from pysros.management import sros  # pylint: disable=import-error
+from pysros.management import connect, sros
 
 # Define local language strings
 local_str = {
@@ -58,6 +55,7 @@ local_str = {
         "russian": "Русский",
         "slovak": "Slovenský",
         "spanish": "Español",
+        "turkish": "Türkçe",
     },
     "spacer": {
         "chinese": "\u3000",
@@ -67,6 +65,7 @@ local_str = {
         "russian": " ",
         "slovak": " ",
         "spanish": " ",
+        "turkish": " ",
     },
     "Port Statistics for": {
         "chinese": "端口统计信息",
@@ -76,6 +75,7 @@ local_str = {
         "russian": "Статистика порта",
         "slovak": "Štatistiky Porto pre",
         "spanish": "Estadísticas del Puerto",
+        "turkish": "Port İstatistikleri Özeti",
     },
     "Port": {
         "chinese": "端口",
@@ -85,6 +85,7 @@ local_str = {
         "russian": "Порт",
         "slovak": "Port",
         "spanish": "Puerto",
+        "turkish": "Port",
     },
     "description": {
         "chinese": "描述",
@@ -94,6 +95,7 @@ local_str = {
         "russian": "Описание",
         "slovak": "Popis",
         "spanish": "Descripción",
+        "turkish": "Betimleme",
     },
     "oper-state": {
         "chinese": "状态",
@@ -103,6 +105,7 @@ local_str = {
         "russian": "Операционный статус",
         "slovak": "Stav portu",
         "spanish": "Estado operacional",
+        "turkish": "Operasyonel durum",
     },
     "counter-discontinuity-time": {
         "chinese": "计数中断时间",
@@ -112,6 +115,7 @@ local_str = {
         "russian": "Счетчик прерывности",
         "slovak": "Celkové trvanie výpadkov počítadla",
         "spanish": "Tiempo desde última discontinuidad en contadores",
+        "turkish": "Sayaç süreksizlik zamanı",
     },
     "last-cleared-time": {
         "chinese": "上次清空时间",
@@ -121,6 +125,7 @@ local_str = {
         "russian": "Время-послед.-сброса",
         "slovak": "Čas posledného vyčistenia",
         "spanish": "Hora del último borrado",
+        "turkish": "Son temizlenme zamanı",
     },
     "in-discards": {
         "chinese": "ｉｎ－丢包",
@@ -130,6 +135,7 @@ local_str = {
         "russian": "Вх. отклоненных",
         "slovak": "Zahodenia na vstupe",
         "spanish": "Descartes en entrada",
+        "turkish": "Giren atılmışlar",
     },
     "in-errors": {
         "chinese": "ｉｎ－错误",
@@ -139,6 +145,7 @@ local_str = {
         "russian": "Вх. ошибок",
         "slovak": "Chyby na vstupe",
         "spanish": "Errores en entrada",
+        "turkish": "Giren hatalılar ",
     },
     "in-octets": {
         "chinese": "ｉｎ－转发字节",
@@ -148,6 +155,7 @@ local_str = {
         "russian": "Вх. октетов",
         "slovak": "Oktety na vstupe",
         "spanish": "Octetos en entrada",
+        "turkish": "Giren oktetler",
     },
     "in-packets": {
         "chinese": "ｉｎ－转发数据包",
@@ -157,6 +165,7 @@ local_str = {
         "russian": "Вх. пакетов",
         "slovak": "Pakety na vstupe",
         "spanish": "Paquetes en entrada",
+        "turkish": "Giren paketler",
     },
     "in-unknown-protocol-discards": {
         "chinese": "ｉｎ－未知协议丢包",
@@ -166,6 +175,7 @@ local_str = {
         "russian": "Вх. отклоненных неизвестный протокол",
         "slovak": "Zahodené neznáme protokoly na vstupe",
         "spanish": "Descartes por protocol desconocido en entrada",
+        "turkish": "Giren bilinmeyen protokollü atılmışlar",
     },
     "in-broadcast-packets": {
         "chinese": "ｉｎ－广播转发数据包",
@@ -175,6 +185,7 @@ local_str = {
         "russian": "Вх. широковещательных пакетов",
         "slovak": "Broadcast pakety na vstupe",
         "spanish": "Paquetes broadcast en entrada",
+        "turkish": "Giren broadcast paketler",
     },
     "in-multicast-packets": {
         "chinese": "ｉｎ－组播转发数据包",
@@ -184,6 +195,7 @@ local_str = {
         "russian": "Вх. мультикаст пакетов",
         "slovak": "Multicast pakety na vstupe",
         "spanish": "Paquetes multicast en entrada",
+        "turkish": "Giren multicast paketler",
     },
     "in-unicast-packets": {
         "chinese": "ｉｎ－单播转发数据包",
@@ -193,6 +205,7 @@ local_str = {
         "russian": "Вх. юникаст пакетов",
         "slovak": "Unicast pakety na vstupe",
         "spanish": "Paquetes unicast en entrada",
+        "turkish": "Giren unicast paketler",
     },
     "out-discards": {
         "chinese": "ｏｕｔ－丢包",
@@ -202,6 +215,7 @@ local_str = {
         "russian": "Исх. отклоненных",
         "slovak": "Zahodenia na výstupe",
         "spanish": "Descartes en salida",
+        "turkish": "Çıkan atılmışlar",
     },
     "out-errors": {
         "chinese": "ｏｕｔ－错误",
@@ -211,6 +225,7 @@ local_str = {
         "russian": "Исх. ошибок",
         "slovak": "Chyby na výstupe",
         "spanish": "Errores en salida",
+        "turkish": "Çıkan hatalılar",
     },
     "out-octets": {
         "chinese": "ｏｕｔ－转发字节",
@@ -220,6 +235,7 @@ local_str = {
         "russian": "Исх. октетов",
         "slovak": "Oktety na výstupe",
         "spanish": "Octetos en salida",
+        "turkish": "Çıkan oktetler",
     },
     "out-packets": {
         "chinese": "ｏｕｔ－转发数据包",
@@ -229,6 +245,7 @@ local_str = {
         "russian": "Исх. пакетов",
         "slovak": "Pakety na výstupe",
         "spanish": "Paquetes en salida",
+        "turkish": "Çıkan paketler",
     },
     "out-broadcast-packets": {
         "chinese": "ｏｕｔ－广播转发数据包",
@@ -238,6 +255,7 @@ local_str = {
         "russian": "Исх. широковещательных пакетов",
         "slovak": "Broadcast pakety na výstupe",
         "spanish": "Paquetes broadcast en salida",
+        "turkish": "Çıkan broadcast paketler",
     },
     "out-multicast-packets": {
         "chinese": "ｏｕｔ－组播转发数据包",
@@ -247,6 +265,7 @@ local_str = {
         "russian": "Исх. мультикаст пакетов",
         "slovak": "Multicast pakety na výstupe",
         "spanish": "Paquetes multicast en salida",
+        "turkish": "Çıkan multicast paketler",
     },
     "out-unicast-packets": {
         "chinese": "ｏｕｔ－单播转发数据包",
@@ -256,6 +275,7 @@ local_str = {
         "russian": "Исх. юникаст пакетов",
         "slovak": "Unicast pakety na výstupe",
         "spanish": "Paquetes unicast en salida",
+        "turkish": "Çıkan unicast paketler",
     },
 }
 
@@ -264,15 +284,14 @@ def usage():
     """Print the usage"""
 
     if sros():
-        # Remove hyphens that are added in the python-script "show-port-counters" name
-        for i in sys.argv[0]:
-            if i in "-":
-                sys.argv[0] = sys.argv[0].replace(i, " ")
         print("")
-        print("", sys.argv[0], "[<keyword>]")
+        # Remove hyphens that are added in the python-script "show-port-counters" name
+        print("", sys.argv[0].replace("-", " "), "[<keyword>]")
     else:
         print("Usage:", sys.argv[0], "username@host [<keyword>]")
-    print(" <keyword>  - (chinese|english|french|japanese|russian|slovak|spanish)")
+    print(
+        " <keyword>  - (chinese|english|french|japanese|russian|slovak|spanish|turkish)"
+    )
     print(" Default    - english")
 
 
@@ -282,7 +301,7 @@ def get_remote_connection(my_username, my_host, my_password):
 
     # Import the exceptions so they can be caught on error
     # fmt: off
-    from pysros.exceptions import ModelProcessingError  # pylint: disable=import-error disable=import-outside-toplevel
+    from pysros.exceptions import ModelProcessingError
     # fmt: on
 
     # The try statement coupled with the except statements allow an
@@ -352,57 +371,62 @@ def print_row_with_spacing(spacer, column, name, value):
 def show_port_counters_output(connection_object, language):
     """Main function for the show_port_counters command"""
 
+    bright_green = "\u001b[32;1m"
     bright_red = "\u001b[31;1m"
-    green = "\u001b[32m"
-    reset = "\u001b[0m"
-    yellow = "\u001b[33m"
+    bright_yellow = "\u001b[33;1m"
+    reset_color = "\u001b[0m"
 
     # Define local language oper-state strings and colors
     oper_state_str = {
         "diagnosing": {
-            "chinese": yellow + "diagnosing" + reset,
-            "english": yellow + "diagnosing" + reset,
-            "french": yellow + "diagnosing" + reset,
-            "japanese": yellow + "diagnosing" + reset,
-            "russian": yellow + "Диагностика" + reset,
-            "slovak": yellow + "vyhodnocovaný" + reset,
-            "spanish": yellow + "en diagnóstico" + reset,
+            "chinese": bright_yellow + "diagnosing" + reset_color,
+            "english": bright_yellow + "diagnosing" + reset_color,
+            "french": bright_yellow + "diagnosing" + reset_color,
+            "japanese": bright_yellow + "diagnosing" + reset_color,
+            "russian": bright_yellow + "Диагностика" + reset_color,
+            "slovak": bright_yellow + "vyhodnocovaný" + reset_color,
+            "spanish": bright_yellow + "en diagnóstico" + reset_color,
+            "turkish": bright_yellow + "tanılanıyor" + reset_color,
         },
         "down": {
-            "chinese": bright_red + "down" + reset,
-            "english": bright_red + "down" + reset,
-            "french": bright_red + "down" + reset,
-            "japanese": bright_red + "down" + reset,
-            "russian": bright_red + "Выкл." + reset,
-            "slovak": bright_red + "mimo prevádzky" + reset,
-            "spanish": bright_red + "down" + reset,
+            "chinese": bright_red + "down" + reset_color,
+            "english": bright_red + "down" + reset_color,
+            "french": bright_red + "down" + reset_color,
+            "japanese": bright_red + "down" + reset_color,
+            "russian": bright_red + "Выкл." + reset_color,
+            "slovak": bright_red + "mimo prevádzky" + reset_color,
+            "spanish": bright_red + "down" + reset_color,
+            "turkish": bright_red + "düşük" + reset_color,
         },
         "failed": {
-            "chinese": bright_red + "failed" + reset,
-            "english": bright_red + "failed" + reset,
-            "french": bright_red + "failed" + reset,
-            "japanese": bright_red + "failed" + reset,
-            "russian": bright_red + "Ошибка" + reset,
-            "slovak": bright_red + "zlyhaný" + reset,
-            "spanish": bright_red + "fallo" + reset,
+            "chinese": bright_red + "failed" + reset_color,
+            "english": bright_red + "failed" + reset_color,
+            "french": bright_red + "failed" + reset_color,
+            "japanese": bright_red + "failed" + reset_color,
+            "russian": bright_red + "Ошибка" + reset_color,
+            "slovak": bright_red + "zlyhaný" + reset_color,
+            "spanish": bright_red + "fallo" + reset_color,
+            "turkish": bright_red + "arızalı" + reset_color,
         },
         "unknown": {
-            "chinese": bright_red + "unknown" + reset,
-            "english": bright_red + "unknown" + reset,
-            "french": bright_red + "unknown" + reset,
-            "japanese": bright_red + "unknown" + reset,
-            "russian": bright_red + "неизвестно" + reset,
-            "slovak": bright_red + "neznámy" + reset,
-            "spanish": bright_red + "desconocido" + reset,
+            "chinese": bright_red + "unknown" + reset_color,
+            "english": bright_red + "unknown" + reset_color,
+            "french": bright_red + "unknown" + reset_color,
+            "japanese": bright_red + "unknown" + reset_color,
+            "russian": bright_red + "неизвестно" + reset_color,
+            "slovak": bright_red + "neznámy" + reset_color,
+            "spanish": bright_red + "desconocido" + reset_color,
+            "turkish": bright_red + "bilinmeyen" + reset_color,
         },
         "up": {
-            "chinese": green + "up" + reset,
-            "english": green + "up" + reset,
-            "french": green + "up" + reset,
-            "japanese": green + "up" + reset,
-            "russian": green + "Вкл." + reset,
-            "slovak": green + "v prevádzke" + reset,
-            "spanish": green + "up" + reset,
+            "chinese": bright_green + "up" + reset_color,
+            "english": bright_green + "up" + reset_color,
+            "french": bright_green + "up" + reset_color,
+            "japanese": bright_green + "up" + reset_color,
+            "russian": bright_green + "Вкл." + reset_color,
+            "slovak": bright_green + "v prevádzke" + reset_color,
+            "spanish": bright_green + "up" + reset_color,
+            "turkish": bright_green + "ayakta" + reset_color,
         },
     }
 
@@ -428,7 +452,7 @@ def show_port_counters_output(connection_object, language):
     width = set_column_width(language)
     is_first_item = True
     for port in sorted(port_stats):
-        # Only display the separator after the first item
+        # Only print the separator after the first item
         if is_first_item:
             is_first_item = False
         else:
@@ -438,7 +462,6 @@ def show_port_counters_output(connection_object, language):
         print_row_with_spacing(
             local_str["spacer"][language], width, local_str["Port"][language], str(port)
         )
-        print("-" * 80)
 
         # Print oper-state values
         print_row_with_spacing(
@@ -457,125 +480,117 @@ def show_port_counters_output(connection_object, language):
                 str(port_config[port]["description"].data),
             )
 
-        # Print in counters if the port is not down
-        # The operational state can be: unknown, up, down, diagnosing, failed
-        if str(port_stats[port]["oper-state"]) != "down":
-
-            # counter-discontinuity-time is a conditional state leaf, check existence
-            if "counter-discontinuity-time" in port_stats[port]["statistics"]:
-                print_row_with_spacing(
-                    local_str["spacer"][language],
-                    width,
-                    local_str["counter-discontinuity-time"][language],
-                    str(
-                        port_stats[port]["statistics"][
-                            "counter-discontinuity-time"
-                        ].data
-                    ),
-                )
-
-            # last-cleared-time is a conditional state leaf, check existence
-            if "last-cleared-time" in port_stats[port]["statistics"]:
-                print_row_with_spacing(
-                    local_str["spacer"][language],
-                    width,
-                    local_str["last-cleared-time"][language],
-                    str(port_stats[port]["statistics"]["last-cleared-time"].data),
-                )
-
-            # Print input statistics
+        # counter-discontinuity-time is a conditional state leaf, check existence
+        if "counter-discontinuity-time" in port_stats[port]["statistics"]:
             print_row_with_spacing(
                 local_str["spacer"][language],
                 width,
-                local_str["in-discards"][language],
-                port_stats[port]["statistics"]["in-discards"].data,
-            )
-            print_row_with_spacing(
-                local_str["spacer"][language],
-                width,
-                local_str["in-errors"][language],
-                port_stats[port]["statistics"]["in-errors"].data,
-            )
-            print_row_with_spacing(
-                local_str["spacer"][language],
-                width,
-                local_str["in-octets"][language],
-                port_stats[port]["statistics"]["in-octets"].data,
-            )
-            print_row_with_spacing(
-                local_str["spacer"][language],
-                width,
-                local_str["in-packets"][language],
-                port_stats[port]["statistics"]["in-packets"].data,
-            )
-            print_row_with_spacing(
-                local_str["spacer"][language],
-                width,
-                local_str["in-unknown-protocol-discards"][language],
-                port_stats[port]["statistics"]["in-unknown-protocol-discards"].data,
-            )
-            print_row_with_spacing(
-                local_str["spacer"][language],
-                width,
-                local_str["in-broadcast-packets"][language],
-                port_stats[port]["statistics"]["in-broadcast-packets"].data,
-            )
-            print_row_with_spacing(
-                local_str["spacer"][language],
-                width,
-                local_str["in-multicast-packets"][language],
-                port_stats[port]["statistics"]["in-multicast-packets"].data,
-            )
-            print_row_with_spacing(
-                local_str["spacer"][language],
-                width,
-                local_str["in-unicast-packets"][language],
-                port_stats[port]["statistics"]["in-unicast-packets"].data,
+                local_str["counter-discontinuity-time"][language],
+                str(port_stats[port]["statistics"]["counter-discontinuity-time"].data),
             )
 
-            # Print output statistics
+        # last-cleared-time is a conditional state leaf, check existence
+        if "last-cleared-time" in port_stats[port]["statistics"]:
             print_row_with_spacing(
                 local_str["spacer"][language],
                 width,
-                local_str["out-discards"][language],
-                port_stats[port]["statistics"]["out-discards"].data,
+                local_str["last-cleared-time"][language],
+                str(port_stats[port]["statistics"]["last-cleared-time"].data),
             )
-            print_row_with_spacing(
-                local_str["spacer"][language],
-                width,
-                local_str["out-errors"][language],
-                port_stats[port]["statistics"]["out-errors"].data,
-            )
-            print_row_with_spacing(
-                local_str["spacer"][language],
-                width,
-                local_str["out-octets"][language],
-                port_stats[port]["statistics"]["out-octets"].data,
-            )
-            print_row_with_spacing(
-                local_str["spacer"][language],
-                width,
-                local_str["out-packets"][language],
-                port_stats[port]["statistics"]["out-packets"].data,
-            )
-            print_row_with_spacing(
-                local_str["spacer"][language],
-                width,
-                local_str["out-broadcast-packets"][language],
-                port_stats[port]["statistics"]["out-broadcast-packets"].data,
-            )
-            print_row_with_spacing(
-                local_str["spacer"][language],
-                width,
-                local_str["out-multicast-packets"][language],
-                port_stats[port]["statistics"]["out-multicast-packets"].data,
-            )
-            print_row_with_spacing(
-                local_str["spacer"][language],
-                width,
-                local_str["out-unicast-packets"][language],
-                port_stats[port]["statistics"]["out-unicast-packets"].data,
-            )
+
+        # Print input statistics
+        print_row_with_spacing(
+            local_str["spacer"][language],
+            width,
+            local_str["in-discards"][language],
+            port_stats[port]["statistics"]["in-discards"].data,
+        )
+        print_row_with_spacing(
+            local_str["spacer"][language],
+            width,
+            local_str["in-errors"][language],
+            port_stats[port]["statistics"]["in-errors"].data,
+        )
+        print_row_with_spacing(
+            local_str["spacer"][language],
+            width,
+            local_str["in-octets"][language],
+            port_stats[port]["statistics"]["in-octets"].data,
+        )
+        print_row_with_spacing(
+            local_str["spacer"][language],
+            width,
+            local_str["in-packets"][language],
+            port_stats[port]["statistics"]["in-packets"].data,
+        )
+        print_row_with_spacing(
+            local_str["spacer"][language],
+            width,
+            local_str["in-unknown-protocol-discards"][language],
+            port_stats[port]["statistics"]["in-unknown-protocol-discards"].data,
+        )
+        print_row_with_spacing(
+            local_str["spacer"][language],
+            width,
+            local_str["in-broadcast-packets"][language],
+            port_stats[port]["statistics"]["in-broadcast-packets"].data,
+        )
+        print_row_with_spacing(
+            local_str["spacer"][language],
+            width,
+            local_str["in-multicast-packets"][language],
+            port_stats[port]["statistics"]["in-multicast-packets"].data,
+        )
+        print_row_with_spacing(
+            local_str["spacer"][language],
+            width,
+            local_str["in-unicast-packets"][language],
+            port_stats[port]["statistics"]["in-unicast-packets"].data,
+        )
+
+        # Print output statistics
+        print_row_with_spacing(
+            local_str["spacer"][language],
+            width,
+            local_str["out-discards"][language],
+            port_stats[port]["statistics"]["out-discards"].data,
+        )
+        print_row_with_spacing(
+            local_str["spacer"][language],
+            width,
+            local_str["out-errors"][language],
+            port_stats[port]["statistics"]["out-errors"].data,
+        )
+        print_row_with_spacing(
+            local_str["spacer"][language],
+            width,
+            local_str["out-octets"][language],
+            port_stats[port]["statistics"]["out-octets"].data,
+        )
+        print_row_with_spacing(
+            local_str["spacer"][language],
+            width,
+            local_str["out-packets"][language],
+            port_stats[port]["statistics"]["out-packets"].data,
+        )
+        print_row_with_spacing(
+            local_str["spacer"][language],
+            width,
+            local_str["out-broadcast-packets"][language],
+            port_stats[port]["statistics"]["out-broadcast-packets"].data,
+        )
+        print_row_with_spacing(
+            local_str["spacer"][language],
+            width,
+            local_str["out-multicast-packets"][language],
+            port_stats[port]["statistics"]["out-multicast-packets"].data,
+        )
+        print_row_with_spacing(
+            local_str["spacer"][language],
+            width,
+            local_str["out-unicast-packets"][language],
+            port_stats[port]["statistics"]["out-unicast-packets"].data,
+        )
 
     # Print the closing delimator
     print("=" * 80)
@@ -607,12 +622,12 @@ def get_connection_with_argv():
                 sys.exit(2)
 
         # Get a local Connection object
-        connection_object = connect()
+        connection_object = connect()  # pylint: disable=missing-kwoa
 
     # The application is running remotely
     else:
         # Import getpass to read the password
-        import getpass  # pylint: disable=import-outside-toplevel
+        import getpass
 
         # Parse the arguments for connection and optional language parameters
         if len(sys.argv) > 3 or len(sys.argv) < 2:

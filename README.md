@@ -32,6 +32,12 @@ Copyright 2021 Nokia.
 
 The license is located [here](LICENSE.md).
 
+## Reporting issues ##
+
+Issues, suggestions, and enhancements are welcome.  Please use the Nokia support
+process.  Issues raised in GitHub may be considered for inclusion into the project 
+by Nokia.  Pull requests are not accepted.
+
 ## Installation ##
 
 Multiple installation methods are available:

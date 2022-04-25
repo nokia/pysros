@@ -4,7 +4,8 @@
 #   Copyright 2021 Nokia
 ###
 
-# pylint: disable=line-too-long
+# pylint: disable=import-error, import-outside-toplevel, line-too-long, too-many-branches, too-many-locals, too-many-statements
+
 """
 Tested on: SR OS 21.10.R1
 
@@ -36,10 +37,6 @@ native MD-CLI command.
 /configure system { management-interface cli md-cli environment command-alias alias "summary" mount-point "/show system" }
 """
 
-# pylint: disable=too-many-locals
-# pylint: disable=too-many-statements
-# pylint: disable=too-many-branches
-
 # Import sys for parsing arguments and returning specific exit codes
 import sys
 
@@ -47,8 +44,7 @@ import sys
 import datetime
 
 # Import the connect and sros methods from the management pySROS submodule
-from pysros.management import connect  # pylint: disable=import-error
-from pysros.management import sros  # pylint: disable=import-error
+from pysros.management import connect, sros
 
 
 # Define local language strings
@@ -61,6 +57,7 @@ local_str = {
         "russian": "Русский",
         "slovak": "Slovenský",
         "spanish": "Español",
+        "turkish": "Türkçe",
     },
     "System Summary for": {
         "chinese": "系统概要",
@@ -70,6 +67,7 @@ local_str = {
         "russian": "Сводка по системе",
         "slovak": "Sumár Systému pre",
         "spanish": "Resumen del Sistema",
+        "turkish": "Sistem Özeti",
     },
     "Active Alarms": {
         "chinese": "活动告警",
@@ -79,6 +77,7 @@ local_str = {
         "russian": "Активных аварий",
         "slovak": "Aktívne Alarmy",
         "spanish": "Alarmas Activas",
+        "turkish": "Etkin Alarmlar",
     },
     "FP Error Statistics": {
         "chinese": "ＦＰ错误统计",
@@ -88,6 +87,7 @@ local_str = {
         "russian": "Статистика ошибок FP",
         "slovak": "Štatistiky Chýb FP",
         "spanish": "Estadísticas de Errores FP",
+        "turkish": "FP Hata İstatistikleri",
     },
     "Card": {
         "chinese": "板卡",
@@ -97,6 +97,7 @@ local_str = {
         "russian": "Карта",
         "slovak": "Karta",
         "spanish": "Tarjeta",
+        "turkish": "Kart",
     },
     "FP": {
         "chinese": "ＦＰ芯片",
@@ -106,6 +107,7 @@ local_str = {
         "russian": "FP",
         "slovak": "FP",
         "spanish": "FP",
+        "turkish": "FP",
     },
     "Port Statistics": {
         "chinese": "端口统计芯片",
@@ -115,6 +117,7 @@ local_str = {
         "russian": "Статистика порта",
         "slovak": "Štatistiky Portov",
         "spanish": "Estadísticas de Puerto",
+        "turkish": "Port İstatistikleri",
     },
     "Port": {
         "chinese": "端口",
@@ -124,6 +127,7 @@ local_str = {
         "russian": "Порт",
         "slovak": "Port",
         "spanish": "Puerto",
+        "turkish": "Port",
     },
 }
 
@@ -132,15 +136,14 @@ def usage():
     """Print the usage"""
 
     if sros():
-        # Remove hyphens that are added in the python-script "show-system-summary" name
-        for i in sys.argv[0]:
-            if i in "-":
-                sys.argv[0] = sys.argv[0].replace(i, " ")
         print("")
-        print("", sys.argv[0], "[<keyword>]")
+        # Remove hyphens that are added in the python-script "show-system-summary" name
+        print("", sys.argv[0].replace("-", " "), "[<keyword>]")
     else:
         print("Usage:", sys.argv[0], "username@host [<keyword>]")
-    print(" <keyword>  - (chinese|english|french|japanese|russian|slovak|spanish)")
+    print(
+        " <keyword>  - (chinese|english|french|japanese|russian|slovak|spanish|turkish)"
+    )
     print(" Default    - english")
 
 
@@ -150,7 +153,7 @@ def get_remote_connection(my_username, my_host, my_password):
 
     # Import the exceptions so they can be caught on error
     # fmt: off
-    from pysros.exceptions import ModelProcessingError  # pylint: disable=import-error disable=import-outside-toplevel
+    from pysros.exceptions import ModelProcessingError
     # fmt: on
 
     # The try statement coupled with the except statements allow an
@@ -244,57 +247,62 @@ def print_row_mixed_spacing(language, column, name, value):
 def show_system_summary_output(connection_object, language):
     """Main function for the show_system_summary command"""
 
+    bright_green = "\u001b[32;1m"
     bright_red = "\u001b[31;1m"
-    green = "\u001b[32m"
-    reset = "\u001b[0m"
-    yellow = "\u001b[33m"
+    bright_yellow = "\u001b[33;1m"
+    reset_color = "\u001b[0m"
 
     # Define local language oper-state strings and colors
     oper_state_str = {
         "diagnosing": {
-            "chinese": yellow + "diagnosing" + reset,
-            "english": yellow + "diagnosing" + reset,
-            "french": yellow + "diagnosing" + reset,
-            "japanese": yellow + "diagnosing" + reset,
-            "russian": yellow + "Диагностика" + reset,
-            "slovak": yellow + "vyhodnocovaný" + reset,
-            "spanish": yellow + "en diagnóstico" + reset,
+            "chinese": bright_yellow + "diagnosing" + reset_color,
+            "english": bright_yellow + "diagnosing" + reset_color,
+            "french": bright_yellow + "diagnosing" + reset_color,
+            "japanese": bright_yellow + "diagnosing" + reset_color,
+            "russian": bright_yellow + "Диагностика" + reset_color,
+            "slovak": bright_yellow + "vyhodnocovaný" + reset_color,
+            "spanish": bright_yellow + "en diagnóstico" + reset_color,
+            "turkish": bright_yellow + "tanılanıyor" + reset_color,
         },
         "down": {
-            "chinese": bright_red + "down" + reset,
-            "english": bright_red + "down" + reset,
-            "french": bright_red + "down" + reset,
-            "japanese": bright_red + "down" + reset,
-            "russian": bright_red + "Выкл." + reset,
-            "slovak": bright_red + "mimo prevádzky" + reset,
-            "spanish": bright_red + "down" + reset,
+            "chinese": bright_red + "down" + reset_color,
+            "english": bright_red + "down" + reset_color,
+            "french": bright_red + "down" + reset_color,
+            "japanese": bright_red + "down" + reset_color,
+            "russian": bright_red + "Выкл." + reset_color,
+            "slovak": bright_red + "mimo prevádzky" + reset_color,
+            "spanish": bright_red + "down" + reset_color,
+            "turkish": bright_red + "düşük" + reset_color,
         },
         "failed": {
-            "chinese": bright_red + "failed" + reset,
-            "english": bright_red + "failed" + reset,
-            "french": bright_red + "failed" + reset,
-            "japanese": bright_red + "failed" + reset,
-            "russian": bright_red + "Ошибка" + reset,
-            "slovak": bright_red + "zlyhaný" + reset,
-            "spanish": bright_red + "fallo" + reset,
+            "chinese": bright_red + "failed" + reset_color,
+            "english": bright_red + "failed" + reset_color,
+            "french": bright_red + "failed" + reset_color,
+            "japanese": bright_red + "failed" + reset_color,
+            "russian": bright_red + "Ошибка" + reset_color,
+            "slovak": bright_red + "zlyhaný" + reset_color,
+            "spanish": bright_red + "fallo" + reset_color,
+            "turkish": bright_red + "arızalı" + reset_color,
         },
         "unknown": {
-            "chinese": bright_red + "unknown" + reset,
-            "english": bright_red + "unknown" + reset,
-            "french": bright_red + "unknown" + reset,
-            "japanese": bright_red + "unknown" + reset,
-            "russian": bright_red + "неизвестно" + reset,
-            "slovak": bright_red + "neznámy" + reset,
-            "spanish": bright_red + "desconocido" + reset,
+            "chinese": bright_red + "unknown" + reset_color,
+            "english": bright_red + "unknown" + reset_color,
+            "french": bright_red + "unknown" + reset_color,
+            "japanese": bright_red + "unknown" + reset_color,
+            "russian": bright_red + "неизвестно" + reset_color,
+            "slovak": bright_red + "neznámy" + reset_color,
+            "spanish": bright_red + "desconocido" + reset_color,
+            "turkish": bright_red + "bilinmeyen" + reset_color,
         },
         "up": {
-            "chinese": green + "up" + reset,
-            "english": green + "up" + reset,
-            "french": green + "up" + reset,
-            "japanese": green + "up" + reset,
-            "russian": green + "Вкл." + reset,
-            "slovak": green + "v prevádzke" + reset,
-            "spanish": green + "up" + reset,
+            "chinese": bright_green + "up" + reset_color,
+            "english": bright_green + "up" + reset_color,
+            "french": bright_green + "up" + reset_color,
+            "japanese": bright_green + "up" + reset_color,
+            "russian": bright_green + "Вкл." + reset_color,
+            "slovak": bright_green + "v prevádzke" + reset_color,
+            "spanish": bright_green + "up" + reset_color,
+            "turkish": bright_green + "ayakta" + reset_color,
         },
     }
 
@@ -330,7 +338,7 @@ def show_system_summary_output(connection_object, language):
         # Only set the width once
         if width == 0:
             width = set_column_width(active_alarms[active_alarm])
-        # Only display the separator after the first item
+        # Only print the separator after the first item
         if is_first_item:
             is_first_item = False
         else:
@@ -354,7 +362,7 @@ def show_system_summary_output(connection_object, language):
                     width = set_column_width(
                         card_stats[card]["fp"][fp_number]["statistics"]
                     )
-                # Only display the separator after the first item
+                # Only print the separator after the first item
                 if is_first_item:
                     is_first_item = False
                 else:
@@ -372,19 +380,19 @@ def show_system_summary_output(connection_object, language):
     print("=" * 80)
     print(local_str["Port Statistics"][language])
     print("=" * 80)
-    is_first_item = True
+
     width = 0
+    is_first_item = True
     for port in sorted(port_stats):
         # Only set the width once
         if width == 0:
             width = set_column_width(port_stats[port]["statistics"])
-        # Only display the separator after the first item
+        # Only print the separator after the first item
         if is_first_item:
             is_first_item = False
         else:
             print("-" * 80)
         print_row_mixed_spacing(language, width, local_str["Port"][language], port)
-        print("-" * 80)
 
         # Print oper-state values
         print(
@@ -436,12 +444,12 @@ def get_connection_with_argv():
                 sys.exit(2)
 
         # Get a local Connection object
-        connection_object = connect()
+        connection_object = connect()  # pylint: disable=missing-kwoa
 
     # The application is running remotely
     else:
         # Import getpass to read the password
-        import getpass  # pylint: disable=import-outside-toplevel
+        import getpass
 
         # Parse the arguments for connection and optional language parameters
         if len(sys.argv) > 3 or len(sys.argv) < 2:
