@@ -380,8 +380,9 @@ def show_system_summary_output(connection_object, language):
     print("=" * 80)
     print(local_str["Port Statistics"][language])
     print("=" * 80)
-    is_first_item = True
+
     width = 0
+    is_first_item = True
     for port in sorted(port_stats):
         # Only set the width once
         if width == 0:
@@ -392,7 +393,6 @@ def show_system_summary_output(connection_object, language):
         else:
             print("-" * 80)
         print_row_mixed_spacing(language, width, local_str["Port"][language], port)
-        print("-" * 80)
 
         # Print oper-state values
         print(

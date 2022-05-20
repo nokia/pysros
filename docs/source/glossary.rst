@@ -1,6 +1,6 @@
-********
-Glossary
-********
+***********************
+Glossary and assistance
+***********************
 
 Glossary of terms
 #################
@@ -16,9 +16,14 @@ Glossary of terms
    NETCONF
       Network Configuration protocol
 
+.. Reviewed by PLM 20220303
+.. Reviewed by TechComms 20220503
 
-References
-##########
+Additional assistance
+#####################
+
+Further reading
+***************
 
 .. seealso::
 
@@ -37,7 +42,18 @@ References
    `Nokia Network Developer Portal <https://network.developer.nokia.com>`_
       Additional resources for developing with SR OS
 
+   `Nokia product documentation <https://documentation.nokia.com>`_
+      Product documentation
 
-.. Reviewed by PLM 20210902
-.. Reviewed by TechComms 20210902
+.. Reviewed by PLM 20220303
+.. Reviewed by TechComms 20220503
+
+Support and feedback
+********************
+
+* `Nokia technical support portal <https://customer.nokia.com/support/s/>`_
+* `Documentation feedback <mailto:documentation.feedback@nokia.com>`_
+
+.. Reviewed by PLM 20220303
+.. Reviewed by TechComms 20220503
 

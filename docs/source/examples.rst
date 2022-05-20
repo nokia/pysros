@@ -19,7 +19,7 @@ pySROS libraries.
 pySROS data structures
 ######################
 
-Having made a connection to an SR OS device it is important to understand the data structures returned by the
+Having made a connection to an SR OS device, it is important to understand the data structures returned by the
 :py:meth:`pysros.management.Datastore.get` function and those that can be sent to a router using
 :py:meth:`pysros.management.Datastore.set`.
 

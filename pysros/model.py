@@ -357,6 +357,10 @@ class Model(StorageModel):
         return bool(self._bitmask & Model.DataBitmask.user_ordered)
 
     @property
+    def is_region_blocked(self):
+        return self.prefix in ("nokia-bof-state", "nokia-li-state", "nokia-debug-state", "nokia-li-conf", "nokia-bof-conf", "nokia-debug-conf")
+
+    @property
     def local_keys(self):
         return self._data[Model.DataMembers.local_keys]
 
