@@ -1,6 +1,13 @@
 Release 22.5
 ************
 
+
+22.5.2
+######
+
+.. Reviewed by PLM 20220617
+.. Reviewed by TechComms 20220620
+
 22.5.1
 ######
 
