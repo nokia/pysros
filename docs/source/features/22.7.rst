@@ -1,0 +1,25 @@
+Release 22.7
+************
+
+22.7.1
+######
+
+* :py:meth:`pysros.management.Datastore.get` method providers filters to
+  limit resultant data sets.
+* :py:meth:`pysros.management.Datastore.set` method provides an additional ``replace`` option
+  in addition to the default ``merge`` behavior.
+* Local filesystem access for pySROS when executed on an SR OS device.  Including provision
+  of adapted :py:mod:`uio`, :py:mod:`uos` and :py:mod:`uos.path` modules.
+* Selectively disable SSH hostkey checking in the
+  :py:func:`pysros.management.connect` function.
+* :py:meth:`pysros.management.Datastore.set` and and :py:meth:`pysros.management.Datastore.delete`
+  methods provide an option to make configuration changes in a candidate configuration without
+  automatically issuing a commit.
+* Provision of the following new methods:
+
+  - :py:meth:`pysros.management.Datastore.lock`
+  - :py:meth:`pysros.management.Datastore.unlock`
+  - :py:meth:`pysros.management.Datastore.commit`
+  - :py:meth:`pysros.management.Datastore.discard`
+
+

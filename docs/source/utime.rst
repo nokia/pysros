@@ -1,12 +1,15 @@
-:mod:`utime` -- Time functions adapted for SR OS
-================================================
+:mod:`utime` -- Time functions
+==============================
 
 .. module:: utime
    :synopsis: Time functions adapted for SR OS
 
-*This module implements a subset of the corresponding CPython 3.5 module, as 
-described below. For more information, refer to the original CPython 
-documentation:* `time (version 3.5) <https://docs.python.org/3.5/library/time.html>`_.
+.. admonition:: Differences to CPython
+   :class: attention
+
+   This module implements a subset of the corresponding CPython 3.5 module, as
+   described below. For more information, refer to the original CPython
+   documentation: `time (version 3.5) <https://docs.python.org/3.5/library/time.html>`_.
 
 This module is used when executing on SR OS only.  On a remote machine, the
 native Python `time <https://docs.python.org/3/library/time.html>`_ module is
@@ -15,20 +18,20 @@ used.
 The :mod:`utime` module provides functions for getting the current time and date,
 measuring time intervals, and for delays.
 
-.. Reviewed by PLM 20210916
-.. Reviewed by TechComms 20211013
+.. Reviewed by PLM 20220628
+.. Reviewed by TechComms 20220706
 
 Functions
 ---------
 
 .. function:: gmtime(secs)
 
-   Convert a time expressed in seconds since the `epoch`_ to a
+   Convert a time, expressed in seconds, since the `epoch`_ to a
    :class:`struct_time`.
    If *secs* is not provided or :const:`None`, the current time is returned 
    by :func:`.time`.  Fractions of a second are ignored.  
 
-   :param secs: The seconds since `epoch`_. Default :const:`None`
+   :param secs: Seconds since `epoch`_. Default :const:`None`
    :type secs: int, optional
    :return: Structured time object in UTC where the *dst* flag is 0.
    :rtype: .struct_time
@@ -80,11 +83,11 @@ Functions
    than requested by an arbitrary amount because of the scheduling of other activities
    in the system.
 
-   :param secs: Time in seconds.
+   :param secs: Time, in seconds.
    :type secs: int, float
-   :param millisecs: Time in milliseconds.
+   :param millisecs: Time, in milliseconds.
    :type millisecs: int, float
-   :param microsecs: Time in microseconds.
+   :param microsecs: Time, in microseconds.
    :type microsecs: int, float
 
 .. Reviewed by PLM 20210916
@@ -97,7 +100,7 @@ Functions
    argument.  If *t* is not provided, the current time as returned by
    :func:`localtime` is used.
 
-   :param format: The output format template.  Accepted directives for the template
+   :param format: Output format template.  Accepted directives for the template
                   can be found in the table below :ref:`strftime-format-directives-table`.
    :type format: str
    :param t: Time

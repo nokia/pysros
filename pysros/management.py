@@ -38,7 +38,7 @@ It contains functions to obtain and manipulate configuration and state data.
 
 
 def connect(*, host, port=830, username, password=None, yang_directory=None,
-            rebuild=False, transport="netconf", timeout=300):
+            rebuild=False, transport="netconf", timeout=300, hostkey_verify=True):
     """Create a :class:`.Connection` object.  This function is the main entry point for
     model-driven management of configuration and state for a specific SR OS node using
     the pySROS library.
@@ -53,7 +53,7 @@ def connect(*, host, port=830, username, password=None, yang_directory=None,
     :param username: User name.
     :type username: str
     :param password: User password.  If the password is not provided the systems SSH key
-                     will be used.
+                     is used.
     :type password: str, optional
     :param yang_directory: Path (absolute or relative to the local machine) to the YANG modules
                            for the specific node. If this argument is used, YANG modules are not
@@ -61,8 +61,10 @@ def connect(*, host, port=830, username, password=None, yang_directory=None,
     :type yang_directory: str, optional
     :param rebuild: Trigger the rebuild of an already cached YANG schema.
     :type rebuild: bool, optional
-    :param timeout: Timeout of the transport protocol in seconds. Default 300.
+    :param timeout: Timeout of the transport protocol, in seconds. Default 300.
     :type timeout: int, optional
+    :param hostkey_verify: Enables hostkey verification using the SSH known_hosts file. Default True.
+    :type hostkey_verify: bool, optional
     :return: Connection object for specific SR OS node.
     :rtype: .Connection
     :raises RuntimeError: Error occurred during creation of connection
@@ -75,6 +77,9 @@ def connect(*, host, port=830, username, password=None, yang_directory=None,
        the initial connection is slower to complete than subsequent connections as the schema
        is generated from the YANG models and cached.
 
+    .. warning::
+
+       ``hostkey_verify`` should be set to ``True`` in a live network environment.
 
     .. code-block:: python
        :caption: Example 1 - Connection using YANG models automatically obtained from the SR OS node
@@ -127,14 +132,14 @@ def connect(*, host, port=830, username, password=None, yang_directory=None,
            connection_object = get_connection()
 
 
-    .. reviewed by PLM 20211201
-    .. reviewed by TechComms 20211202
+    .. reviewed by PLM 20220621
+    .. reviewed by TechComms 20220624
     """
     if transport != "netconf":
         raise make_exception(pysros_err_invalid_transport)
     return Connection(host=host, port=port, username=username, password=password,
                       device_params={'name': 'sros'}, manager_params={'timeout': timeout},
-                      nc_params={'capabilities':['urn:nokia.com:nc:pysros:pc']},
+                      nc_params={'capabilities':['urn:nokia.com:nc:pysros:pc']}, hostkey_verify=hostkey_verify,
                       yang_directory=yang_directory, rebuild=rebuild)
 
 def sros():
@@ -417,13 +422,19 @@ class Datastore:
     def _get_defaults(self, defaults):
         return "report-all" if defaults else None
 
+    def _check_empty_string(self, model_walker):
+        for k in model_walker.keys:
+            if '' in k.values():
+                raise make_exception(pysros_err_filter_empty_string)
+
+
     def _prepare_root_ele(self, subtree, path):
-         root = etree.Element("filter")
-         root.extend(subtree)
-         if self.debug:
-             print("GET request for path ", path)
-             print(etree.dump(root))
-         return root
+        root = etree.Element("filter")
+        root.extend(subtree)
+        if self.debug:
+            print("GET request for path ", path)
+            print(etree.dump(root))
+        return root
 
     def _operation_get(self, subtree, defaults, path):
         if subtree:
@@ -439,24 +450,31 @@ class Datastore:
         else:
             return self.nc.get_config(source=self.target, with_defaults=self._get_defaults(defaults))
 
-    def _get(self, path, *, defaults=False, custom_walker=None, config_only=False):
+    def _get(self, path, *, defaults=False, custom_walker=None, config_only=False, filter=None):
         model_walker = custom_walker if custom_walker else FilteredDataModelWalker.user_path_parse(self.connection.root, path)
 
         if config_only and model_walker.is_state:
             raise make_exception(pysros_err_no_data_found)
 
+        self._check_empty_string(model_walker)
+
         rd = RequestData(self.connection.root, self.connection._ns_map)
         current = rd.process_path(model_walker)
+        if filter is not None:
+            model_walker.validate_get_filter(filter)
+            current.set_filter(filter)
         config = rd.to_xml()
 
         if self.target == "running":
             if config_only:
                 response = self._operation_get_config(config, defaults, path)
+                model_walker.config_only = True
             else:
                 response = self._operation_get(config, defaults, path)
         else:
             if model_walker.current.config == False:
                 raise make_exception(pysros_err_can_get_state_from_running_only)
+            model_walker.config_only = True
             response = self._operation_get_config(config, defaults, path)
 
         if self.debug:
@@ -471,7 +489,7 @@ class Datastore:
         except LookupError as e:
             #two possible scenarions - entry does not exists or is empty
             #if has presence and LookupError is raised, it does not exists
-            if model_walker.has_explicit_presence():
+            if model_walker.has_explicit_presence() and not filter:
                 raise e from None
             if model_walker.get_dds() == Model.StatementType.list_:
                 res = OrderedDict() if model_walker.current.user_ordered else {}
@@ -489,28 +507,33 @@ class Datastore:
                 except LookupError:
                     raise e from None
                 return res
-        return current.to_model(config_only=config_only)
+        return current.to_model(key_filter=(filter or {}))
 
-    def _set(self, path, value, action):
+    def _set(self, path, value, action, method="merge"):
         if self.target == 'running':
             raise make_exception(pysros_err_cannot_modify_config)
+        if method != 'merge' and method != 'replace':
+            raise make_exception(pysros_err_unsupported_set_method)
         model_walker = FilteredDataModelWalker.user_path_parse(self.connection.root, path)
         if model_walker.current.config == False:
             raise make_exception(pysros_err_cannot_modify_state)
         config = new_ele("config")
         rd = RequestData(self.connection.root, self.connection._ns_map)
         if action == Datastore._SetAction.delete:
+            default_operation="none"
             rd.process_path(path).delete()
-            operation="none"
         else:
-            rd.process_path(path).set(value)
-            operation="merge"
+            default_operation="merge"
+            current = rd.process_path(path)
+            current.set(value)
+            if method == "replace":
+                current.replace()
         config.extend(rd.to_xml())
         if self.debug:
             print("SET request")
             print(f"path: '{path}', value: '{value}'")
             print(etree.dump(config))
-        self.nc.edit_config(target=self.target, default_operation=operation, config=config)
+        self.nc.edit_config(target=self.target, default_operation=default_operation, config=config)
 
     def _delete(self, path):
         self._set(path, None, Datastore._SetAction.delete)
@@ -525,8 +548,11 @@ class Datastore:
                 raise make_exception(pysros_err_cannot_delete_from_state)
             elif self.target == "candidate":
                 raise make_exception(pysros_err_can_check_state_from_running_only)
-        if exist_reason == Datastore._ExistReason.delete and model_walker.is_local_key:
-            raise make_exception(pysros_err_invalid_operation_on_key)
+        if exist_reason == Datastore._ExistReason.delete:
+            if model_walker.is_local_key:
+                raise make_exception(pysros_err_invalid_operation_on_key)
+            if model_walker.is_leaflist:
+                raise make_exception(pysros_err_invalid_operation_on_leaflist)
         if model_walker.has_missing_keys():
             raise make_exception(pysros_err_invalid_path_operation_missing_keys)
         model_walker.go_to_last_with_presence()
@@ -541,16 +567,17 @@ class Datastore:
 
     def _get_list_keys(self, path, defaults):
         model_walker = FilteredDataModelWalker.user_path_parse(self.connection.root, path)
+        self._check_empty_string(model_walker)
 
         rd = RequestData(self.connection.root, self.connection._ns_map)
         current = rd.process_path(model_walker)
 
         #get possible errors related to the getting candidate from state before
-        #errors related to the incorrect path while calling entry_placeholder
+        #errors related to the incorrect path while calling entry_get_keys
         if self.target == "candidate" and model_walker.current.config == False:
             raise make_exception(pysros_err_can_get_state_from_running_only)
 
-        current.entry_placeholder()
+        current.entry_get_keys()
         config = rd.to_xml()
 
         if self.target == "running":
@@ -593,7 +620,7 @@ class Datastore:
                 raise make_exception(pysros_err_commit_conflicts_detected) from None
             raise e from None
 
-    def get(self, path, *, defaults=False, config_only=False):
+    def get(self, path, *, defaults=False, config_only=False, filter=None):
         """Obtain a pySROS data structure containing the contents of the supplied path.  See the
         :ref:`pysros-data-model`
         section for more information about the pySROS data structure.
@@ -609,11 +636,17 @@ class Datastore:
         :type path: str
         :param defaults: Obtain default values in addition to specifically set values.
         :type defaults: bool
-        :return: A pySROS data structure.  This may be a simple value or a more
-                 complicated structure depending on the path requested.
         :param config_only: Obtain configuration data only.  Items marked as
                             ``config false`` in YANG are not returned.
         :type config_only: bool
+        :param filter: A filter defining one or more of the following:  *Content node matches* that select items
+                       whose values are equal to the provided filter or *Selection node matches* that define which
+                       fields to return.  See :ref:`pysros-management-datastore-get-example-content-node-filters`,
+                       :ref:`pysros-management-datastore-get-example-selection-node-filters` and
+                       :ref:`pysros-management-datastore-get-example-mixed-filters` for examples.
+        :type filter: dict
+        :return: A pySROS data structure.  This may be a simple value or a more
+         complicated structure depending on the path requested.
         :rtype: :class:`pysros.wrappers.Leaf`, :class:`pysros.wrappers.LeafList`,
                 :class:`pysros.wrappers.Container`
         :raises RuntimeError: Error if the connection was lost.
@@ -624,13 +657,18 @@ class Datastore:
         :raises TypeError: Error if fields or keys are incorrect.
         :raises InternalError: Error if the schema is corrupted.
 
+        .. note::
+
+           Any whitespace at the beginning or end of a content match filter is stripped.
+
         .. code-block:: python
            :caption: Example
            :name: pysros-management-datastore-get-example-usage
 
-           from pysros.management import connect
-           import sys
-           connection_object = connect()
+            from pysros.management import connect
+            import sys
+
+            connection_object = connect()
            try:
                oper_name = connection_object.running.get("/nokia-state:state/system/oper-name")
            except RuntimeError as runtime_error:
@@ -649,14 +687,55 @@ class Datastore:
                print("Internal Error:", internal_error)
                sys.exit(104)
 
+        .. code-block:: python
+           :caption: Example using content node matching filters
+           :name: pysros-management-datastore-get-example-content-node-filters
+           :emphasize-lines: 5-7
 
-        .. Reviewed by PLM 20211201
-        .. Reviewed by TechComms 20211202
+           from pysros.management import connect
+
+           connection_object = connect()
+
+           connection_object.running.get(
+               "/nokia-conf:configure/service/vprn", filter={"service-name": "VPRN_42"}
+           )
+
+        .. code-block:: python
+           :caption: Example using selection node filters
+           :name: pysros-management-datastore-get-example-selection-node-filters
+           :emphasize-lines: 5-8
+
+           from pysros.management import connect
+
+           connection_object = connect()
+
+           connection_object.running.get(
+               "/nokia-conf:configure/service/vprn",
+               filter={"admin-state": {}, "interface": {"interface-name": {}}},
+           )
+
+        .. code-block:: python
+           :caption: Example using content node match filters and selection node filters together
+           :name: pysros-management-datastore-get-example-mixed-filters
+           :emphasize-lines: 5-8
+
+           from pysros.management import connect
+
+           connection_object = connect()
+
+           connection_object.running.get(
+               "/nokia-conf:configure/service/vprn",
+               filter={'service-name': 'VPRN_42', 'admin-state': {}, 'interface': {'interface-name': {}}},
+           )
+
+        .. Reviewed by PLM 20220621
+        .. Reviewed by TechComms 20220624
+
         """
         with self.connection._process_connected():
-            return self._get(path, defaults=defaults, config_only=config_only)
+            return self._get(path, defaults=defaults, config_only=config_only, filter=filter)
 
-    def set(self, path, value):
+    def set(self, path, value, commit=True, method="merge"):
         """Set a pySROS data structure to the supplied path. See the
         :ref:`pysros-data-model` section for more information about the pySROS data structure.
 
@@ -673,6 +752,11 @@ class Datastore:
                       wrapped in a :class:`pysros.wrappers.Container`).
                       Valid nested data structures are supported.
 
+        :param commit: Specify whether update and commit should be executed after set.  Default True.
+        :type commit: bool
+
+        :param method: Specify whether set operation should be ``merge`` or ``replace``.  Default ``merge``.
+        :type method: str
 
         :raises RuntimeError: Error if the connection is lost.
         :raises InvalidPathError: Error if the path is malformed.
@@ -710,15 +794,19 @@ class Datastore:
         .. Reviewed by TechComms 20211202
         """
         with self.connection._process_connected():
-            self._set(path, value, Datastore._SetAction.set)
-            self._commit()
+            self._set(path, value, Datastore._SetAction.set, method)
+            if commit:
+                self._commit()
 
-    def delete(self, path):
+    def delete(self, path, commit=True):
         """Delete a specific path from an SR OS node.
 
         :param path: Path to the node in the datastore.  See the path parameter definition in
                      :py:meth:`pysros.management.Datastore.get` for details.
         :type path: str
+        :param commit: Specify whether commit should be executed after delete.  Default True.
+        :type commit: bool
+
         :raises RuntimeError: Error if the connection is lost.
         :raises InvalidPathError: Error if the path is malformed.
         :raises SrosMgmtError: Error for broader SR OS issues, including (non-exhaustive list):
@@ -744,7 +832,8 @@ class Datastore:
             if not self._exists(path, Datastore._ExistReason.delete):
                 raise make_exception(pysros_err_data_missing)
             self._delete(path)
-            self._commit()
+            if commit:
+                self._commit()
 
     def exists(self, path):
         """Check if a specific node exists.
@@ -800,6 +889,75 @@ class Datastore:
         with self.connection._process_connected():
             return self._get_list_keys(path, defaults)
 
+    def lock(self):
+        """Lock the configuration datastore.  Transitions a candidate configuration into an exclusive
+        candidate configuration.
+
+        :raises SrosMgmtError: Error if a lock cannot be obtained.
+
+        .. note::
+           The :py:meth:`lock` method may only be called against the ``candidate`` configuration datastore.
+
+        .. note::
+           Only one lock may be obtained per SR OS system.  Attempting to obtain another lock raises
+           an exception.
+
+        .. Reviewed by PLM 20220621
+        .. Reviewed by TechComms 20220624
+        """
+        with self.connection._process_connected():
+            if self.target == "running":
+                raise make_exception(pysros_err_cannot_lock_and_unlock_running)
+            self.nc.lock(target=self.target)
+
+    def unlock(self):
+        """Unlock the configuration datastore.  Transitions an exclusive candidate configuration to a candidate
+        configuration.  Any changes present in the candidate configuration are retained.
+
+        :raises SrosMgmtError: Error if no lock is held.
+
+        .. note::
+           The :py:meth:`unlock` method may only be called against the ``candidate`` configuration datastore.
+
+        .. Reviewed by PLM 20220621
+        .. Reviewed by TechComms 20220624
+        """
+        with self.connection._process_connected():
+            if self.target == "running":
+                raise make_exception(pysros_err_cannot_lock_and_unlock_running)
+            self.nc.unlock(target=self.target)
+
+    def commit(self):
+        """Commit the candidate configuration.
+
+        :raises SrosMgmtError: Error if committing the configuration is not possible.
+
+        .. note::
+           The :py:meth:`commit` method may only be called against the ``candidate`` configuration datastore.
+
+        .. Reviewed by PLM 20220623
+        .. Reviewed by TechComms 20220624
+        """
+        with self.connection._process_connected():
+            if self.target == 'running':
+                raise make_exception(pysros_err_cannot_modify_config)
+            self._commit()
+
+    def discard(self):
+        """Discard the current candidate configuration.
+
+        :raises SrosMgmtError: Error if discarding the candidate configuration is not possible.
+
+        .. note::
+           The :py:meth:`discard` method may only be called against the ``candidate`` configuration datastore.
+
+        .. Reviewed by PLM 20220623
+        .. Reviewed by TechComms 20220624
+        """
+        with self.connection._process_connected():
+            if self.target == 'running':
+                raise make_exception(pysros_err_cannot_modify_config)
+            self.nc.discard_changes()
 
     def __getitem__(self, path):
         return self.get(path)

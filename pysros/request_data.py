@@ -54,7 +54,7 @@ class RequestData:
                     if strict:
                         raise make_exception(pysros_err_no_data_found)
                     else:
-                        current.fields.set_placeholder(elem.name.name)
+                        current.fields.set_getValue(elem.name.name)
                 current = current.fields.get(elem.name.name)
 
         return current
@@ -112,7 +112,7 @@ class _AStorage(ABC):
         pass
 
     @abstractmethod
-    def to_model(self, *, config_only=False):
+    def to_model(self, *, key_filter={}):
         """Return data as user model.
 
         .. Reviewed by TechComms 20210712
@@ -151,13 +151,16 @@ class _MoStorage(_AStorage):
         self._model = model
         self._local_keys = copy.deepcopy(local_keys)
         self._child = {}
-        self._delete = False
+        self._operation = ""
+        self._replace_field = "" #TODO could be field storage
 
     def to_xml(self, ns_map, root):
-        root_attr = None if not self._delete else {"operation": "remove"}
+        root_attr = None if not self._operation else {"operation": self._operation}
         root = subelement(root, self._resolve_xml_name(self._model, ns_map), None, root_attr)
         for k, v in self._local_keys.items():
             if v is FieldValuePlaceholder():
+                pass
+            elif v is GetValuePlaceholder():
                 self._leaf_placeholder_to_xml(v, root, self._walker.get_child(k), ns_map)
             else:
                txt  = self._walker.get_child(k).get_type().to_string(v)
@@ -170,38 +173,45 @@ class _MoStorage(_AStorage):
                 if v is Delete():
                     subelement(root, self._resolve_xml_name(self._walker.get_child(k).current, ns_map), None, {"operation": "remove"})
                 elif v is FieldValuePlaceholder():
+                    pass
+                elif v is GetValuePlaceholder():
                     self._leaf_placeholder_to_xml(v, root, self._walker.get_child(k), ns_map)
+                elif self._replace_field and self._replace_field == k:
+                    self._leaf_to_xml(v, root, self._walker.get_child(k), ns_map, replace_field=True)
                 else:
                     self._leaf_to_xml(v, root, self._walker.get_child(k), ns_map)
 
-    def _leaf_to_xml(self, value, root, walker, ns_map):
+    def _leaf_to_xml(self, value, root, walker, ns_map, replace_field=False):
         if walker.get_dds() == Model.StatementType.leaf_:
             value = (value, )
         for i in value:
             txt = walker.get_type().to_string(i)
-            subelement(root, self._resolve_xml_name(walker.current, ns_map), txt)
+            subelement(root, self._resolve_xml_name(walker.current, ns_map), txt, {"operation":"replace"} if replace_field else {})
+            replace_field=False
 
     def _leaf_placeholder_to_xml(self, value, root, walker, ns_map):
         subelement(root, self._resolve_xml_name(walker.current, ns_map))
 
-    def to_model(self, *, config_only=False):
-        if config_only and self._walker.is_state:
-            raise make_exception(pysros_err_no_data_found)
+    def to_model(self, *, key_filter={}):
         data = {}
+        is_selection_filter = {} in key_filter.values()
         for k, v in self._child.items():
-            if config_only and self._walker.get_child(k).is_state:
+            if is_selection_filter and k not in key_filter:
                 continue
             if not isinstance(v, (_MoStorage, _ListStorage)):
                 data[k] = self._leaf_to_model(k, v)
             else:
-                data[k] = v.to_model(config_only=config_only)
+                data[k] = v.to_model(key_filter=(key_filter.get(k, {})))
                 if not data[k] and not self._walker.get_child(k).has_explicit_presence():
                     del data[k]
         for k, v in self._local_keys.items():
+            if is_selection_filter and k not in key_filter:
+                continue
             data[k] = self._leaf_to_model(k, v)
         return Container._with_module(data, self._model.name.prefix)
 
     def _leaf_to_model(self, name, value):
+        assert value is not GetValuePlaceholder()
         assert value is not FieldValuePlaceholder()
         module = self._walker.get_child_name(name).prefix
         if self._walker.get_child_dds(name) == Model.StatementType.leaf_:
@@ -222,8 +232,8 @@ class _MoStorage(_AStorage):
 
     def debug_dump(self, indent=0):
         line = " "*indent
-        if self._delete:
-            line += "delete "
+        if self._operation:
+            line += self._operation + " "
         line += self._walker.get_name().name
         if self._local_keys:
             line += " ["
@@ -251,7 +261,7 @@ class _ListStorage(_AStorage):
         else:
             self._model = model
             self._entries = {}
-            self._delete = False
+            self._operation = ""
 
     def to_xml(self, ns_map, root):
         if self._entries:
@@ -260,12 +270,10 @@ class _ListStorage(_AStorage):
         else:
             subelement(root, self._resolve_xml_name(self._model, ns_map))
 
-    def to_model(self, *, config_only=False):
-        if config_only and self._walker.is_state:
-            raise make_exception(pysros_err_no_data_found)
+    def to_model(self, *, key_filter={}):
         d = OrderedDict() if self._model.user_ordered else {}
         for e in self._entries.values():
-            d[e.get_keys_flat()] = e.to_model(config_only=config_only)
+            d[e.get_keys_flat()] = e.to_model(key_filter=key_filter)
 
         return d
 
@@ -377,20 +385,31 @@ class _ASetter(ABC):
         """
         pass
 
-    def entry_placeholder(self):
+    @abstractmethod
+    def delete(self):
+        """Set data operation to delete"""
+        pass
+
+    @abstractmethod
+    def replace(self):
+        """Set data operation to replace"""
+        pass
+
+    def entry_get_keys(self):
         """Set list keys as a placeholders"""
         raise make_exception(pysros_err_target_should_be_list)
 
 
-    def to_model(self, *, config_only=False):
+    def to_model(self, *, key_filter={}):
         """Return data in model format.
 
         .. Reviewed by TechComms 20210712
         """
-        return self._storage.to_model(config_only=config_only)
+        return self._storage.to_model(key_filter=key_filter)
 
-    def delete(self):
-        self._storage._delete = True
+    def set_filter(self, value):
+        """Populate request data with filter syntax"""
+        raise make_exception(pysros_err_filter_not_supported_on_leaves)
 
     def _unwrap(self, value):
         return value.data if isinstance(value, Wrapper) else value
@@ -423,8 +442,8 @@ class _LeafSetter(_ASetter):
     def _set_nocheck(self, value):
         self._storage._child[self._leaf_name] = value
 
-    def set_placeholder(self):
-        self._storage._child[self._leaf_name] = FieldValuePlaceholder()
+    def set_getValue(self):
+        self._storage._child[self._leaf_name] = GetValuePlaceholder()
 
     def set_as_xml(self, value):
         value = value.text or ""
@@ -436,13 +455,16 @@ class _LeafSetter(_ASetter):
             value = self._storage._child[self._leaf_name] + value
         self.set(value)
 
-    def to_model(self, *, config_only=False):
-        if config_only and self._walker.is_state:
-            raise make_exception(pysros_err_no_data_found)
+    def to_model(self, *, key_filter={}):
         return self._storage._leaf_to_model(self._leaf_name, self._storage._child[self._leaf_name])
 
     def delete(self):
+        if self._walker.get_dds() == Model.StatementType.leaf_list_:
+            raise make_exception(pysros_err_invalid_operation_on_leaflist)
         self._storage._child[self._leaf_name] = Delete()
+
+    def replace(self):
+        self._storage._replace_field = self._leaf_name
 
     @property
     def _walker(self):
@@ -462,15 +484,19 @@ class _KeySetter(_ASetter):
         elif self._as_storage_type(value) != self._storage._local_keys[self._key_name]:
             raise make_exception(pysros_err_key_val_mismatch, key_name=self._key_name)
 
+    def set_getValue(self):
+        pass
+
     def set_placeholder(self):
         pass
 
-    def to_model(self, *, config_only=False):
-        if config_only and self._walker.is_state:
-            raise make_exception(pysros_err_no_data_found)
+    def to_model(self, *, key_filter={}):
         return self._storage._leaf_to_model(self._key_name, self._storage._local_keys[self._key_name])
 
     def delete(self):
+        raise make_exception(pysros_err_invalid_operation_on_key)
+
+    def replace(self):
         raise make_exception(pysros_err_invalid_operation_on_key)
 
     def set_as_xml(self, value):
@@ -509,6 +535,14 @@ class _ListSetter(_ASetter):
         else:
             raise make_exception(pysros_err_malformed_keys, full_path=self._walker, value=value)
 
+    def set_filter(self, value):
+        value = copy.copy(value)
+        self._handle_entry_keys_namespaces(value)
+        for k in self._walker.get_local_key_names():
+            if k not in value:
+                value[k] = FieldValuePlaceholder()
+        self.entry_nocheck(value).set_filter(value)
+
     def _tuple_to_dict(self, t):
         return {k:v for k, v in zip(self._walker.get_local_key_names(), (t if isinstance(t, tuple) else (t, )))}
 
@@ -517,7 +551,7 @@ class _ListSetter(_ASetter):
 
     def _convert_keys_to_model(self, entry):
         try:
-            return {k:self._walker.as_child_model_type(k, v) for k, v in entry.items()}
+            return {k: (GetValuePlaceholder() if v in (GetValuePlaceholder(), {}) else self._walker.as_child_model_type(k, v)) for k, v in entry.items() if v is not FieldValuePlaceholder()}
         except:
             raise make_exception(pysros_err_invalid_key_in_path) from None
 
@@ -581,9 +615,15 @@ class _ListSetter(_ASetter):
     def delete(self):
         raise make_exception(pysros_err_invalid_path_operation_missing_keys)
 
-    def entry_placeholder(self):
-        keys = {key:FieldValuePlaceholder() for key in self._walker.get_local_key_names()}
-        _MoDataSetter(self._storage.get_or_create_entry(keys)).set({})
+    def replace(self):
+        for k, v in self._storage._entries.items():
+            v._operation = "replace"
+
+    def entry_get_keys(self):
+        keys = {key:GetValuePlaceholder() for key in self._walker.get_local_key_names()}
+        setter = _MoDataSetter(self._storage.get_or_create_entry(keys))
+        setter.set({})
+        return setter
 
 class _MoDataSetter(_ASetter):
     """Interface managing specific list entry or container.
@@ -606,6 +646,9 @@ class _MoDataSetter(_ASetter):
         def set(self, name, value):
             name = Identifier.from_model_string(name).name
             self.get(name).set(value)
+
+        def set_getValue(self, name):
+            self.get(name).set_getValue()
 
         def set_placeholder(self, name):
             self.get(name).set_placeholder()
@@ -631,8 +674,8 @@ class _MoDataSetter(_ASetter):
             name = Identifier.from_model_string(name).name
             self.get(name).set(value)
 
-        def set_placeholder(self, name):
-            self.get(name).set_placeholder()
+        def set_getValue(self, name):
+            self.get(name).set_getValue()
 
         def get(self, name):
             if not self.can_contains(name):
@@ -697,6 +740,34 @@ class _MoDataSetter(_ASetter):
                 raise make_exception(pysros_err_duplicate_found, duplicate=name)
             children_to_set.add(name)
 
+    def set_filter(self, value):
+        value = self._unwrap(value)
+        if not isinstance(value, dict):
+            raise make_exception(pysros_err_invalid_value, data=value)
+        children_to_set = set()
+        for k, v in value.items():
+            v = self._unwrap(v)
+            if k in self._walker.get_local_key_names():
+                if v == {} or v is GetValuePlaceholder():
+                    self.keys.set_getValue(k)
+                elif v is FieldValuePlaceholder():
+                    self.keys.set_placeholder(k)
+                else:
+                    self.keys.set(k, v)
+            elif self._walker.get_child_dds(k) in (Model.StatementType.leaf_, Model.StatementType.leaf_list_):
+                if v == {}:
+                    self.fields.set_getValue(k)
+                else:
+                    self.fields.set(k, v)
+            elif self._walker.get_child_dds(k) in (Model.StatementType.container_, Model.StatementType.list_):
+                self.child_mos.get_or_create(k).set_filter(v)
+            else:
+                raise make_exception(pysros_err_unknown_dds, dds=self._walker.get_child_dds(k))
+            name = Identifier.from_model_string(k).name
+            if name in children_to_set:
+                raise make_exception(pysros_err_duplicate_found, duplicate=name)
+            children_to_set.add(name)
+
     def set_as_xml(self, value):
         for e in value:
             if not self._walker.has_child(_get_tag(e)):
@@ -709,6 +780,14 @@ class _MoDataSetter(_ASetter):
                 elif self._walker.get_child_dds(_get_tag(e)) in (Model.StatementType.list_, Model.StatementType.container_):
                     self.child_mos.get_or_create(_get_tag(e)).set_as_xml(e)
 
+    def delete(self):
+        self._storage._operation = "delete"
+
+    def replace(self):
+        self._storage._operation = "replace"
+
+class GetValuePlaceholder(metaclass=_Singleton):
+    pass
 
 class FieldValuePlaceholder(metaclass=_Singleton):
     pass

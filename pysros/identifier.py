@@ -32,7 +32,7 @@ class Identifier:
     def __init__(self, module, name: str):
         assert ':' not in name
         if isinstance(module, str):
-            assert':' not in module
+            assert ':' not in module
         self._name = name
         self._prefix = module
 

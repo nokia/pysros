@@ -19,7 +19,7 @@ pySROS libraries.
 pySROS data structures
 ######################
 
-Having made a connection to an SR OS device, it is important to understand the data structures returned by the
+Having made a connection to an SR OS device it is important to understand the data structures returned by the
 :py:meth:`pysros.management.Datastore.get` function and those that can be sent to a router using
 :py:meth:`pysros.management.Datastore.set`.
 
@@ -456,6 +456,59 @@ for the addition of local language personalization for developers.
 
 .. Reviewed by PLM 20210902
 .. Reviewed by TechComms 20210902
+
+
+Filesystem access
+#################
+
+Filesystem access is provided to the local SR OS filesystem using the standard Python 3 methods.
+Specific adaptations have been provided for some libraries.  See :py:mod:`uio`, :py:mod:`uos`
+and :py:mod:`uos.path` for more information.
+
+.. note::
+
+   Filesystem access is provided using the SR OS profile of the executing user and respects
+   any permissions or restrictions therein.
+
+.. important::
+
+   Python applications triggered from EHS and CRON have system access to the filesystem.
+
+The ability to read and write to the filesystem provides many possibilities to the developer, including
+the ability to maintain a persistent state between executions.  This enables a developer
+to choose to evaluate something based on the last time the application was run, in addition to the
+instantaneous data available.
+
+.. literalinclude:: ../../examples/filesystem_example.py
+   :caption: filesystem_example.py
+   :name: filesystem-example
+   :language: python
+   :emphasize-lines: 18-60
+
+The example output of this application is shown below.
+
+.. code-block:: none
+
+   [/]
+   A:admin@sros# pyexec filesystem_example.py
+   This command has been run 20 times
+   Number of received octets for BGP peer 5.5.5.2 (last run/this run): 205754 / 209022
+   The difference between the last run and this run is: 3268
+
+   [/]
+   A:admin@sros# pyexec filesystem_example.py
+   This command has been run 21 times
+   Number of received octets for BGP peer 5.5.5.2 (last run/this run): 209022 / 209022
+   The difference between the last run and this run is: 0
+
+   [/]
+   A:admin@sros# pyexec filesystem_example.py
+   This command has been run 22 times
+   Number of received octets for BGP peer 5.5.5.2 (last run/this run): 209022 / 209041
+   The difference between the last run and this run is: 19
+
+.. Reviewed by PLM 20220630
+.. Reviewed by TechComms 20220706
 
 
 

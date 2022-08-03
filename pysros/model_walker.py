@@ -94,6 +94,8 @@ class ModelWalker:
 
     def check_field_value(self, value):
         if self.get_dds() == Model.StatementType.leaf_list_:
+            if not isinstance(value, list):
+                raise make_exception(pysros_err_leaflist_should_be_list, type_name=value.__class__.__name__)
             return all(self.get_type().check_field_value(i) for i in value)
         elif self.get_dds() == Model.StatementType.leaf_:
             return self.get_type().check_field_value(value)
@@ -232,6 +234,10 @@ class ModelWalker:
         return self.has_child(name) and self.get_child_dds(name) in (Model.StatementType.leaf_, Model.StatementType.leaf_list_)
 
     @property
+    def is_leaflist(self):
+        return self.get_dds() == Model.StatementType.leaf_list_
+
+    @property
     def is_local_key(self):
         return self.get_name().name in self.get_parent().get_local_key_names()
 
@@ -245,6 +251,30 @@ class ModelWalker:
                 return True
         else:
             return self.current.has_children
+
+    def validate_get_filter(self, filter: dict):
+        if self.get_dds() in (Model.StatementType.list_, Model.StatementType.container_):
+            if isinstance(filter, Container):
+                filter = filter.data
+            if not isinstance(filter, dict):
+                raise make_exception(pysros_err_filter_should_be_dict)
+            if "" in filter.values():
+                raise make_exception(pysros_err_filter_empty_string)
+            for k, v in filter.items():
+                with self.visit_child(k):
+                    self.validate_get_filter(v)
+        elif self.get_dds() in (Model.StatementType.leaf_, Model.StatementType.leaf_list_):
+            if isinstance(filter, Leaf) and self.get_dds() == Model.StatementType.leaf_:
+                filter = filter.data
+            if isinstance(filter, LeafList) and self.get_dds() == Model.StatementType.leaf_list_:
+                filter = filter.data
+            if isinstance(filter, dict):
+                if filter:
+                    raise make_exception(pysros_err_filter_wrong_leaf_value, leaf_name=self.get_name().name)
+            elif isinstance(filter, str):
+                pass
+            elif not self.check_field_value(filter):
+                raise make_exception(pysros_err_incorrect_leaf_value, value=filter, leaf_name=self.get_name().name)
 
     class _TokenKind(Enum):
         string  = auto()
@@ -471,5 +501,11 @@ class DataModelWalker(ModelWalker):
     _recursive_visited_dds = (Model.StatementType.module_, Model.StatementType.submodule_, Model.StatementType.uses_, Model.StatementType.augment_, Model.StatementType.choice_, Model.StatementType.case_)
 
 class FilteredDataModelWalker(DataModelWalker):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.config_only = False
+
     def _is_allowed(self, model):
+        if self.config_only and not model.config:
+            return False
         return any(i in model.name.prefix for i in ("nokia", "openconfig"))

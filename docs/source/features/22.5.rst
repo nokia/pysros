@@ -4,11 +4,5 @@ Release 22.5
 22.5.1
 ######
 
-* Introduction of new feature announcements in this documentation (backdated to release 22.2.1)
-
-.. Reviewed by PLM 20220503
-.. Reviewed by TechComms 20220503
-
-
 
 

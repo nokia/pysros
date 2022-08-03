@@ -471,19 +471,19 @@ Example:
 
    def get_connection():
        try:
-           c = connect(host="192.168.74.51",
-                       username="admin",
-                       password="admin")
+           connection_object = connect(host="192.168.74.51",
+                                       username="admin",
+                                       password="admin")
        except RuntimeError as e1:
            print("Failed to connect.  Error:", e1)
            sys.exit(-1)
        except ModelProcessingError as e2:
            print("Failed to create model-driven schema.  Error:", e2)
            sys.exit(-2)
-       return c
+       return connection_object
 
    if __name__ == "__main__":
-       c = get_connection()
+       connection_object = get_connection()
 
 
 .. Reviewed by PLM 20210902
@@ -512,8 +512,8 @@ Example:
    :name: get-example
 
    >>> from pysros.management import connect
-   >>> c = connect()
-   >>> c.running.get('/nokia-conf:configure/router[router-name="Base"]/bgp')
+   >>> connection_object = connect()
+   >>> connection_object.running.get('/nokia-conf:configure/router[router-name="Base"]/bgp')
    Container({'group': {'mesh': Container({'group-name': Leaf('mesh'), 'admin-state': Leaf('enable'),
               'peer-as': Leaf(65535)})}, 'neighbor': {'5.5.5.2': Container({'group': Leaf('mesh'),
               'import': Container({'policy': LeafList(['demo', 'example-policy-statement'])}),
@@ -565,12 +565,12 @@ To configure the SR OS device, use the :py:meth:`pysros.management.Datastore.set
 
    from pysros.management import connect, Empty
    from pysros.wrappers import Leaf, Container
-   c = connect()
+   connection_object = connect()
    path = '/nokia-conf:configure/system/grpc'
    payload = Container({'allow-unsecure-connection': Leaf(Empty),
                         'admin-state': Leaf('enable'),
                         'gnmi': Container({'admin-state': Leaf('enable')})})
-   c.candidate.set(path, payload)
+   connection_object.candidate.set(path, payload)
 
 The :py:meth:`pysros.management.Datastore.set` method creates a private candidate configuration on the SR OS device,
 makes the required configuration changes, validates the changes, performs an update of the baseline configuration
@@ -586,10 +586,10 @@ Objects obtained using :py:meth:`pysros.management.Datastore.get` may be returne
 
    from pysros.management import connect, Empty
    from pysros.wrappers import Leaf, Container
-   c = connect()
+   connection_object = connect()
    path = '/nokia-conf:configure/system/grpc'
-   payload = c.running.get(path)
-   c.candidate.set(path, payload)
+   payload = connection_object.running.get(path)
+   connection_object.candidate.set(path, payload)
 
 
 The :py:meth:`pysros.management.Datastore.set` method also accepts payloads that do not include the pySROS wrapper information.
@@ -601,10 +601,10 @@ This enables the developer to simply structure their own data.
 
    from pysros.management import connect, Empty
    from pysros.wrappers import Leaf, Container
-   c = connect()
+   connection_object = connect()
    path = '/nokia-conf:configure/system/grpc'
    payload = {'allow-unsecure-connection': Empty, 'admin-state': 'enable', 'gnmi': {'admin-state': 'enable'}}
-   c.candidate.set(path, payload)
+   connection_object.candidate.set(path, payload)
 
 
 .. Reviewed by PLM 20210902
