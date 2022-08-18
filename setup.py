@@ -7,7 +7,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name='pysros',
-    version='21.10.5',
+    version='21.10.6',
     packages=['pysros'],
     url='https://www.nokia.com',
     license='Copyright 2021 Nokia.  License available in the LICENSE.md file.',
