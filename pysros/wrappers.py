@@ -5,6 +5,8 @@ import operator
 from abc import ABC, abstractmethod
 
 from .errors import *
+from .singleton import _Empty
+from .yang_type import YangUnion, DECIMAL_LEAF_TYPE
 
 __all__ = ("Container", "Leaf", "LeafList")
 
@@ -16,33 +18,161 @@ structure and metadata obtained from SR OS.
 """
 
 class Schema:
-    """Metadata about the YANG schema associated with elements in the data structure.
+    """YANG schema metadata information associated with elements in the data structure.
 
     .. note:: :py:class:`pysros.wrappers.Schema` metadata is read-only.
 
-    :ivar module: YANG module name from which this node originates
+    .. property:: module
 
-    .. Reviewed by PLM 20210630
-    .. Reviewed by TechComms 20210712
+       YANG module name from which this node originates.
+
+       :rtype: str
+
+    .. property:: namespace
+
+       YANG module namespace from which this node originates.  This is in URN or URL format.
+
+       :rtype: str
+
+    .. property:: yang_type
+
+       YANG data type.  This type is the derived base YANG type, for example, if a YANG node uses
+       a ``typedef``, and that ``typedef`` is a ``uint8``, yang_type returns ``uint8``.
+
+       :rtype: str, :py:class:`SchemaType`
+
+    .. property:: units
+
+       The units defined in the YANG module.
+
+       :rtype: str
+
+    .. property:: default
+
+       The default value as defined in the YANG module.
+
+       :rtype: str, int
+
+    .. property:: mandatory
+
+       Identifies whether the item is required (mandatory) in the YANG module.
+
+       :rtype: bool
+
+
+    .. Reviewed by PLM 20221005
+    .. Reviewed by TechComms 20221005
     """
-    __slots__ = ("_module",)
+    __slots__ = ("_model")
+    _attributes = (
+        "module",
+        "namespace",
+        "yang_type",
+        "units",
+        "default",
+        "mandatory",
+    )
 
-    def __init__(self, module):
-        self._module = module
+    def __init__(self, model):
+        self._model = model
+
+    def __dir__(self):
+        retval = super(self.__class__, self).__dir__()
+        for attr in self._attributes:
+            if hasattr(self, attr):
+                retval.append(attr)
+        return retval
+
+    def __getattr__(self, attr):
+        if attr == "module":
+            return self._model.prefix
+        if attr == "namespace":
+            return self._model.namespace
+        if attr == "yang_type":
+            if self._model.yang_type is not None:
+                return SchemaType(self._model.yang_type)
+        if attr == "units":
+            if self._model.units is not None:
+                return self._model.units
+        if attr == "default":
+            if self._model.default is not None:
+                return self._model.default
+        if attr == "mandatory":
+            if self._model.data_def_stm in (
+                self._model.StatementType.leaf_,
+                self._model.StatementType.leaf_list_,
+                self._model.StatementType.choice_,
+                self._model.StatementType.anydata_,
+                self._model.StatementType.anyxml_,
+            ):
+                return True if self._model.mandatory else False
+        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{attr}'")
 
     def __eq__(self, other):
-        return self.__class__ is other.__class__ and self._module == other._module
+        attrs_eq = lambda self, other, attr: getattr(self, attr, None) == getattr(other, attr, None)
+        return (
+            self.__class__ is other.__class__
+            and all(attrs_eq(self, other, attr) for attr in self._attributes)
+        )
 
-    @property
-    def module(self):
-        """YANG module name from which this node originates.
+class SchemaType:
+    """Type information for YANG node. Resolves to a YANG base type.
 
-        .. TODO: Consider removing this property from the documentation as its mentioned as an ivar above - PLM
+    .. property:: range
 
-        .. Reviewed by PLM 20210630
-        .. Reviewed by TechComms 20210712
-        """
-        return self._module
+       The range defined in YANG.
+
+       :rtype: str
+
+    .. container::
+
+       .. property:: union_members
+
+          Base YANG types that form part of the YANG union.
+
+          :rtype: tuple
+
+    .. Reviewed by PLM 20221005
+    .. Reviewed by TechComms 20221005
+    """
+    __slots__ = ("_yang_type")
+    _attributes = (
+        "range",
+        "union_members",
+    )
+
+    def __init__(self, yt):
+        self._yang_type = yt
+
+    def __dir__(self):
+        retval = super(self.__class__, self).__dir__()
+        for attr in self._attributes:
+            if hasattr(self, attr):
+                retval.append(attr)
+        return retval
+
+    def __getattr__(self, attr):
+        if attr == "range":
+            if self._yang_type.json_name() in DECIMAL_LEAF_TYPE:
+                return self._yang_type.yang_range
+        if attr == "union_members":
+            if isinstance(self._yang_type, YangUnion):
+                return tuple(SchemaType(yt) for yt in self._yang_type)
+        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{attr}'")
+
+    def __str__(self):
+        return self._yang_type.json_name()
+
+    def __repr__(self):
+        return self._yang_type.json_name()
+
+    def __eq__(self, other):
+        attrs_eq = lambda self, other, attr: getattr(self, attr, None) == getattr(other, attr, None)
+        return (
+            self.__class__ is other.__class__
+            and self._yang_type.json_name() == other._yang_type.json_name()
+            and all(attrs_eq(self, other, attr) for attr in self._attributes)
+        )
 
 class Wrapper(ABC):
     """Common functionality to support wrappers that describe the YANG structure from
@@ -51,16 +181,19 @@ class Wrapper(ABC):
     .. warning::
        Instance of this class SHOULD NOT be created by user of pysros library.
 
-    .. Reviewed by TechComms 20210712   
+    .. Reviewed by PLM 20220923
+    .. Reviewed by TechComms 20210712
     """
 
-    __slots__ = ('_data', '_module')
+    __slots__ = ('_data', '_model')
 
     def __init__(self, value):
-        self.data    = value
-        self._module = None
+        self.data   = value
+        self._model = None
 
     def __getattr__(self, attr):
+        if attr == "_data":
+            raise AttributeError()
         return getattr(self._data, attr)
 
     def __setattr__(self, attr, value):
@@ -89,7 +222,7 @@ class Wrapper(ABC):
 
     @property
     def schema(self):
-        return Schema(self._module) if self._module else None
+        return Schema(self._model) if self._model else None
 
     @schema.setter
     def schema(self, _):
@@ -157,11 +290,9 @@ class Wrapper(ABC):
     del rop
 
     @classmethod
-    def _with_module(cls, data, module):
-        if module and not isinstance(module, str):
-            raise make_exception(pysros_err_arg_must_be_string)
+    def _with_model(cls, data, model):
         obj = cls(data)
-        obj._module = module
+        obj._model = model
         return obj
 
 class Container(Wrapper):
@@ -223,33 +354,3 @@ class Leaf(Wrapper):
     def _check_data_type(data):
         if not isinstance(data, (str, int, bool, _Empty)):
             raise make_exception(pysros_err_unsupported_type_for_wrapper, wrapper_name = 'Leaf')
-
-
-class _Singleton(type):
-    _instances = {}
-    def __new__(cls, *args, **kwargs):
-        res = super(_Singleton, cls).__new__(cls, *args, **kwargs)
-        res.__copy__     = lambda self: self
-        res.__deepcopy__ = lambda self, memo: self
-        res.__reduce__   = lambda self: (self.__class__, ())
-        return res
-
-    def __call__(cls, *args, **kwargs):
-        assert args == () and kwargs == {}
-        if cls not in cls._instances:
-            cls._instances[cls] = super(_Singleton, cls).__call__(*args, **kwargs)
-        return cls._instances[cls]
-
-class _Empty(metaclass=_Singleton):
-    """Representation of whether empty leaf is present.
-    
-    .. Reviewed by TechComms 20210712
-    """
-    def __str__(self):
-        return "Empty"
-
-    def __repr__(self):
-        return "Empty"
-
-Empty = _Empty()
-Empty.__doc__="""Define the YANG Empty type."""

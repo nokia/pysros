@@ -3,7 +3,7 @@
 import re
 
 from .errors import *
-from .wrappers import _Singleton
+from .singleton import _Singleton
 
 class LazyBindModule(metaclass=_Singleton):
     def __str__(self):

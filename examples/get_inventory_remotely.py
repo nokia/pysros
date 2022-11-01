@@ -16,7 +16,7 @@ from pysros.exceptions import ModelProcessingError
 
 # Global credentials dictionary for the purposes of this example.  Global variables
 # discouraged in operational applications.
-credentials = {"username": "admin", "password": "admin"}
+credentials = {"username": "myusername", "password": "mypassword"}
 
 
 def get_connection(creds, host):

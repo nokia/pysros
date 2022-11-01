@@ -24,7 +24,7 @@ class ModelWalker:
 
     .. Reviewed by TechComms 20210712
     """
-    _expected_dds = (Model.StatementType.container_, Model.StatementType.list_, Model.StatementType.leaf_, Model.StatementType.leaf_list_, Model.StatementType.augment_, Model.StatementType.notification_, Model.StatementType.rpc_, Model.StatementType.input_, Model.StatementType.output_, Model.StatementType.choice_, Model.StatementType.case_)
+    _expected_dds = (Model.StatementType.container_, Model.StatementType.list_, Model.StatementType.leaf_, Model.StatementType.leaf_list_, Model.StatementType.augment_, Model.StatementType.notification_, Model.StatementType.rpc_, Model.StatementType.input_, Model.StatementType.output_, Model.StatementType.choice_, Model.StatementType.case_, Model.StatementType.action_)
     _recursive_visited_dds = (Model.StatementType.module_, Model.StatementType.submodule_, Model.StatementType.uses_, Model.StatementType.grouping_, Model.StatementType.augment_)
 
     def __init__(self, model:Model):
@@ -79,26 +79,26 @@ class ModelWalker:
                 self.go_to_parent()
                 continue
 
-            namespace = self.path[-1].name.prefix if self.path else module
-            assert namespace
+            prefix = self.path[-1].name.prefix if self.path else module
+            assert prefix
 
             try:
                 self.go_to_child(
-                    Identifier(namespace, p.name))
+                    Identifier(prefix, p.name))
             except SrosMgmtError as e:
                 raise InvalidPathError(*e.args) from None
 
-    def check_child_field_value(self, name:Union[str, Identifier], value):
+    def check_child_field_value(self, name:Union[str, Identifier], value, *, json=False):
         with self.visit_child(name):
-            return self.check_field_value(value)
+            return self.check_field_value(value, json=json)
 
-    def check_field_value(self, value):
+    def check_field_value(self, value, *, json=False):
         if self.get_dds() == Model.StatementType.leaf_list_:
             if not isinstance(value, list):
                 raise make_exception(pysros_err_leaflist_should_be_list, type_name=value.__class__.__name__)
-            return all(self.get_type().check_field_value(i) for i in value)
+            return all(self.get_type().check_field_value(i, json) for i in value)
         elif self.get_dds() == Model.StatementType.leaf_:
-            return self.get_type().check_field_value(value)
+            return self.get_type().check_field_value(value, json)
         else:
             assert False, "Checking field value for non-field walker"
 
@@ -144,8 +144,8 @@ class ModelWalker:
                 return False
         return all(isinstance(v, (dict, Container)) for v in value.values())
 
-    def entry_keys(self, value:"EntryKeysDictProxy"):
-        def correct_key(entry:"EntryKeysDictProxy", key):
+    def entry_keys(self, value:"DictionaryKeysProxy"):
+        def correct_key(entry:"DictionaryKeysProxy", key):
             if key in entry and self.check_child_field_value(key, entry[key]):
                 return True
             return False
@@ -252,7 +252,9 @@ class ModelWalker:
         else:
             return self.current.has_children
 
-    def validate_get_filter(self, filter: dict):
+    def validate_get_filter(self, filter: Union[dict, Container]):
+        if filter == Container({}):
+            filter = {}
         if self.get_dds() in (Model.StatementType.list_, Model.StatementType.container_):
             if isinstance(filter, Container):
                 filter = filter.data
@@ -274,7 +276,7 @@ class ModelWalker:
             elif isinstance(filter, str):
                 pass
             elif not self.check_field_value(filter):
-                raise make_exception(pysros_err_incorrect_leaf_value, value=filter, leaf_name=self.get_name().name)
+                raise make_exception(pysros_err_incorrect_leaf_value, leaf_name=self.get_name().name)
 
     class _TokenKind(Enum):
         string  = auto()
@@ -333,10 +335,10 @@ class ModelWalker:
             res.append(i)
 
     @classmethod
-    def user_path_parse(cls, *args, **kwargs):
+    def user_path_parse(cls, *args, accept_root=False, **kwargs):
         res = cls.path_parse(*args, **kwargs)
         assert isinstance(res, ModelWalker)
-        if res.is_root:
+        if not accept_root and res.is_root:
             raise make_exception(pysros_err_root_path)
         for elem in res.path:
             if elem.is_region_blocked:
@@ -497,15 +499,27 @@ class ModelWalker:
         return self._get_child(child_name).is_region_blocked
 
 class DataModelWalker(ModelWalker):
-    _expected_dds = (Model.StatementType.container_, Model.StatementType.list_, Model.StatementType.leaf_, Model.StatementType.leaf_list_)
+    _expected_dds = (Model.StatementType.container_, Model.StatementType.list_, Model.StatementType.leaf_, Model.StatementType.leaf_list_, Model.StatementType.action_, Model.StatementType.input_, Model.StatementType.output_)
     _recursive_visited_dds = (Model.StatementType.module_, Model.StatementType.submodule_, Model.StatementType.uses_, Model.StatementType.augment_, Model.StatementType.choice_, Model.StatementType.case_)
 
 class FilteredDataModelWalker(DataModelWalker):
+    _expected_dds = (Model.StatementType.container_, Model.StatementType.list_, Model.StatementType.leaf_, Model.StatementType.leaf_list_)
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.config_only = False
+        self.return_blocked_regions = False
 
     def _is_allowed(self, model):
         if self.config_only and not model.config:
             return False
+        if not self.return_blocked_regions and model.is_region_blocked:
+            return False
         return any(i in model.name.prefix for i in ("nokia", "openconfig"))
+
+class ActionInputFilteredDataModelWalker(FilteredDataModelWalker):
+    _expected_dds = (Model.StatementType.container_, Model.StatementType.list_, Model.StatementType.leaf_, Model.StatementType.leaf_list_, Model.StatementType.action_)
+    _recursive_visited_dds = (Model.StatementType.module_, Model.StatementType.submodule_, Model.StatementType.uses_, Model.StatementType.augment_, Model.StatementType.choice_, Model.StatementType.case_, Model.StatementType.input_)
+
+class ActionOutputFilteredDataModelWalker(FilteredDataModelWalker):
+    _expected_dds = (Model.StatementType.container_, Model.StatementType.list_, Model.StatementType.leaf_, Model.StatementType.leaf_list_, Model.StatementType.action_)
+    _recursive_visited_dds = (Model.StatementType.module_, Model.StatementType.submodule_, Model.StatementType.uses_, Model.StatementType.augment_, Model.StatementType.choice_, Model.StatementType.case_, Model.StatementType.output_)

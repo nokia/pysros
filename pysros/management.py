@@ -24,11 +24,12 @@ from ncclient.xml_ import new_ele, to_ele
 from .errors import *
 from .model import Model
 from .model_builder import ModelBuilder
-from .model_walker import FilteredDataModelWalker
+from .model_walker import FilteredDataModelWalker, ActionInputFilteredDataModelWalker, ActionOutputFilteredDataModelWalker
 from .request_data import RequestData
-from .wrappers import Empty, Container, Leaf, LeafList
+from .singleton import Empty
+from .wrappers import Container, Leaf, LeafList
 
-__all__ = ("connect", "sros", "Connection", "Datastore", "Empty", "SrosMgmtError", "InvalidPathError", "ModelProcessingError", "InternalError", "SrosConfigConflictError", "ActionTerminatedIncompleteError",)
+__all__ = ("connect", "sros", "Connection", "Datastore", "Empty", "SrosMgmtError", "InvalidPathError", "ModelProcessingError", "InternalError", "SrosConfigConflictError", "ActionTerminatedIncompleteError", "JsonDecodeError", "XmlDecodeError", )
 __doc__ = """This module contains basic primitives for managing an SR OS node.
 It contains functions to obtain and manipulate configuration and state data.
 
@@ -91,9 +92,9 @@ def connect(*, host, port=830, username, password=None, yang_directory=None,
 
        def get_connection():
            try:
-               connection_object = connect(host="192.168.74.51",
-                                           username="admin",
-                                           password="admin")
+               connection_object = connect(host="192.168.1.1",
+                                           username="myusername",
+                                           password="mypassword")
            except RuntimeError as runtime_error:
                print("Failed to connect.  Error:", runtime_error)
                sys.exit(-1)
@@ -116,9 +117,9 @@ def connect(*, host, port=830, username, password=None, yang_directory=None,
 
        def get_connection():
            try:
-               connection_object = connect(host="192.168.74.51",
-                                           username="admin",
-                                           password="admin",
+               connection_object = connect(host="192.168.1.1",
+                                           username="myusername",
+                                           password="mypassword",
                                            yang_directory="./YANG")
            except RuntimeError as runtime_error:
                print("Failed to connect.  Error:", runtime_error)
@@ -193,6 +194,8 @@ class Connection:
         "monitoring": "urn:ietf:params:xml:ns:yang:ietf-netconf-monitoring",
         "library": "urn:ietf:params:xml:ns:yang:ietf-yang-library",
         "nokiaoper": "urn:nokia.com:sros:ns:yang:sr:oper-global",
+        "yang_1_0" : "urn:ietf:params:xml:ns:yang:1",
+        "attrs"    : "urn:nokia.com:sros:ns:yang:sr:attributes",
     }
 
     def __init__(self, *args, yang_directory, rebuild, **kwargs):
@@ -209,11 +212,12 @@ class Connection:
         self._models    = self._get_yang_models()
         self._ns_map    = types.MappingProxyType({model.name: model.namespace for model in self._models})
         self.root = self._get_root(self._models)
+        self.debug      = False
 
     def _get_root(self, modules):
         hasher = hashlib.sha256()
         yangs = sorted(modules, key = lambda m: m.name)
-        hasher.update(b"Schema ver 2\n")
+        hasher.update(b"Schema ver 4\n")
         for m in yangs:
             hasher.update(f"mod:{m.name};rev:{m.revision};".encode())
             for sm in sorted(m.submodules, key = lambda sm: sm.name):
@@ -228,7 +232,7 @@ class Connection:
                     return Model(pickle.load(f), 0, None)
 
         # attempt to pickle. If load fails, we need to create a new tree
-        model_builder = ModelBuilder(self._yang_getter)
+        model_builder = ModelBuilder(self._yang_getter, self._ns_map)
         for mod in yangs:
             model_builder.register_yang(mod.name)
         model_builder.process_all_yangs()
@@ -328,6 +332,73 @@ class Connection:
             ))
         return tuple(result)
 
+    def _action(self, path, value):
+        rd = RequestData(self.root, self._ns_map, walker=ActionInputFilteredDataModelWalker)
+        current = rd.process_path(path)
+        if not current.is_action():
+            raise make_exception(pysros_err_unsupported_action_path)
+        if current._walker.current.name.name == "md-compare" and "path" in value and "subtree-path" in value["path"]:
+            raise make_exception(pysros_err_action_subtree_not_supported)
+        current.set(value)
+
+        xml_action = etree.Element(f"""{{{self._common_namespaces["yang_1_0"]}}}action""")
+        xml_action.extend(rd.to_xml())
+
+        if self.debug:
+            print("ACTION request")
+            print(etree.dump(xml_action))
+
+        response = self._nc.rpc(xml_action)
+
+        if self.debug:
+            print("ACTION response")
+            print(response)
+
+        del rd
+        rd = RequestData(self.root, self._ns_map, walker=ActionOutputFilteredDataModelWalker)
+        rd.set_action_as_xml(path, response)
+        current = rd.process_path(path, strict=True)
+        return current.to_model()
+
+    def _convert(self, path, payload, src_fmt, dst_fmt, pretty_print):
+        if not all(fmt in ("xml", "json", "pysros") for fmt in (src_fmt, dst_fmt)):
+            raise make_exception(pysros_err_unsupported_convert_method)
+        rd = RequestData(self.root, self._ns_map, action=RequestData._Action.convert)
+        current = rd.process_path(path)
+
+        if src_fmt == "pysros":
+            current.set(payload)
+        elif src_fmt == "xml":
+            if not isinstance(payload, str):
+                raise make_exception(pysros_err_convert_wrong_payload_type)
+            try:
+                data = to_ele(f"<dummy-root>{payload}</dummy-root>")
+            except Exception as e:
+                raise XmlDecodeError(*e.args)
+            current.set_as_xml(data)
+        elif src_fmt == "json":
+            if not isinstance(payload, str):
+                raise make_exception(pysros_err_convert_wrong_payload_type)
+            current.set_as_json(payload)
+        else:
+            raise NotImplementedError()
+
+        if dst_fmt == "pysros":
+            return current.to_model()
+        elif dst_fmt == "xml":
+            root = current.to_xml()
+            xml_output=""
+            for subtree in root:
+                if pretty_print:
+                    etree.indent(subtree, space="    ")
+                    if xml_output:  xml_output += "\n"
+                xml_output += etree.tostring(subtree).decode("utf-8")
+            return xml_output
+        elif dst_fmt == "json":
+            return current.to_json(pretty_print)
+        else:
+            raise NotImplementedError()
+
     @contextlib.contextmanager
     def _process_connected(self):
         try:
@@ -379,11 +450,10 @@ class Connection:
            :name: pysros-cli
 
            from pysros.management import connect
-           connection_object = connect(host='192.168.1.1', username='admin', password='admin')
+           connection_object = connect(host='192.168.1.1', username='myusername', password='mypassword')
            print(connection_object.cli('show version'))
 
-        .. Reviewed by PLM 20211201
-        .. Reviewed by TechComms 20211202
+        .. Reviewed by PLM 20220901
         """
         with self._process_connected():
             output = self._nc.md_cli_raw_command(command)
@@ -395,6 +465,164 @@ class Connection:
             raise ActionTerminatedIncompleteError(*args)
         output = output.xpath("/ncbase:rpc-reply/nokiaoper:results/nokiaoper:md-cli-output-block", self._common_namespaces)
         return output[0].text if output else ""
+
+    def action(self, path, value={}):
+        """Perform a YANG modelled action on SR OS by providing the *json-instance-path* to the
+        action statement in the chosen operations YANG model, and the pySROS data structure to
+        match the YANG modelled input for that action.
+        This method provides structured data input and output for available operations.
+
+        :param path: *json-instance-path* to the YANG action.
+        :type path: str
+        :param value: pySROS data structure providing the input data for the chosen action.
+        :type value: pySROS data structure
+        :returns: YANG modelled, structured data representing the output of the modelled action (operation)
+        :rtype: pySROS data structure
+
+        .. code-block:: python
+           :caption: Example calling the **ping** YANG modelled action (operation)
+           :name: pysros-action-example
+
+           >>> from pysros.management import connect
+           >>> from pysros.pprint import printTree
+           >>> connection_object = connect(host='192.168.1.1',
+           ... username='myusername', password='mypassword')
+           >>> path = '/nokia-oper-global:global-operations/ping'
+           >>> input_data = {'destination': '172.16.100.101'}
+           >>> output = connection_object.action(path, input_data)
+           >>> output
+           Container({'operation-id': Leaf(12), 'start-time': Leaf('2022-09-08T22:21:32.6Z'), 'results': Container({'test-parameters': Container({'destination': Leaf('172.16.100.101'), 'count': Leaf(5), 'output-format': Leaf('detail'), 'do-not-fragment': Leaf(False), 'fc': Leaf('nc'), 'interval': Leaf('1'), 'pattern': Leaf('sequential'), 'router-instance': Leaf('Base'), 'size': Leaf(56), 'timeout': Leaf(5), 'tos': Leaf(0), 'ttl': Leaf(64)}), 'probe': {1: Container({'probe-index': Leaf(1), 'status': Leaf('response-received'), 'round-trip-time': Leaf(2152), 'response-packet': Container({'size': Leaf(64), 'source-address': Leaf('172.16.100.101'), 'icmp-sequence-number': Leaf(1), 'ttl': Leaf(64)})}), 2: Container({'probe-index': Leaf(2), 'status': Leaf('response-received'), 'round-trip-time': Leaf(2097), 'response-packet': Container({'size': Leaf(64), 'source-address': Leaf('172.16.100.101'), 'icmp-sequence-number': Leaf(2), 'ttl': Leaf(64)})}), 3: Container({'probe-index': Leaf(3), 'status': Leaf('response-received'), 'round-trip-time': Leaf(2223), 'response-packet': Container({'size': Leaf(64), 'source-address': Leaf('172.16.100.101'), 'icmp-sequence-number': Leaf(3), 'ttl': Leaf(64)})}), 4: Container({'probe-index': Leaf(4), 'status': Leaf('response-received'), 'round-trip-time': Leaf(2164), 'response-packet': Container({'size': Leaf(64), 'source-address': Leaf('172.16.100.101'), 'icmp-sequence-number': Leaf(4), 'ttl': Leaf(64)})}), 5: Container({'probe-index': Leaf(5), 'status': Leaf('response-received'), 'round-trip-time': Leaf(1690), 'response-packet': Container({'size': Leaf(64), 'source-address': Leaf('172.16.100.101'), 'icmp-sequence-number': Leaf(5), 'ttl': Leaf(64)})})}, 'summary': Container({'statistics': Container({'packets': Container({'sent': Leaf(5), 'received': Leaf(5), 'loss': Leaf('0.0')}), 'round-trip-time': Container({'minimum': Leaf(1690), 'average': Leaf(2065), 'maximum': Leaf(2223), 'standard-deviation': Leaf(191)})})})}), 'status': Leaf('completed'), 'end-time': Leaf('2022-09-08T22:21:36.9Z')})
+           >>> printTree(output)
+           +-- operation-id: 13
+           +-- start-time: 2022-09-08T22:23:21.2Z
+           +-- results:
+           |   +-- test-parameters:
+           |   |   +-- destination: 172.16.100.101
+           |   |   +-- count: 5
+           |   |   +-- output-format: detail
+           |   |   +-- do-not-fragment: False
+           |   |   +-- fc: nc
+           |   |   +-- interval: 1
+           |   |   +-- pattern: sequential
+           |   |   +-- router-instance: Base
+           |   |   +-- size: 56
+           |   |   +-- timeout: 5
+           |   |   +-- tos: 0
+           |   |   `-- ttl: 64
+           |   +-- probe:
+           |   |   +-- 1:
+           |   |   |   +-- probe-index: 1
+           |   |   |   +-- status: response-received
+           |   |   |   +-- round-trip-time: 2159
+           |   |   |   `-- response-packet:
+           |   |   |       +-- size: 64
+           |   |   |       +-- source-address: 172.16.100.101
+           |   |   |       +-- icmp-sequence-number: 1
+           |   |   |       `-- ttl: 64
+           |   |   +-- 2:
+           |   |   |   +-- probe-index: 2
+           |   |   |   +-- status: response-received
+           |   |   |   +-- round-trip-time: 2118
+           |   |   |   `-- response-packet:
+           |   |   |       +-- size: 64
+           |   |   |       +-- source-address: 172.16.100.101
+           |   |   |       +-- icmp-sequence-number: 2
+           |   |   |       `-- ttl: 64
+           |   |   +-- 3:
+           |   |   |   +-- probe-index: 3
+           |   |   |   +-- status: response-received
+           |   |   |   +-- round-trip-time: 2098
+           |   |   |   `-- response-packet:
+           |   |   |       +-- size: 64
+           |   |   |       +-- source-address: 172.16.100.101
+           |   |   |       +-- icmp-sequence-number: 3
+           |   |   |       `-- ttl: 64
+           |   |   +-- 4:
+           |   |   |   +-- probe-index: 4
+           |   |   |   +-- status: response-received
+           |   |   |   +-- round-trip-time: 2084
+           |   |   |   `-- response-packet:
+           |   |   |       +-- size: 64
+           |   |   |       +-- source-address: 172.16.100.101
+           |   |   |       +-- icmp-sequence-number: 4
+           |   |   |       `-- ttl: 64
+           |   |   `-- 5:
+           |   |       +-- probe-index: 5
+           |   |       +-- status: response-received
+           |   |       +-- round-trip-time: 1735
+           |   |       `-- response-packet:
+           |   |           +-- size: 64
+           |   |           +-- source-address: 172.16.100.101
+           |   |           +-- icmp-sequence-number: 5
+           |   |           `-- ttl: 64
+           |   `-- summary:
+           |       `-- statistics:
+           |           +-- packets:
+           |           |   +-- sent: 5
+           |           |   +-- received: 5
+           |           |   `-- loss: 0.0
+           |           `-- round-trip-time:
+           |               +-- minimum: 1735
+           |               +-- average: 2038
+           |               +-- maximum: 2159
+           |               `-- standard-deviation: 153
+           +-- status: completed
+           `-- end-time: 2022-09-08T22:23:25.4Z
+
+        .. Reviewed by PLM 20220908
+
+        """
+        with self._process_connected():
+            return self._action(path, value)
+
+    def convert(self, path, payload, *, source_format, destination_format, pretty_print=False):
+        """Returns converted version of the input data (payload) in the destination format.
+
+        The input data must be valid according to the YANG schema for the :py:class:`Connection`
+        object that :py:meth:`convert` is being called against.
+
+        :param path: *json-instance-path* to the location in the YANG schema that the
+                     payload uses as its YANG modeled root.
+        :type path: str
+        :param payload: Input data for conversion.  The payload must be valid data according
+                        to the YANG schema associated with the :py:class:`Connection` object and
+                        should be in the format as defined in the ``source_format`` argument.
+                        For ``pySROS``, the payload must be a pySROS data structure.  For
+                        ``xml`` or ``json``, the payload must be a *string* containing valid XML
+                        or JSON IETF data.
+        :type payload: pySROS data structure, str
+        :param source_format: Format of the input data.  Valid options are ``xml``, ``json``, or ``pysros``.
+        :type source_format: str
+        :param destination_format: Format of the output data. Valid options are ``xml``, ``json``, or ``pysros``.
+        :type destination_format: str
+        :param pretty_print: Format the output for human consumption.
+        :type pretty_print: bool, optional
+        :returns: Data structure of the same format as ``destination_format``.
+        :rtype: pySROS data structure, str
+
+        An example of the :py:meth:`convert` function can be found in
+        the :ref:`Converting Data Formats` section.
+
+
+        .. note:: The :py:meth:`convert` method supports input payloads containing configuration
+                  and state data only.  Data that forms the input or output of YANG-modelled
+                  actions is not supported in the :py:meth:`convert` method.
+
+        .. note:: Any metadata associated with a YANG node is currently not converted.  Metadata
+                  includes SR OS configuration comments as well as more general metadata such as
+                  insert or delete operations defined in XML attributes.  If metadata is provided
+                  in the payload in XML or JSON format, it is stripped from the
+                  resulting output.
+
+        .. warning:: Do not use :py:meth:`convert` to convert the output of ``compare summary netconf-rpc``
+                     for user-ordered lists on SR OS, as the metadata that provides instructions to
+                     order the list are stripped.
+
+        .. Reviewed by PLM 20220929
+        .. Reviewed by TechComms 20221005
+        """
+        return self._convert(path, payload, source_format, destination_format, pretty_print)
+
 
 class Datastore:
     """Datastore object that can be used to perform multiple operations on a specified datastore.
@@ -494,7 +722,7 @@ class Datastore:
             if model_walker.get_dds() == Model.StatementType.list_:
                 res = OrderedDict() if model_walker.current.user_ordered else {}
             else:
-                res = Container._with_module({}, model_walker.get_name().prefix)
+                res = Container._with_model({}, model_walker.current)
 
             model_walker_copy = model_walker.copy()
             #doing exists to check whether really exists or not
@@ -610,6 +838,66 @@ class Datastore:
 
         return [*current.to_model()]
 
+    def _compare(self, output_format, user_path):
+        if self.target == 'running':
+            raise make_exception(pysros_err_unsupported_compare_datastore)
+        if output_format not in ("md-cli", "xml"):
+            raise make_exception(pysros_err_unsupported_compare_method)
+
+        path = user_path if user_path != "/" else ""
+
+        if path:
+            model_walker = FilteredDataModelWalker.user_path_parse(self.connection.root, path)
+            if model_walker.current.config == False:
+                raise make_exception(pysros_err_unsupported_compare_endpoint)
+            rd = RequestData(self.connection.root, self.connection._ns_map)
+            current = rd.process_path(model_walker)
+            if not current.is_compare_supported_endpoint():
+                raise make_exception(pysros_err_unsupported_compare_endpoint)
+            path = rd.to_xml()
+
+        op_ns = self.connection._common_namespaces["nokiaoper"]
+        xml_action = etree.Element(f"""{{{self.connection._common_namespaces["yang_1_0"]}}}action""")
+        xml_gl_op = etree.SubElement(xml_action, f"{{{op_ns}}}global-operations")
+        xml_md_cmp = etree.SubElement(xml_gl_op, f"{{{op_ns}}}md-compare")
+        if path:
+            xml_path = etree.SubElement(xml_md_cmp, f"{{{op_ns}}}path")
+            xml_sbtr_path = etree.SubElement(xml_path, f"{{{op_ns}}}subtree-path")
+            xml_sbtr_path.extend(path)
+        xml_fmt = etree.Element(f"{{{op_ns}}}format")
+        xml_fmt.text=output_format if output_format == "xml" else "md-cli"
+        xml_md_cmp.append(xml_fmt)
+        xml_src = etree.SubElement(xml_md_cmp, f"{{{op_ns}}}source")
+        xml_src.append(etree.Element(self.target))
+        xml_dst = etree.SubElement(xml_md_cmp, f"{{{op_ns}}}destination")
+        xml_dst.append(etree.Element(f"{{{op_ns}}}baseline"))
+
+        if self.debug:
+            print("COMPARE request")
+            print(etree.dump(xml_action))
+
+        reply = self.nc.rpc(xml_action)
+
+        if self.debug:
+            print("COMPARE reply")
+            print(reply)
+
+        if output_format == "md-cli":
+            return reply.xpath("/ncbase:rpc-reply/nokiaoper:results/nokiaoper:md-compare-output/text()")[0].strip()
+
+        xml_output=""
+        for subtree in reply.xpath("/ncbase:rpc-reply/nokiaoper:results/nokiaoper:md-compare-output/*"):
+            subtree.getparent().remove(subtree)
+            etree.cleanup_namespaces(subtree, keep_ns_prefixes=["nokia-attr", "yang"])
+            xml_output+=etree.tostring(subtree).decode("utf-8")
+
+        if xml_output:
+            xml_trees = etree.fromstring(f"<root>{xml_output}</root>", parser=etree.XMLParser(remove_blank_text=True))
+            for xml_tree in xml_trees:
+                etree.indent(xml_tree, space="    ")
+            return "\n".join(etree.tostring(xml_tree, pretty_print=True).decode("utf-8").strip() for xml_tree in xml_trees)
+        return ""
+
     def _commit(self):
         try:
             self.nc.commit()
@@ -669,23 +957,23 @@ class Datastore:
             import sys
 
             connection_object = connect()
-           try:
-               oper_name = connection_object.running.get("/nokia-state:state/system/oper-name")
-           except RuntimeError as runtime_error:
-               print("Runtime Error:", runtime_error)
-               sys.exit(100)
-           except InvalidPathError as invalid_path_error:
-               print("Invalid Path Error:", invalid_path_error)
-               sys.exit(101)
-           except SrosMgmtError as sros_mgmt_error:
-               print("SR OS Management Error:", sros_mgmt_error)
-               sys.exit(102)
-           except TypeError as type_error:
-               print("Type Error:", type_error)
-               sys.exit(103)
-           except InternalError as internal_error:
-               print("Internal Error:", internal_error)
-               sys.exit(104)
+            try:
+                oper_name = connection_object.running.get("/nokia-state:state/system/oper-name")
+            except RuntimeError as runtime_error:
+                print("Runtime Error:", runtime_error)
+                sys.exit(100)
+            except InvalidPathError as invalid_path_error:
+                print("Invalid Path Error:", invalid_path_error)
+                sys.exit(101)
+            except SrosMgmtError as sros_mgmt_error:
+                print("SR OS Management Error:", sros_mgmt_error)
+                sys.exit(102)
+            except TypeError as type_error:
+                print("Type Error:", type_error)
+                sys.exit(103)
+            except InternalError as internal_error:
+                print("Internal Error:", internal_error)
+                sys.exit(104)
 
         .. code-block:: python
            :caption: Example using content node matching filters
@@ -787,11 +1075,10 @@ class Datastore:
            path = '/nokia-conf:configure/router[router-name="Base"]/interface[interface-name="demo1"]'
            data = Container({'interface-name': Leaf('demo1'), 'port': Leaf('1/1/c1/1:0'),
                   'ipv4': Container({'primary': Container({'prefix-length': Leaf(24),
-                  'address': Leaf('5.5.5.1')})}), 'admin-state': Leaf('enable')})
+                  'address': Leaf('192.168.100.1')})}), 'admin-state': Leaf('enable')})
            connection_object.candidate.set(path, data)
 
-        .. Reviewed by PLM 20211201
-        .. Reviewed by TechComms 20211202
+        .. Reviewed by PLM 20220901
         """
         with self.connection._process_connected():
             self._set(path, value, Datastore._SetAction.set, method)
@@ -958,6 +1245,56 @@ class Datastore:
             if self.target == 'running':
                 raise make_exception(pysros_err_cannot_modify_config)
             self.nc.discard_changes()
+
+
+    def compare(self, path="", *, output_format):
+        """Perform a comparison of the uncommitted candidate configuration with the baseline
+        configuration.
+        The output can be provided in XML or in MD-CLI format and provided in a format
+        where, if applied to the node, the resulting configuration would be the same as if the
+        candidate configuration is committed.
+
+        :param output_format: Specify output format of compare command. Supported formats are
+                              ``xml`` and ``md-cli``.  The ``md-cli`` output format displays similar output
+                              to that of the **compare summary** command on the MD-CLI.  The ``xml``
+                              output format displays similar output to that of the **compare summary netconf-rpc**
+                              MD-CLI command.
+        :type output_format: str
+        :param path: Specify json-instance-path to the location in the schema that the compare runs from.
+                     This is the root of the comparison.
+        :type path: str
+        :returns: The formatted differences between the configurations.
+        :rtype: str
+
+        .. note::
+           The :py:meth:`compare` method may only be called against the ``candidate`` configuration datastore.
+
+        .. code-block:: python
+           :caption: Example - Compare in XML format
+           :name: pysros-management-datastore-compare-example-usage-1
+           :emphasize-lines: 5,14
+
+           from pysros.management import connect
+
+           connection_object = connect()
+           path = '/nokia-conf:configure/policy-options/policy-statement[name="DEMO"]'
+           output_format = 'xml'
+
+           print("Current config in", path)
+           print(connection_object.candidate.get(path))
+
+           print("Deleting config in", path)
+           connection_object.candidate.delete(path, commit=False)
+
+           print("Comparing the candidate configuration to the baseline configuration in {} format".format(output_format))
+           print(connection_object.candidate.compare(output_format=output_format))
+
+        .. Reviewed by PLM 20220901
+        .. Reviewed by PLM 20221005
+
+        """
+        with self.connection._process_connected():
+            return self._compare(output_format, path)
 
     def __getitem__(self, path):
         return self.get(path)

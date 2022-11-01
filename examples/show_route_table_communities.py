@@ -15,9 +15,9 @@ from pysros.pprint import Table  # pylint: disable=no-name-in-module
 from pysros.exceptions import ModelProcessingError
 
 credentials = {
-    "host": "192.168.168.70",
-    "username": "admin",
-    "password": "admin",
+    "host": "192.168.1.1",
+    "username": "myusername",
+    "password": "mypassword",
     "port": 830,
 }
 

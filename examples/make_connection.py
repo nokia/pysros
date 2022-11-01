@@ -68,13 +68,13 @@ def main():
     """Example general/main function"""
 
     # Define some user credentials to pass to the get_connect function
-    credentials = {"username": "admin", "password": "admin"}
+    credentials = {"username": "myusername", "password": "mypassword"}
 
     # Call the get_connection function providing a hostname/IP and the credentials
     # Returns a Connection object for use in obtaining data from the SR OS device
     # or configuring that device
     connection_object = get_connection(  # pylint: disable=unused-variable
-        host="192.168.168.70", credentials=credentials
+        host="192.168.1.1", credentials=credentials
     )
     assert connection_object
 

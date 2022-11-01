@@ -36,6 +36,12 @@
    :undoc-members:
    :show-inheritance:
 
+.. autoclass:: pysros.wrappers.SchemaType
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+
 :mod:`pysros.exceptions` - pySROS specific exceptions
 -----------------------------------------------------
 
@@ -52,6 +58,12 @@
 
 .. include:: ehs.rst
 
+:mod:`pysros.syslog` - Functions for syslog event handling
+----------------------------------------------------------
 
+.. module:: pysros.syslog
+   :synopsis: Functions for syslog event handling
+
+.. include:: syslog.rst
 
 

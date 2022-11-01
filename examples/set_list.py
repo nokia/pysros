@@ -124,7 +124,7 @@ def set_list_method_3(connection_object):
 def main():
     """Main function to demonstrate various options to configure YANG lists"""
     connection_object = get_connection(
-        host="192.168.168.70", credentials={"username": "admin", "password": "admin"}
+        host="192.168.1.1", credentials={"username": "myusername", "password": "mypassword"}
     )
 
     # Call the various configuration methods in turn

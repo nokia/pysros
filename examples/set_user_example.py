@@ -18,7 +18,7 @@ from pysros.exceptions import ModelProcessingError
 
 # Global credentials dictionary for the purposes of this example.  Global variables
 # discouraged in operational applications.
-creds = {"username": "admin", "password": "admin"}
+creds = {"username": "myusername", "password": "mypassword"}
 
 
 def check_user(*, connection, user_details):
@@ -61,7 +61,6 @@ def add_user(*, connection, users):
         except Exception as error:  # pylint: disable=broad-except
             print("Failed to create", user, "Error:", error)
             continue
-
 
 def get_connection(host=None, credentials=None):
     """Function definition to obtain a Connection object to a specific SR OS device

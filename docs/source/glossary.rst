@@ -28,6 +28,9 @@ Further reading
 
 .. seealso::
 
+   `RFC 5424 <https://www.rfc-editor.org/rfc/rfc5424.html>`_
+      Syslog protocol.
+
    `RFC 6020 <https://www.rfc-editor.org/rfc/rfc6020.html>`_
       YANG - A Data Modeling Language for the Network Configuration Protocol (NETCONF).
 

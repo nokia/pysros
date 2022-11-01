@@ -4,23 +4,23 @@ import copy
 import xml.parsers.expat
 
 from collections import defaultdict
-from typing import Dict, DefaultDict, List, Set
+from typing import Dict, DefaultDict, List, Set, Union, Optional
 
 from .errors import *
 from .identifier import Identifier, NoModule, LazyBindModule
-from .model import Model, BuildingModel, StorageConstructionModel
+from .model import AModel, Model, BuildingModel, StorageConstructionModel
 from .model_path import ModelPath
 from .model_walker import ModelWalker, DataModelWalker
 from .tokenizer import yang_parser
-from .yang_type import IdentityRef, LeafRef, UnresolvedIdentifier, YangUnion, Enumeration, Bits, resolve_typedefs_deep, should_be_buildin, type_from_name
+from .yang_type import IdentityRef, LeafRef, PrimitiveType, UnresolvedIdentifier, YangType, YangTypeBase, YangUnion, Enumeration, Bits, should_be_buildin, type_from_name, DECIMAL_LEAF_TYPE, INTEGRAL_TYPES_MIN, INTEGRAL_TYPES_MAX, IP_TYPES
 
 class YangHandler:
     """Handler for yang processing."""
-    TAGS_WITH_MODEL = ("container", "list", "leaf", "typedef", "module", "submodule", "uses", "leaf-list", "import", "identity", "notification", "rpc", "input", "output", "choice", "case", "deviate")
+    TAGS_WITH_MODEL = ("container", "list", "leaf", "typedef", "module", "submodule", "uses", "leaf-list", "import", "identity", "notification", "rpc", "input", "output", "choice", "case", "deviate", "action")
     TAGS_FORCE_MODULE = ("grouping", "identity", "typedef", "uses", "augment", "deviation", "type", "base")
     TAGS_ARG_IS_IDENTIFIER = ("base", "type", )
     TAGS_ARG_IS_YANG_PATH_NOT_ABSOLUTE_SCHEMA_ID = ("path", )
-    assert not ({"config", "default", "mandatory", "max-elements", "min-elements", "must", "type", "unique", "units", } & set(TAGS_WITH_MODEL)), "Substmt of deviate can not have model"
+    assert not ({"config", "default", "fraction-digits", "length", "mandatory", "max-elements", "min-elements", "must", "range", "status", "type", "unique", "units", } & set(TAGS_WITH_MODEL)), "Substmt of deviate can not have model"
     TAGS_SHOULD_BE_PROCESSED = (
         "action",
         "anydata",
@@ -159,7 +159,7 @@ class YangHandler:
             self.grouping_depth -= 1
         elif name == "typedef":
             self.construct(self.model)
-            self.builder.types_to_resolve[self.model.name] = self.model.yang_type
+            self.builder.types_to_resolve[self.model.name] = TypeDefModel(self.model)
         elif name in ("action", "rpc"):
             for child in self.model.children:
                 if child.data_def_stm == BuildingModel.StatementType.input_:
@@ -261,11 +261,45 @@ class YangHandler:
             self.last_yang_type.set_path(arg)
 
     def handle_type(self, identifier: str):
-        if isinstance(self.model.yang_type, YangUnion):
-            self.model.yang_type.append(type_from_name(identifier))
-        else:
+        if not isinstance(self.model.yang_type, YangUnion):
             assert self.model.yang_type is None
             self.model.yang_type = type_from_name(identifier)
+        elif (identifier != Identifier.builtin('union')):
+            self.model.yang_type.append(type_from_name(identifier))
+
+    def handle_units(self, arg: str):
+        assert self.model.units is None
+        self.model.units = arg
+
+    def handle_namespace(self, arg: str):
+        assert self.model.namespace is None
+        self.model.namespace = arg
+
+    def handle_default(self, arg: str):
+        assert self.model.default is None
+        self.model.default = arg
+
+    def handle_mandatory(self, arg: str):
+        assert self.model.mandatory is None
+        self.model.mandatory = arg
+
+    def handle_range(self, arg: str):
+        assert isinstance(self.last_yang_type, (PrimitiveType, UnresolvedIdentifier))
+        assert self.last_yang_type.yang_range is None
+        self.last_yang_type.yang_range = arg
+
+    def handle_fraction_DASH_digits(self, arg: str):
+        assert isinstance(self.last_yang_type, (PrimitiveType, UnresolvedIdentifier))
+        assert self.last_yang_type.fraction_digits is None
+        self.last_yang_type.fraction_digits = int(arg)
+
+    def handle_length(self, arg: str):
+        assert isinstance(self.last_yang_type, (PrimitiveType, UnresolvedIdentifier))
+        assert self.last_yang_type.length is None
+        self.last_yang_type.length = arg
+
+    def handle_status(self, arg: str):
+        self.model.status = arg
 
     def handle_enum(self, value: str):
         if self.in_type:
@@ -323,7 +357,7 @@ def _dummy_getter(filename):
 
 class ModelBuilder:
     """API for walking model tree."""
-    def __init__(self, yang_getter=_dummy_getter):
+    def __init__(self, yang_getter=_dummy_getter, ns_map={}):
         self.root = BuildingModel("root", BuildingModel.StatementType["container_"], None)
         self.types_to_resolve = dict()
         self.groupings = dict()
@@ -334,6 +368,7 @@ class ModelBuilder:
         self.augments = []
         self.deviations = []
         self.registered_modules = {}
+        self._ns_map = ns_map
         self.yang_getter = yang_getter
 
     def get_module_content(self, yang_name):
@@ -372,9 +407,11 @@ class ModelBuilder:
         self.resolve_deviations()
         self.build_blueprints()
         self.resolve_typedefs()
+        self.resolve_type_ranges()
         self.resolve_identities()
         self.resolve_leafrefs()
         self.resolve_config()
+        self.resolve_namespaces()
         self.delete_blueprints()
         self.convert_model()
 
@@ -409,38 +446,102 @@ class ModelBuilder:
             return False
 
     def set_correct_types(self, m:BuildingModel):
-        if m.yang_type is None:
-            return
-
-        if isinstance(m.yang_type, UnresolvedIdentifier):
-            m.yang_type = copy.deepcopy(resolve_typedefs_deep(m.yang_type, self.resolved_types))
-
-        if isinstance(m.yang_type, YangUnion):
-            m.yang_type = copy.deepcopy(resolve_typedefs_deep(m.yang_type, self.resolved_types))
+        if isinstance(m.yang_type, (UnresolvedIdentifier, YangUnion)):
+            tdm = resolve_typedefs_deep(TypeDefModel(m), self.resolved_types)
+            m.yang_type         = tdm.yang_type
+            m.default           = tdm.default
+            m.units             = tdm.units
 
     def resolve_typedefs(self):
-        for name, value in self.types_to_resolve.items():
-            assert not name in self.resolved_types
-            self.resolved_types[name] = resolve_typedefs_deep(value, self.types_to_resolve)
+        for key, value in self.types_to_resolve.items():
+            assert not key in self.resolved_types
+            self.resolved_types[key] = resolve_typedefs_deep(value, self.types_to_resolve)
+            if key in IP_TYPES:
+                assert isinstance(self.resolved_types[key].yang_type, YangUnion)
+                self.resolved_types[key].yang_type.deduplicate()
+                assert len(self.resolved_types[key].yang_type) == 1 and self.resolved_types[key].yang_type._types[0].identifier.name == "string"
+                self.resolved_types[key].yang_type = self.resolved_types[key].yang_type._types[0]
         self.root.recursive_walk(self.set_correct_types)
+
+    def set_correct_range(self, yt:YangTypeBase):
+        assert yt.json_name() != "decimal64" or yt.fraction_digits
+        if isinstance(yt, YangUnion):
+            for t in yt:
+                self.set_correct_range(t)
+
+        if not yt or not yt.json_name() in (*DECIMAL_LEAF_TYPE, "string", "binary"):    return
+        if yt.json_name() in ("string", "binary") and not yt.length:                    return
+
+        full_range = False if (yt.yang_range or yt.json_name() in ("string", "binary")) else True
+        work_range = yt.length if yt.json_name() in ("string", "binary") else yt.yang_range
+
+        if full_range: work_range = "min..max"
+        if yt.json_name() == "decimal64":
+            min_val = str(-2**63+1)
+            max_val = str(2**63-1)
+            min_val = min_val[:-yt.fraction_digits] + '.' + min_val[-yt.fraction_digits:]
+            max_val = max_val[:-yt.fraction_digits] + '.' + max_val[-yt.fraction_digits:]
+        elif yt.json_name() in ("string", "binary"):
+            min_val = str(0)
+            max_val = str(2**64-1)
+        else:
+            min_val = INTEGRAL_TYPES_MIN[yt.json_name()]
+            max_val = INTEGRAL_TYPES_MAX[yt.json_name()]
+
+        work_range = work_range.replace("min", min_val)
+        work_range = work_range.replace("max", max_val)
+
+        if full_range:
+            yt.yang_range = work_range
+            return
+
+        # merge adjacent subranges, such as "0|1..100" to "0..100" or "0..10|11..20" to "0..20"
+        def process_subrange(subrange:str):
+            nonlocal yt
+            map_f       = float if yt.json_name() == "decimal64" else int
+            i_subrange  = list(map(map_f, subrange.split("..")))
+            assert len(i_subrange) in (1, 2)
+            return i_subrange if len(i_subrange) == 2 else 2 * i_subrange
+
+        subranges       = work_range.split("|")
+        res_subranges   = [process_subrange(subranges[0])]
+        for subrange in subranges[1:]:
+            i_subrange = process_subrange(subrange)
+            if res_subranges[-1][1] == i_subrange[0] - 1:
+                res_subranges[-1][1] = i_subrange[1]
+            else:
+                res_subranges.append(i_subrange)
+
+        res_subranges   = [subr if subr[0] != subr[1] else [subr[0]] for subr in res_subranges]
+        work_range      = "|".join(["..".join(map(str, subr)) for subr in res_subranges])
+        if yt.json_name() in ("string", "binary"):
+            yt.length       = work_range
+        else:
+            yt.yang_range   = work_range
+
+    def resolve_type_ranges(self):
+        def setter(m:BuildingModel):
+            if isinstance(m.yang_type, YangTypeBase):
+                self.set_correct_range(m.yang_type)
+        self.root.recursive_walk(setter)
 
     def resolve_identities(self):
         # first step creates dict, where we find for each identity
         # its all identities, that are directly derived from it.
-        directly_derived: DefaultDict[Identifier, List[Identifier]] = defaultdict(list)
+        directly_derived: DefaultDict[Identifier, Set[Identifier]] = defaultdict(set)
         def find_derived(m:BuildingModel):
             if m.data_def_stm != BuildingModel.StatementType.identity_:
                 return
             for b in m.identity_bases:
-                directly_derived[b].append(m.name)
+                directly_derived[b].add(m.name)
 
         self.root.recursive_walk(find_derived)
         # second step adds all direct and indirect derived identities together
         def add_derived_recursive(result_set, id):
-            if id in result_set:
-                return
-            result_set.update(directly_derived.get(id, []))
-            for c in directly_derived.get(id, []):
+            got = directly_derived.get(id, set())
+            toUpdate = got - result_set
+            result_set.update(got)
+            for c in toUpdate:
                 add_derived_recursive(result_set, c)
 
         derived: Dict[Identifier, Set(Identifier)] = {}
@@ -552,6 +653,14 @@ class ModelBuilder:
                 if deviate.name.name == "not-supported":
                     w.current.delete_from_parent(quiet=False)
 
+    def resolve_namespaces(self):
+        def ns_set(m:BuildingModel):
+            if m.namespace or not m.name.prefix in self._ns_map.keys():
+                return
+            m.namespace = self._ns_map[m.name.prefix]
+        for root_child in self.root.children:
+            root_child.recursive_walk(ns_set)
+
     def build_blueprints(self):
         handler = YangHandler(self, self.root)
         handler.construct()
@@ -580,7 +689,14 @@ class ModelBuilder:
         def enter_fnc(w: DataModelWalker):
             nonlocal stack
             new = StorageConstructionModel(w.get_name(), w.get_dds(), stack[-1])
+            if isinstance(w.current.yang_type, YangUnion):
+                w.current.yang_type.deduplicate()
             new.yang_type = w.current.yang_type
+            new.units = w.current.units
+            new.namespace = w.current.namespace
+            new.default = w.current.default
+            new.mandatory = w.current.mandatory
+            new.status = w.current.status
             new.presence_container = w.current.presence_container
             new.user_ordered = w.current.user_ordered
             new.local_keys = w.current.local_keys
@@ -595,3 +711,93 @@ class ModelBuilder:
 
         w.recursive_walk(enter_fnc=enter_fnc, leave_fnc=leave_fnc)
         self.root = Model(new_root._storage, new_root._index, None)
+
+class TypeDefModel:
+    __slots__ = ("yang_type", "default", "units")
+
+    def __init__(self, arg: Union[YangType, Model, BuildingModel], default: Optional[str] = None, units: Optional[str] = None) -> None:
+        assert isinstance(arg, (YangTypeBase, AModel))
+        if isinstance(arg, AModel):
+            self.yang_type          = arg.yang_type
+            self.default            = arg.default
+            self.units              = arg.units
+        else:
+            self.yang_type          = arg
+            self.default            = default
+            self.units              = units
+
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__) or self.__slots__ != other.__slots__:
+            return False
+        return all(getattr(self, name) == getattr(other, name) for name in self.__slots__)
+
+def merge_typedef_ranges(parent_range:str, child_range:str):
+    """
+    Vertically merge typedef integer ranges across typedef parent and child
+    - keep child's integer range values (non-'min' or 'max')
+    - replace child's 'min'/'max' strings with integer min or max values if present in parent
+    - return child's ranges as-is if parent has no range defined or child has no 'max' or 'min'
+    examples:
+        - parent typedef range "1..200", child type range "min..100", result "1..100"
+        - parent typedef range "1..200", child type range "100..max", result "100..200"
+        - parent typedef range is None, child type range "100..max", result "100..max"
+        - parent typedef range is '1..200', child type range "50..150", result "50..150"
+    """
+    if not parent_range:
+        return child_range
+
+    min_val     = parent_range.split("|")[0].split("..")[0]
+    child_range = child_range.replace("min", min_val)
+    max_val     = parent_range.split("|")[-1].split("..")[-1]
+    child_range = child_range.replace("max", max_val)
+
+    return child_range
+
+def resolve_typedefs_shallow(t: TypeDefModel, typedefs: Dict[Identifier, TypeDefModel]):
+    assert isinstance(t.yang_type, YangTypeBase)
+    yang_type, default, units = t.yang_type, t.default, t.units
+    while type(yang_type) is UnresolvedIdentifier and yang_type.identifier in typedefs:
+        r_model = typedefs[yang_type.identifier]
+        u_range = yang_type.yang_range
+        frac_d  = yang_type.fraction_digits
+        length  = yang_type.length
+        if any((u_range, frac_d, length)):
+            yang_type = copy.copy(r_model.yang_type)
+            if u_range:
+                yang_type.yang_range = merge_typedef_ranges(yang_type.yang_range, u_range)
+            if frac_d:
+                yang_type.fraction_digits = frac_d
+            if length:
+                yang_type.length = length
+        else:
+            yang_type = r_model.yang_type
+        default = default   or r_model.default
+        units   = units     or r_model.units
+
+    assert not isinstance(yang_type, UnresolvedIdentifier), f"Cannot resolve type {yang_type}"
+    assert isinstance(yang_type, YangTypeBase)
+    return TypeDefModel(
+        copy.copy(yang_type),
+        default,
+        units,
+    )
+
+def resolve_typedefs_deep(m: TypeDefModel, typedefs: Dict[Identifier, TypeDefModel]):
+    m = resolve_typedefs_shallow(m, typedefs)
+    if not isinstance(m.yang_type, YangUnion):
+        return m
+
+    u_yang_type, u_default, u_units = YangUnion(), None, None
+    for sub in m.yang_type:
+        tdm = resolve_typedefs_deep(TypeDefModel(sub), typedefs)
+        if type(tdm.yang_type) == YangUnion:
+            for t in tdm.yang_type:
+                u_yang_type.append(t)
+        else:
+            u_yang_type.append(tdm.yang_type)
+        u_default   = tdm.default
+        u_units     = tdm.units
+    m.yang_type         = u_yang_type
+    m.default           = m.default         or u_default
+    m.units             = m.units           or u_units
+    return m

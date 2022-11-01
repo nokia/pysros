@@ -13,7 +13,7 @@ the event handling system (EHS).
 .. Reviewed by PLM 20220117
 .. Reviewed by TechComms 20220124
 
-.. py:function:: get_event
+.. py:function:: pysros.ehs.get_event
 
    The EHS event that triggered the execution of the Python application.
 
@@ -23,10 +23,19 @@ the event handling system (EHS).
    .. Reviewed by PLM 20220118
    .. Reviewed by TechComms 20220124
 
-.. class:: Event
+.. class:: pysros.ehs.Event
 
-   The EHS event Class for the event that triggered the execution of the
+   The EHS :py:class:`pysros.ehs.Event` Class for the event that triggered the execution of the
    Python application.
+
+   .. py:attribute:: name
+
+      The name of the event.
+
+      :type: str
+
+      .. Reviewed by PLM 20220930
+      .. Reviewed by TechComms 20221005
 
    .. py:attribute:: appid
 
@@ -55,6 +64,16 @@ the event handling system (EHS).
       .. Reviewed by PLM 20220118
       .. Reviewed by TechComms 20220124
 
+   .. py:attribute:: sequence
+
+      The sequence number of the event in the syslog collector.
+
+      :type: int
+      :raises ValueError: for negative values.
+
+      .. Reviewed by PLM 20220930
+      .. Reviewed by TechComms 20221005
+
    .. py:attribute:: subject
 
       The subject or affected object of the event.
@@ -64,9 +83,19 @@ the event handling system (EHS).
       .. Reviewed by PLM 20220118
       .. Reviewed by TechComms 20220124
 
+   .. py:attribute:: router_name
+
+      The name of the SR OS router-instance (For example, ``Base``) in which this
+      event was triggered.
+
+      :type: str
+
+      .. Reviewed by PLM 20220930
+      .. Reviewed by TechComms 20221005
+
    .. py:attribute:: gentime
 
-      The formatted time, in ISO 8601 format, that the event was generated.
+      The time, in ISO 8601 format, that the event was generated.
 
       :type: str
 
@@ -82,15 +111,22 @@ the event handling system (EHS).
       .. Reviewed by PLM 20220118
       .. Reviewed by TechComms 20220124
 
-   .. function:: eventparameters
+   .. py:attribute:: text
+
+      The event specific body, formatted as a string.  By default, this
+      is generated from the :py:attr:`eventparameters`.
+
+      :type: str
+
+   .. py:attribute:: eventparameters
 
       The additional parameters specific to the event that caused the
       Python application to execute.
 
       :type: :py:class:`pysros.ehs.EventParams`
 
-      .. Reviewed by PLM 20220118
-      .. Reviewed by TechComms 20220124
+      .. Reviewed by PLM 20220930
+      .. Reviewed by TechComms 20221005
 
    .. py:method:: format_msg
 
@@ -121,11 +157,11 @@ the event handling system (EHS).
       .. Reviewed by PLM 20220118
       .. Reviewed by TechComms 20220124
 
-      .. describe:: params[key]
+   .. describe:: params[key]
 
       Return the value of the parameter *key*. If the parameter does not exist,
       a :exc:`KeyError` is raised.
 
-      .. Reviewed by PLM 20220118
-      .. Reviewed by TechComms 20220124
+      .. Reviewed by PLM 20220930
+      .. Reviewed by TechComms 20221005
 

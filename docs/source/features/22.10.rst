@@ -1,0 +1,30 @@
+Release 22.10
+*************
+
+22.10.1
+#######
+
+* :py:meth:`pysros.management.Datastore.compare` method provides the ability to compare the
+  uncommitted candidate configuration with the baseline configuration prior to a commit.
+* :py:meth:`pysros.management.Connection.action` method provides the ability to execute a YANG modelled
+  action (operation) on SR OS using modelled, structured data as both input and output.
+* Updates to the :py:class:`pysros.wrappers.Schema` and :py:class:`pysros.wrappers.SchemaType`
+  to include additional YANG schema information,
+  specifically:
+
+  * namespace
+  * yang_type
+  * units
+  * default
+  * mandatory
+  * range
+  * union_members
+
+* :py:meth:`pysros.management.Connection.convert` method provides the ability to convert
+  any correctly formatted data from either pySROS data structure format, XML format or
+  JSON IETF format, to pySROS data structure format, XML format, or JSON IETF format.
+  The input data must be valid according to the YANG schema for the
+  specific :py:class:`pysros.management.Connection` object.
+* :py:class:`pysros.syslog` class provided for syslog event manipulation when used on
+  SR OS as part of the syslog functionality.
+

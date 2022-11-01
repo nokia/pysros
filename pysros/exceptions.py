@@ -1,6 +1,6 @@
 # Copyright 2021 Nokia
 
-__all__ = ("SrosMgmtError", "InvalidPathError", "ModelProcessingError", "InternalError", "SrosConfigConflictError", "ActionTerminatedIncompleteError", )
+__all__ = ("SrosMgmtError", "InvalidPathError", "ModelProcessingError", "InternalError", "SrosConfigConflictError", "ActionTerminatedIncompleteError", "JsonDecodeError", "XmlDecodeError", )
 
 __doc__ = """This module contains exceptions for error handling within pySROS.
 
@@ -76,6 +76,14 @@ class ActionTerminatedIncompleteError(Exception):
     .. Reviewed by PLM 20211201
     .. Reviewed by TechComms 20211202
     """
+    pass
+
+class JsonDecodeError(Exception):
+    """Exception raised when parsing json input fail."""
+    pass
+
+class XmlDecodeError(Exception):
+    """Exception raised when parsing xml input fail."""
     pass
 
 def make_exception(arg, **kwarg):

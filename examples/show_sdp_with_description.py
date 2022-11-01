@@ -17,9 +17,9 @@ from pysros.exceptions import ModelProcessingError
 # Global credentials dictionary for the purposes of this example.  Global variables
 # discouraged in operational applications.
 credentials = {
-    "host": "192.168.168.70",
-    "username": "admin",
-    "password": "admin",
+    "host": "192.168.1.1",
+    "username": "myusername",
+    "password": "mypassword",
     "port": 830,
 }
 

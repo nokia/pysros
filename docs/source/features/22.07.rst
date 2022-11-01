@@ -1,10 +1,13 @@
 Release 22.7
 ************
 
+22.7.2
+######
+
 22.7.1
 ######
 
-* :py:meth:`pysros.management.Datastore.get` method providers filters to
+* :py:meth:`pysros.management.Datastore.get` method provides filters to
   limit resultant data sets.
 * :py:meth:`pysros.management.Datastore.set` method provides an additional ``replace`` option
   in addition to the default ``merge`` behavior.

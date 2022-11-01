@@ -183,6 +183,11 @@ class BuildingModel(AModel):
         "name",
         "children",
         "yang_type",
+        "units",
+        "namespace",
+        "default",
+        "mandatory",
+        "status",
         "presence_container",
         "user_ordered",
         "local_keys",
@@ -198,6 +203,11 @@ class BuildingModel(AModel):
         self.name = Identifier.builtin(name) if type(name) == str else name
         self.children: List[Model] = []
         self.yang_type: Optional[YangType] = None
+        self.units: Optional[str] = None
+        self.namespace: str = None
+        self.default: Optional[str] = None
+        self.mandatory: Optional[str] = None
+        self.status: Optional[str] = None
         self.presence_container = False
         self.user_ordered = False
         self.local_keys: List[str] = []
@@ -273,6 +283,8 @@ class StorageModel(AModel):
         presence_container  = 1 << 8
         user_ordered        = 1 << 9
         config              = 1 << 10
+        mandatory           = 1 << 11
+        status              = 1 << 12
 
     class DataMembers(IntEnum):
         name            = 0
@@ -283,6 +295,9 @@ class StorageModel(AModel):
         identity_bases  = 5
         parent          = 6
         bitmask         = 7
+        units           = 8
+        namespace       = 9
+        default         = 10
 
 class Model(StorageModel):
     """Class to represent a single YANG entry and hold additional information, such as type, configuration state, children, and data definition statement.
@@ -305,7 +320,7 @@ class Model(StorageModel):
             "name": Model._name_getter,
             "children": Model._children_getter,
             "_bitmask": Model._bitmask_getter,
-            "data_def_stm": Model._data_def_stm_detter,
+            "data_def_stm": Model._data_def_stm_getter,
         }.get(name)
         if not getter:
             raise AttributeError(name)
@@ -325,7 +340,7 @@ class Model(StorageModel):
     def _bitmask_getter(self):
         return self._data[Model.DataMembers.bitmask]
 
-    def _data_def_stm_detter(self):
+    def _data_def_stm_getter(self):
         return Model.StatementType(int(self._bitmask & Model.DataBitmask.data_def_stm))
 
     @property
@@ -347,6 +362,26 @@ class Model(StorageModel):
     @property
     def yang_type(self):
         return self._data[Model.DataMembers.yang_type]
+
+    @property
+    def units(self):
+        return self._data[Model.DataMembers.units]
+
+    @property
+    def namespace(self):
+        return self._data[Model.DataMembers.namespace]
+
+    @property
+    def default(self):
+        return self._data[Model.DataMembers.default]
+
+    @property
+    def mandatory(self):
+        return bool(self._bitmask & Model.DataBitmask.mandatory)
+
+    @property
+    def status(self):
+        return bool(self._bitmask & Model.DataBitmask.status)
 
     @property
     def presence_container(self):
@@ -455,6 +490,52 @@ class StorageConstructionModel(StorageModel):
     @yang_type.setter
     def yang_type(self, value):
         self._data[self.DataMembers.yang_type] = value
+
+    @property
+    def units(self):
+        return self._data[self.DataMembers.units]
+
+    @units.setter
+    def units(self, value):
+        self._data[self.DataMembers.units] = value
+
+    @property
+    def namespace(self):
+        return self._data[self.DataMembers.namespace]
+
+    @namespace.setter
+    def namespace(self, value):
+        self._data[self.DataMembers.namespace] = value
+
+    @property
+    def default(self):
+        return self._data[self.DataMembers.default]
+
+    @default.setter
+    def default(self, value):
+        self._data[self.DataMembers.default] = value
+
+    @property
+    def mandatory(self):
+        return bool(self._bitmask & self.DataBitmask.mandatory)
+
+    @mandatory.setter
+    def mandatory(self, value):
+        if value == "true":
+            self._bitmask |= int(self.DataBitmask.mandatory)
+        else:
+            self._bitmask &= int(~self.DataBitmask.mandatory)
+
+    @property
+    def status(self):
+        return bool(self._bitmask & self.DataBitmask.status)
+
+    @status.setter
+    def status(self, value):
+        if value in (None, "current", "deprecated"):
+            self._bitmask |= int(self.DataBitmask.status)
+        else:
+            self._bitmask &= int(~self.DataBitmask.status)
 
     @property
     def presence_container(self):
@@ -582,4 +663,9 @@ def new_Model_data(name: Identifier, data_def_stm: Model.StatementType, parent):
         None if data_def_stm != Model.StatementType.identity_ else [],          # 5 = identity_bases
         parent if parent is None else parent._index,                            # 6 = parent
         data_def_stm.value | Model.DataBitmask.config,                          # 7 = bitmask
+        None,                                                                   # 8 = units
+        None,                                                                   # 9 = namespace
+        None,                                                                   # 10 = default
+        None,                                                                   # 11 = mandatory
+        None,                                                                   # 12 = status
     ]

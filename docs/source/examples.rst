@@ -45,8 +45,8 @@ SR OS using the :py:meth:`pysros.management.Datastore.get` method.
    :emphasize-lines: 5
 
    >>> from pysros.management import connect
-   >>> c = connect()
-   >>> pysros_ds = c.running.get("/nokia-conf:configure/system/name")
+   >>> connection_object = connect()
+   >>> pysros_ds = connection_object.running.get("/nokia-conf:configure/system/name")
    >>> pysros_ds
    Leaf('sros')
 
@@ -77,15 +77,14 @@ YANG container from SR OS using the :py:meth:`pysros.management.Datastore.get` m
    :emphasize-lines: 5
 
    >>> from pysros.management import connect
-   >>> c = connect()
-   >>> data = c.running.get('/nokia-state:state/router[router-name="Base"]/sfm-overload')
+   >>> connection_object = connect()
+   >>> data = connection_object.running.get('/nokia-state:state/router[router-name="Base"]/sfm-overload')
    >>> data
    Container({'state': Leaf('normal'), 'start': Leaf('2021-06-21T19:35:17.3Z'), 'time': Leaf(0)})
 
 .. note:: State information is obtained by targeting the *running* datastore
 
-.. Reviewed by PLM 20210902
-.. Reviewed by TechComms 20210902
+.. Reviewed by PLM 20221012
 
 .. _pysros-examples-leaflist-structure:
 
@@ -101,16 +100,14 @@ YANG container from SR OS using the :py:meth:`pysros.management.Datastore.get` m
    :emphasize-lines: 5
 
    >>> from pysros.management import connect
-   >>> c = connect()
-   >>> data = c.running.get('/nokia-conf:configure/router[router-name="Base"]/bgp/neighbor[ip-address="5.5.5.2"]/import/policy')
+   >>> connection_object = connect()
+   >>> data = connection_object.running.get('/nokia-conf:configure/router[router-name="Base"]/bgp/neighbor[ip-address="192.168.100.2"]/import/policy')
    >>> data
    LeafList(['demo', 'example-policy-statement'])
 
 .. note:: The order of the entries in a leaf-list is important.  Lists in Python are order aware.
 
-.. Reviewed by PLM 20210902
-.. Reviewed by TechComms 20210902
-
+.. Reviewed by PLM 20221012
 
 .. _pysros-examples-list-structure:
 
@@ -167,14 +164,13 @@ is a Python dictionary, keyed on the values of the ``log-id`` list's key, ``name
    :emphasize-lines: 5-6
 
    >>> from pysros.management import connect
-   >>> c = connect()
-   >>> data = c.running.get('/nokia-conf:configure/log/log-id')
+   >>> connection_object = connect()
+   >>> data = connection_object.running.get('/nokia-conf:configure/log/log-id')
    >>> data
    {'10': Container({'description': Leaf('Log ten'), 'name': Leaf('10')}),
     '11': Container({'description': Leaf('Log eleven'), 'name': Leaf('11')})}
 
-.. Reviewed by PLM 20210902
-.. Reviewed by TechComms 20210902
+.. Reviewed by PLM 20221012
 
 
 Configuring YANG lists
@@ -195,10 +191,10 @@ Configure the list with a payload that is a Python dictionary keyed on the YANG 
    :caption: Configure YANG list using Python dict payload without key name
    :emphasize-lines: 2-3
 
-   >>> c = connect()
+   >>> connection_object = connect()
    >>> path = '/nokia-conf:configure/log/log-id'
    >>> payload = {'10': {'description': 'Log ten'}, '11': {'description': 'Log eleven'}}
-   >>> c.candidate.set(path, payload)
+   >>> connection_object.candidate.set(path, payload)
 
 
 Method 2
@@ -213,12 +209,12 @@ in the ``path``).
    :caption: Configure each YANG list entry in turn providing the key and key-value in the path
    :emphasize-lines: 2, 4-5
 
-   >>> c = connect()
+   >>> connection_object = connect()
    >>> list_entries = [("10", "Log ten"), ("11", "Log eleven")]
    >>> for item in list_entries:
    >>>     payload = {'description': item[1]}
    >>>     path = '/nokia-conf:configure/log/log-id[name=' + item[0] + ']'
-   >>>     c.candidate.set(path, payload)
+   >>>     connection_object.candidate.set(path, payload)
 
 
 Method 3
@@ -234,18 +230,17 @@ also supplied in the ``path``).  In this case, the contents of the payload dicti
    :caption: Configure each YANG list entry in turn providing the key and key-value in the path *and* payload
    :emphasize-lines: 2, 4-5
 
-   >>> c = connect()
+   >>> connection_object = connect()
    >>> list_entries = [("10", "Log ten"), ("11", "Log eleven")]
    >>> for item in list_entries:
    >>>     payload = {'name': item[0], 'description': item[1]}
    >>>     path = '/nokia-conf:configure/log/log-id[name=' + item[0] + ']'
-   >>>     c.candidate.set(path, payload)
+   >>>     connection_object.candidate.set(path, payload)
 
 These examples are available in a single Python file :download:`here <../../examples/set_list.py>`
 
 
-.. Reviewed by PLM 20210902
-.. Reviewed by TechComms 20210902
+.. Reviewed by PLM 20221012
 
 
 .. _pysros-examples-user-ordered-list-structure:
@@ -266,15 +261,15 @@ User-ordered lists are therefore represented as ordered dictionaries in Python.
    :emphasize-lines: 5-6
 
    >>> from pysros.management import connect
-   >>> c = connect()
-   >>> data = c.running.get('/nokia-conf:configure/policy-options/policy-statement[name="example-policy-statement"]/named-entry')
+   >>> connection_object = connect()
+   >>> data = connection_object.running.get('/nokia-conf:configure/policy-options/policy-statement[name="example-policy-statement"]/named-entry')
    >>> data
    OrderedDict({'one': Container({'entry-name': Leaf('one'), 'action': Container({'action-type': Leaf('accept')})}),
                 'three': Container({'entry-name': Leaf('three'), 'action': Container({'action-type': Leaf('accept')})})})
 
 
-.. Reviewed by PLM 20210902
-.. Reviewed by TechComms 20210902
+.. Reviewed by PLM 20221012
+
 
 .. _pysros-examples-connecting-to-md-interfaces:
 
@@ -300,7 +295,7 @@ therefore the following two examples perform the same operation:
    :emphasize-lines: 2
 
    from pysros.management import connect
-   c = connect()
+   connection_object = connect()
 
 
 .. code-block:: python
@@ -309,9 +304,9 @@ therefore the following two examples perform the same operation:
    :emphasize-lines: 2-4
 
    from pysros.management import connect
-   c = connect(host="192.168.74.51",
-               username="admin",
-               password="admin")
+   connection_object = connect(host="192.168.1.1",
+                               username="myusername",
+                               password="mypassword")
 
 .. note:: The preceding examples show the minimum Python code required to connect to the SR OS model-driven interfaces of
           a device.
@@ -319,8 +314,7 @@ therefore the following two examples perform the same operation:
           connection process are handled cleanly in your application and see the :py:meth:`pysros.management.connect`
           documentation for more detailed examples.
 
-.. Reviewed by PLM 20210902
-.. Reviewed by TechComms 20210902
+.. Reviewed by PLM 20220901
 
 
 .. _pysros-examples-handling-exceptions:
@@ -378,7 +372,7 @@ The example output for this application is shown here:
    ===============================================================================
    ID         Description          Adm        Opr        Far End
    -------------------------------------------------------------------------------
-   44         None                 enable     down       5.5.5.2
+   44         None                 enable     down       192.168.100.2
    -------------------------------------------------------------------------------
    No. of SDP: 1
    ===============================================================================
@@ -490,25 +484,429 @@ The example output of this application is shown below.
 .. code-block:: none
 
    [/]
-   A:admin@sros# pyexec filesystem_example.py
+   A:myusername@sros# pyexec filesystem_example.py
    This command has been run 20 times
-   Number of received octets for BGP peer 5.5.5.2 (last run/this run): 205754 / 209022
+   Number of received octets for BGP peer 192.168.100.2 (last run/this run): 205754 / 209022
    The difference between the last run and this run is: 3268
 
    [/]
-   A:admin@sros# pyexec filesystem_example.py
+   A:myusername@sros# pyexec filesystem_example.py
    This command has been run 21 times
-   Number of received octets for BGP peer 5.5.5.2 (last run/this run): 209022 / 209022
+   Number of received octets for BGP peer 192.168.100.2 (last run/this run): 209022 / 209022
    The difference between the last run and this run is: 0
 
    [/]
-   A:admin@sros# pyexec filesystem_example.py
+   A:myusername@sros# pyexec filesystem_example.py
    This command has been run 22 times
-   Number of received octets for BGP peer 5.5.5.2 (last run/this run): 209022 / 209041
+   Number of received octets for BGP peer 192.168.100.2 (last run/this run): 209022 / 209041
    The difference between the last run and this run is: 19
 
-.. Reviewed by PLM 20220630
-.. Reviewed by TechComms 20220706
+.. Reviewed by PLM 20220901
+
+.. _Converting Data Formats:
+
+Converting data formats
+#######################
+
+The :py:meth:`pysros.management.Connection.convert` method converts 
+various YANG-modeled data formats to assist with input and output
+data manipulation when integrating with pySROS and external systems.
+
+The supported formats are:
+
+* pySROS data structure format (**pysros**)
+* XML (**xml**)
+* JSON IETF according to `RFC 7951 <https://www.rfc-editor.org/rfc/rfc7951.html>`_ (**json**)
+
+Detailed documentation of the **convert** method is located in the
+:py:meth:`pysros.management.Connection.convert` section.
+
+The following example code provides a class that generates an example
+*json-instance-path* and associated example data in a chosen format that
+can be used in the :py:meth:`pysros.management.Connection.convert` method.
+
+It then performs the following conversions using a connection to a node
+and outputs the results:
+
+.. list-table::
+   :widths: 20 50
+   :header-rows: 1
+   :name: Conversions performed in example
+
+   * - Input
+     - Output
+   * - pysros
+     - pysros
+   * - pysros
+     - xml
+   * - pysros
+     - json
+   * - xml
+     - xml
+   * - xml
+     - pysros
+   * - xml
+     - json
+   * - json
+     - json
+   * - json
+     - pysros
+   * - json
+     - xml
+
+The example code can be found in the examples directory and is shown below:
+
+.. literalinclude:: ../../examples/convert_example.py
+  :caption: Example showing the convert method for various formats
+  :name: convert-method-example
+  :language: python
+  :emphasize-lines: 49-58, 65-82, 91-111, 204-210
+
+The example output of this application is shown below.
+
+.. code-block:: none
+
+   -------------------------------------------------------------------------------
+   Obtaining connection to 192.168.1.1
+   Connection established successfully
+   -------------------------------------------------------------------------------
+   Converting pysros to pysros
+
+   The path used as the YANG modelled root for the data is:
+   /nokia-conf:configure/system/management-interface
+
+   The payload is:
+   {'snmp': {'admin-state': 'disable'}, 'netconf': {'admin-state': 'enable', 'auto-config-save': True}, 'yang-modules': {'nmda': {'nmda-support': True}, 'openconfig-modules': True}, 'cli': {'md-cli': {'auto-config-save': True}}, 'configuration-mode': 'model-driven'}
+
+   The converted result is:
+   {'snmp': Container({'admin-state': Leaf('disable')}), 'netconf': Container({'admin-state': Leaf('enable'), 'auto-config-save': Leaf(True)}), 'yang-modules': Container({'nmda': Container({'nmda-support': Leaf(True)}), 'openconfig-modules': Leaf(True)}), 'cli': Container({'md-cli': Container({'auto-config-save': Leaf(True)})}), 'configuration-mode': Leaf('model-driven')}
+   -------------------------------------------------------------------------------
+   Converting pysros to xml
+
+   The path used as the YANG modelled root for the data is:
+   /nokia-conf:configure/system/management-interface
+
+   The payload is:
+   {'snmp': {'admin-state': 'disable'}, 'netconf': {'admin-state': 'enable', 'auto-config-save': True}, 'yang-modules': {'nmda': {'nmda-support': True}, 'openconfig-modules': True}, 'cli': {'md-cli': {'auto-config-save': True}}, 'configuration-mode': 'model-driven'}
+
+   The converted result is:
+   <snmp xmlns="urn:nokia.com:sros:ns:yang:sr:conf" xmlns:nokia-attr="urn:nokia.com:sros:ns:yang:sr:attributes">
+       <admin-state>disable</admin-state>
+   </snmp>
+   <netconf xmlns="urn:nokia.com:sros:ns:yang:sr:conf" xmlns:nokia-attr="urn:nokia.com:sros:ns:yang:sr:attributes">
+       <admin-state>enable</admin-state>
+       <auto-config-save>true</auto-config-save>
+   </netconf>
+   <yang-modules xmlns="urn:nokia.com:sros:ns:yang:sr:conf" xmlns:nokia-attr="urn:nokia.com:sros:ns:yang:sr:attributes">
+       <nmda>
+           <nmda-support>true</nmda-support>
+       </nmda>
+       <openconfig-modules>true</openconfig-modules>
+   </yang-modules>
+   <cli xmlns="urn:nokia.com:sros:ns:yang:sr:conf" xmlns:nokia-attr="urn:nokia.com:sros:ns:yang:sr:attributes">
+       <md-cli>
+           <auto-config-save>true</auto-config-save>
+       </md-cli>
+   </cli>
+   <configuration-mode xmlns="urn:nokia.com:sros:ns:yang:sr:conf" xmlns:nokia-attr="urn:nokia.com:sros:ns:yang:sr:attributes">model-driven</configuration-mode>
+   -------------------------------------------------------------------------------
+   Converting pysros to json
+
+   The path used as the YANG modelled root for the data is:
+   /nokia-conf:configure/system/management-interface
+
+   The payload is:
+   {'snmp': {'admin-state': 'disable'}, 'netconf': {'admin-state': 'enable', 'auto-config-save': True}, 'yang-modules': {'nmda': {'nmda-support': True}, 'openconfig-modules': True}, 'cli': {'md-cli': {'auto-config-save': True}}, 'configuration-mode': 'model-driven'}
+
+   The converted result is:
+   {
+       "nokia-conf:snmp": {
+           "admin-state": "disable"
+       },
+       "nokia-conf:netconf": {
+           "admin-state": "enable",
+           "auto-config-save": true
+       },
+       "nokia-conf:yang-modules": {
+           "nmda": {
+               "nmda-support": true
+           },
+           "openconfig-modules": true
+       },
+       "nokia-conf:cli": {
+           "md-cli": {
+               "auto-config-save": true
+           }
+       },
+       "nokia-conf:configuration-mode": "model-driven"
+   }
+   -------------------------------------------------------------------------------
+   Converting xml to xml
+
+   The path used as the YANG modelled root for the data is:
+   /nokia-conf:configure/system/management-interface
+
+   The payload is:
+
+   <cli>
+       <md-cli>
+           <auto-config-save>true</auto-config-save>
+       </md-cli>
+   </cli>
+   <netconf>
+       <admin-state>enable</admin-state>
+       <auto-config-save>true</auto-config-save>
+   </netconf>
+   <yang-modules>
+       <openconfig-modules>true</openconfig-modules>
+       <nmda>
+           <nmda-support>true</nmda-support>
+       </nmda>
+   </yang-modules>
+   <snmp>
+       <admin-state>disable</admin-state>
+   </snmp>
+
+
+   The converted result is:
+   <cli xmlns="urn:nokia.com:sros:ns:yang:sr:conf" xmlns:nokia-attr="urn:nokia.com:sros:ns:yang:sr:attributes">
+       <md-cli>
+           <auto-config-save>true</auto-config-save>
+       </md-cli>
+   </cli>
+   <netconf xmlns="urn:nokia.com:sros:ns:yang:sr:conf" xmlns:nokia-attr="urn:nokia.com:sros:ns:yang:sr:attributes">
+       <admin-state>enable</admin-state>
+       <auto-config-save>true</auto-config-save>
+   </netconf>
+   <yang-modules xmlns="urn:nokia.com:sros:ns:yang:sr:conf" xmlns:nokia-attr="urn:nokia.com:sros:ns:yang:sr:attributes">
+       <openconfig-modules>true</openconfig-modules>
+       <nmda>
+           <nmda-support>true</nmda-support>
+       </nmda>
+   </yang-modules>
+   <snmp xmlns="urn:nokia.com:sros:ns:yang:sr:conf" xmlns:nokia-attr="urn:nokia.com:sros:ns:yang:sr:attributes">
+       <admin-state>disable</admin-state>
+   </snmp>
+   -------------------------------------------------------------------------------
+   Converting xml to pysros
+
+   The path used as the YANG modelled root for the data is:
+   /nokia-conf:configure/system/management-interface
+
+   The payload is:
+
+   <cli>
+       <md-cli>
+           <auto-config-save>true</auto-config-save>
+       </md-cli>
+   </cli>
+   <netconf>
+       <admin-state>enable</admin-state>
+       <auto-config-save>true</auto-config-save>
+   </netconf>
+   <yang-modules>
+       <openconfig-modules>true</openconfig-modules>
+       <nmda>
+           <nmda-support>true</nmda-support>
+       </nmda>
+   </yang-modules>
+   <snmp>
+       <admin-state>disable</admin-state>
+   </snmp>
+
+
+   The converted result is:
+   {'cli': Container({'md-cli': Container({'auto-config-save': Leaf(True)})}), 'netconf': Container({'admin-state': Leaf('enable'), 'auto-config-save': Leaf(True)}), 'yang-modules': Container({'openconfig-modules': Leaf(True), 'nmda': Container({'nmda-support': Leaf(True)})}), 'snmp': Container({'admin-state': Leaf('disable')})}
+   -------------------------------------------------------------------------------
+   Converting xml to json
+
+   The path used as the YANG modelled root for the data is:
+   /nokia-conf:configure/system/management-interface
+
+   The payload is:
+
+   <cli>
+       <md-cli>
+           <auto-config-save>true</auto-config-save>
+       </md-cli>
+   </cli>
+   <netconf>
+       <admin-state>enable</admin-state>
+       <auto-config-save>true</auto-config-save>
+   </netconf>
+   <yang-modules>
+       <openconfig-modules>true</openconfig-modules>
+       <nmda>
+           <nmda-support>true</nmda-support>
+       </nmda>
+   </yang-modules>
+   <snmp>
+       <admin-state>disable</admin-state>
+   </snmp>
+
+
+   The converted result is:
+   {
+       "nokia-conf:cli": {
+           "md-cli": {
+               "auto-config-save": true
+           }
+       },
+       "nokia-conf:netconf": {
+           "admin-state": "enable",
+           "auto-config-save": true
+       },
+       "nokia-conf:yang-modules": {
+           "openconfig-modules": true,
+           "nmda": {
+               "nmda-support": true
+           }
+       },
+       "nokia-conf:snmp": {
+           "admin-state": "disable"
+       }
+   }
+   -------------------------------------------------------------------------------
+   Converting json to json
+
+   The path used as the YANG modelled root for the data is:
+   /nokia-conf:configure/system/management-interface
+
+   The payload is:
+
+   {
+       "configuration-mode": "model-driven",
+       "cli": {
+           "md-cli": {
+               "auto-config-save": true
+           }
+       },
+       "netconf": {
+           "admin-state": "enable",
+           "auto-config-save": true
+       },
+       "yang-modules": {
+           "openconfig-modules": true,
+           "nmda": {
+               "nmda-support": true
+           }
+       },
+       "snmp": {
+           "admin-state": "disable"
+       }
+   }
+
+
+   The converted result is:
+   {
+       "nokia-conf:configuration-mode": "model-driven",
+       "nokia-conf:cli": {
+           "md-cli": {
+               "auto-config-save": true
+           }
+       },
+       "nokia-conf:netconf": {
+           "admin-state": "enable",
+           "auto-config-save": true
+       },
+       "nokia-conf:yang-modules": {
+           "openconfig-modules": true,
+           "nmda": {
+               "nmda-support": true
+           }
+       },
+       "nokia-conf:snmp": {
+           "admin-state": "disable"
+       }
+   }
+   -------------------------------------------------------------------------------
+   Converting json to pysros
+
+   The path used as the YANG modelled root for the data is:
+   /nokia-conf:configure/system/management-interface
+
+   The payload is:
+
+   {
+       "configuration-mode": "model-driven",
+       "cli": {
+           "md-cli": {
+               "auto-config-save": true
+           }
+       },
+       "netconf": {
+           "admin-state": "enable",
+           "auto-config-save": true
+       },
+       "yang-modules": {
+           "openconfig-modules": true,
+           "nmda": {
+               "nmda-support": true
+           }
+       },
+       "snmp": {
+           "admin-state": "disable"
+       }
+   }
+
+
+   The converted result is:
+   {'configuration-mode': Leaf('model-driven'), 'cli': Container({'md-cli': Container({'auto-config-save': Leaf(True)})}), 'netconf': Container({'admin-state': Leaf('enable'), 'auto-config-save': Leaf(True)}), 'yang-modules': Container({'openconfig-modules': Leaf(True), 'nmda': Container({'nmda-support': Leaf(True)})}), 'snmp': Container({'admin-state': Leaf('disable')})}
+   -------------------------------------------------------------------------------
+   Converting json to xml
+
+   The path used as the YANG modelled root for the data is:
+   /nokia-conf:configure/system/management-interface
+
+   The payload is:
+
+   {
+       "configuration-mode": "model-driven",
+       "cli": {
+           "md-cli": {
+               "auto-config-save": true
+           }
+       },
+       "netconf": {
+           "admin-state": "enable",
+           "auto-config-save": true
+       },
+       "yang-modules": {
+           "openconfig-modules": true,
+           "nmda": {
+               "nmda-support": true
+           }
+       },
+       "snmp": {
+           "admin-state": "disable"
+       }
+   }
+
+
+   The converted result is:
+   <configuration-mode xmlns="urn:nokia.com:sros:ns:yang:sr:conf" xmlns:nokia-attr="urn:nokia.com:sros:ns:yang:sr:attributes">model-driven</configuration-mode>
+   <cli xmlns="urn:nokia.com:sros:ns:yang:sr:conf" xmlns:nokia-attr="urn:nokia.com:sros:ns:yang:sr:attributes">
+       <md-cli>
+           <auto-config-save>true</auto-config-save>
+       </md-cli>
+   </cli>
+   <netconf xmlns="urn:nokia.com:sros:ns:yang:sr:conf" xmlns:nokia-attr="urn:nokia.com:sros:ns:yang:sr:attributes">
+       <admin-state>enable</admin-state>
+       <auto-config-save>true</auto-config-save>
+   </netconf>
+   <yang-modules xmlns="urn:nokia.com:sros:ns:yang:sr:conf" xmlns:nokia-attr="urn:nokia.com:sros:ns:yang:sr:attributes">
+       <openconfig-modules>true</openconfig-modules>
+       <nmda>
+           <nmda-support>true</nmda-support>
+       </nmda>
+   </yang-modules>
+   <snmp xmlns="urn:nokia.com:sros:ns:yang:sr:conf" xmlns:nokia-attr="urn:nokia.com:sros:ns:yang:sr:attributes">
+       <admin-state>disable</admin-state>
+   </snmp>
+
+
+.. Reviewed by PLM 20220929
+.. Reviewed by TechComms 20221005
 
 
 

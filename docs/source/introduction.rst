@@ -104,7 +104,7 @@ See the following for examples:
    :caption: SR OS ``pwc json-instance-path`` output from services configuration
    :name: pwc-json-instance-path-sros-services-config-example
 
-   A:admin@sros# pwc json-instance-path
+   A:myusername@sros# pwc json-instance-path
    Present Working Context:
    /nokia-conf:configure/service/vprn[service-name="vpn1"]/static-routes/route[ip-prefix="1.1.1.1/32"][route-type="unicast"]/blackhole
 
@@ -113,7 +113,7 @@ See the following for examples:
    :name: pwc-json-instance-path-sros-bgp-state-example
 
    [/state router "Base" bgp neighbor "1.1.1.1"]
-   A:admin@sros# pwc json-instance-path
+   A:myusername@sros# pwc json-instance-path
    Present Working Context:
    /nokia-state:state/router[router-name="Base"]/bgp/neighbor[ip-address="1.1.1.1"]
 
@@ -121,13 +121,13 @@ See the following for examples:
    :caption: SR OS ``pwc json-instance-path`` output from OpenConfig interfaces
    :name: pwc-json-instance-path-sros-openconfig-example
 
-   A:admin@sros# pwc json-instance-path
+   A:myusername@sros# pwc json-instance-path
    Present Working Context:
    /openconfig-interfaces:interfaces/interface[name="1/1/c2/1"]/subinterfaces/subinterface[index=0]/openconfig-if-ip:ipv4/addresses
 
 
-.. Reviewed by PLM 20210902
-.. Reviewed by TechComms 20210902
+.. Reviewed by PLM 20220901
+.. Reviewed by TechComms 20221012
 
 
 
@@ -405,40 +405,65 @@ Example:
 .. Reviewed by TechComms 20210902
 
 
-YANG schema metadata
-********************
-Additional metadata information from the model-driven schema is available to developers for each element
-in a data structure obtained from SR OS using the pySROS libraries.  This metadata can be queried on demand
-by calling the ``schema`` method against the element.
+YANG schema information
+***********************
+Additional information from the model-driven YANG schema is available to developers for
+each element in a data structure obtained from SR OS using the pySROS libraries.  This
+metadata can be queried on demand by calling the :py:class:`pysros.wrappers.Schema` class
+against the element.
 
-Metadata currently available includes:
+YANG schema information currently available includes:
 
 .. list-table:: Supported schema metadata
    :widths: 20 50
    :header-rows: 1
 
-   * - Metadata variable
+   * - Schema variable
      - Description
    * - module
      - The YANG module name [#f5]_
+   * - namespace
+     - The YANG modules namespace.  This may be in URI or URL format [#f5]_
+   * - yang_type
+     - The YANG type.  If this is a typedef in YANG, it resolves to the
+       base type in YANG.  If the ``yang_type`` is a *union*, a tuple of YANG
+       base types is returned. [#f6]_
+   * - units
+     - The unit the YANG node is reporting in the YANG module.
+   * - default
+     - The default value defined in the YANG module.
+   * - mandatory
+     - Returns *True* if the node is required in the YANG module.
+   * - range
+     - The range defined in the YANG module.
 
-.. [#f5] The YANG module name is the root module for the element.  The pySROS libraries take into
-         consideration YANG imports, includes, deviations, and augmentations to provide this result.
+
+.. [#f5] The YANG module name is the root module for the element.  The pySROS libraries
+         take into consideration YANG imports, includes, deviations, and augmentations
+         to provide this result.
+.. [#f6] If a *union* resolves to multiple, identical base YANG types, only one of that
+         type is returned.
 
 Example:
 
 .. code-block:: python
-   :caption: Obtaining metadata of an object
+   :caption: Displaying the schema data of an object
    :name: leaf-dot-schema-dot-module-example
-   :emphasize-lines: 3-4
+   :emphasize-lines: 3-10
 
    >>> name
    Leaf('sros')
    >>> name.schema.module
    'nokia-conf'
+   >>> name.schema.namespace
+   'urn:nokia.com:sros:ns:yang:sr:conf'
+   >>> name.schema.mandatory
+   False
+   >>> name.schema.yang_type
+   string
 
-.. Reviewed by PLM 20210902
-.. Reviewed by TechComms 20210902
+.. Reviewed by PLM 20221012
+.. Reviewed by TechComms 20221012
 
 
 Getting Started
@@ -455,7 +480,7 @@ developers to create applications within a preferred development environment and
 locally or transfer them to SR OS for execution.
 
 The :py:meth:`pysros.management.connect` method provides arguments
-that allow the developer to specify parameters such as the authentication credentials
+that allow the developer to specify parameters, such as the authentication credentials
 and TCP port.  These attributes are ignored when an application is executed from an
 SR OS node.
 
@@ -471,14 +496,14 @@ Example:
 
    def get_connection():
        try:
-           connection_object = connect(host="192.168.74.51",
-                                       username="admin",
-                                       password="admin")
-       except RuntimeError as e1:
-           print("Failed to connect.  Error:", e1)
+           connection_object = connect(host="192.168.1.1",
+                                       username="myusername",
+                                       password="mypassword")
+       except RuntimeError as error1:
+           print("Failed to connect.  Error:", error1)
            sys.exit(-1)
-       except ModelProcessingError as e2:
-           print("Failed to create model-driven schema.  Error:", e2)
+       except ModelProcessingError as error2:
+           print("Failed to create model-driven schema.  Error:", error2)
            sys.exit(-2)
        return connection_object
 
@@ -486,8 +511,8 @@ Example:
        connection_object = get_connection()
 
 
-.. Reviewed by PLM 20210902
-.. Reviewed by TechComms 20210902
+.. Reviewed by PLM 20221012
+.. Reviewed by TechComms 20221012
 
 
 Obtaining data
@@ -503,7 +528,7 @@ when *configuration* data is required.  When *state* data is required, it can on
 .. note::
 
    When using combined configuration and state schemas, such as OpenConfig, the :py:meth:`pysros.management.Datastore.get`
-   method obtains both configuration and state information unless the ``config_only=True`` flag is provided.
+   method obtains both configuration and state information, unless the ``config_only=True`` flag is provided.
 
 Example:
 
@@ -515,9 +540,9 @@ Example:
    >>> connection_object = connect()
    >>> connection_object.running.get('/nokia-conf:configure/router[router-name="Base"]/bgp')
    Container({'group': {'mesh': Container({'group-name': Leaf('mesh'), 'admin-state': Leaf('enable'),
-              'peer-as': Leaf(65535)})}, 'neighbor': {'5.5.5.2': Container({'group': Leaf('mesh'),
+              'peer-as': Leaf(65535)})}, 'neighbor': {'192.168.100.2': Container({'group': Leaf('mesh'),
               'import': Container({'policy': LeafList(['demo', 'example-policy-statement'])}),
-              'ip-address': Leaf('5.5.5.2'), 'family': Container({'ipv6': Leaf(True),
+              'ip-address': Leaf('192.168.100.2'), 'family': Container({'ipv6': Leaf(True),
               'vpn-ipv4': Leaf(True), 'ipv4': Leaf(True), 'vpn-ipv6': Leaf(True)}),
               'add-paths': Container({'ipv4': Container({'receive': Leaf(True), 'send': Leaf('multipaths')})}),
               'admin-state': Leaf('enable')})}, 'admin-state': Leaf('enable')})
@@ -610,6 +635,84 @@ This enables the developer to simply structure their own data.
 .. Reviewed by PLM 20210902
 .. Reviewed by TechComms 20210902
 
+
+Performing operations
+*********************
+
+An operation refers to the execution of an activity on the SR OS node that is not that of
+obtaining data or configuring the device.  The method of performing operations on the SR OS
+node through the pySROS libraries is using YANG modeled actions.
+
+This approach allows for YANG modeled and structured data to be used on both input and
+output.  Both input and output are represented as pySROS data structures.
+
+To execute a YANG modeled operation, the :py:meth:`pysros.management.Connection.action`
+method should be used.
+
+The :py:meth:`pysros.management.Connection.action` method uses the YANG schema obtained as
+part of the creation of the :py:class:`pysros.management.Connection` object.  As an input, the
+path to the YANG ``action`` statement should be provided in *json-instance-path* format along
+with the YANG ``input`` parameters in pySROS data structure format.
+
+For example, consider the following YANG module:
+
+.. code-block:: yang
+   :caption: Example YANG action model
+   :name: yang-action-example-model
+   :emphasize-lines: 7-23
+
+   module example {
+       yang-version "1.1";
+       namespace "urn:nokia.com:example";
+       prefix "nokia-example";
+       revision "2022-09-09";
+       container mycontainer {
+           action do-something {
+               input {
+                   leaf myinput-string {
+                       type string;
+                       mandatory true;
+                   }
+                   leaf myinput-int {
+                       type uint8;
+                       mandatory true;
+                   }
+               }
+               output {
+                   leaf working {
+                       type boolean;
+                   }
+               }
+           }
+       }
+   }
+
+The *json-instance-path* to the YANG action statement in the above model is
+``/example:mycontainer/do-something``.  The input to this YANG action takes two
+mandatory fields; ``myinput-string`` and ``myinput-int``.
+
+If the ``do-something`` action was called with the input variables ``myinput-string`` and
+``myinput-int`` being provided as ``mystring`` and ``2`` respectively to method call would
+look like this:
+
+.. code-block:: python
+   :caption: Example calling a YANG modeled action (operation)
+   :name: calling-yang-action-example
+
+   >>> from pysros.management import connect
+   >>> connection_object = connect()
+   >>> path = '/example:mycontainer/do-something'
+   >>> input_parameters = {'myintput-string': 'mystring', 'myinput-int': 2}
+   >>> output = connection_object.action(path, input_parameters)
+   Container({'working': Leaf(True)})
+   >>> output['working'].data
+   True
+
+As can be seen in the example above, the output provided is a pySROS data structure that
+can be accessed in the same way as other pySROS data structures native to Python.
+
+.. Reviewed by PLM 20220909
+.. Reviewed by TechComms 20221012
 
 Next steps
 ##########
