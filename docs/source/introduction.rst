@@ -704,6 +704,7 @@ look like this:
    >>> path = '/example:mycontainer/do-something'
    >>> input_parameters = {'myintput-string': 'mystring', 'myinput-int': 2}
    >>> output = connection_object.action(path, input_parameters)
+   >>> output
    Container({'working': Leaf(True)})
    >>> output['working'].data
    True

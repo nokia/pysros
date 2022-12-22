@@ -360,10 +360,17 @@ class Connection:
         current = rd.process_path(path, strict=True)
         return current.to_model()
 
-    def _convert(self, path, payload, src_fmt, dst_fmt, pretty_print):
+    def _convert(self, path, payload, src_fmt, dst_fmt, pretty_print, action_io):
+        def convert_walker(action_io):
+            if action_io == "input":
+                return ActionInputFilteredDataModelWalker
+            elif action_io == "output":
+                return ActionOutputFilteredDataModelWalker
+            raise make_exception(pysros_err_unsupported_action_io)
+
         if not all(fmt in ("xml", "json", "pysros") for fmt in (src_fmt, dst_fmt)):
             raise make_exception(pysros_err_unsupported_convert_method)
-        rd = RequestData(self.root, self._ns_map, action=RequestData._Action.convert)
+        rd = RequestData(self.root, self._ns_map, action=RequestData._Action.convert, walker=convert_walker(action_io))
         current = rd.process_path(path)
 
         if src_fmt == "pysros":
@@ -467,20 +474,20 @@ class Connection:
         return output[0].text if output else ""
 
     def action(self, path, value={}):
-        """Perform a YANG modelled action on SR OS by providing the *json-instance-path* to the
+        """Perform a YANG modeled action on SR OS by providing the *json-instance-path* to the
         action statement in the chosen operations YANG model, and the pySROS data structure to
-        match the YANG modelled input for that action.
+        match the YANG modeled input for that action.
         This method provides structured data input and output for available operations.
 
         :param path: *json-instance-path* to the YANG action.
         :type path: str
         :param value: pySROS data structure providing the input data for the chosen action.
         :type value: pySROS data structure
-        :returns: YANG modelled, structured data representing the output of the modelled action (operation)
+        :returns: YANG modeled, structured data representing the output of the modeled action (operation)
         :rtype: pySROS data structure
 
         .. code-block:: python
-           :caption: Example calling the **ping** YANG modelled action (operation)
+           :caption: Example calling the **ping** YANG modeled action (operation)
            :name: pysros-action-example
 
            >>> from pysros.management import connect
@@ -575,7 +582,7 @@ class Connection:
         with self._process_connected():
             return self._action(path, value)
 
-    def convert(self, path, payload, *, source_format, destination_format, pretty_print=False):
+    def convert(self, path, payload, *, source_format, destination_format, pretty_print=False, action_io="output"):
         """Returns converted version of the input data (payload) in the destination format.
 
         The input data must be valid according to the YANG schema for the :py:class:`Connection`
@@ -597,31 +604,28 @@ class Connection:
         :type destination_format: str
         :param pretty_print: Format the output for human consumption.
         :type pretty_print: bool, optional
+        :param action_io: When converting the input/output of a YANG modeled operation (action), it is possible
+                          for there to be conflicting fields in the input and output sections of the YANG.  This
+                          parameter selects whether to consider the payload against the ``input`` or ``output``
+                          section of the YANG. Default: ``output``.
+        :type action_io: str, optional
         :returns: Data structure of the same format as ``destination_format``.
         :rtype: pySROS data structure, str
 
         An example of the :py:meth:`convert` function can be found in
         the :ref:`Converting Data Formats` section.
 
-
-        .. note:: The :py:meth:`convert` method supports input payloads containing configuration
-                  and state data only.  Data that forms the input or output of YANG-modelled
-                  actions is not supported in the :py:meth:`convert` method.
-
         .. note:: Any metadata associated with a YANG node is currently not converted.  Metadata
                   includes SR OS configuration comments as well as more general metadata such as
                   insert or delete operations defined in XML attributes.  If metadata is provided
                   in the payload in XML or JSON format, it is stripped from the
-                  resulting output.
+                  resulting output. Attention should be given to converting the output
+                  of the ``compare summary netconf-rpc`` MD-CLI command.
 
-        .. warning:: Do not use :py:meth:`convert` to convert the output of ``compare summary netconf-rpc``
-                     for user-ordered lists on SR OS, as the metadata that provides instructions to
-                     order the list are stripped.
-
-        .. Reviewed by PLM 20220929
-        .. Reviewed by TechComms 20221005
+        .. Reviewed by PLM 20221123
+        .. Reviewed by TechComms 20221124
         """
-        return self._convert(path, payload, source_format, destination_format, pretty_print)
+        return self._convert(path, payload, source_format, destination_format, pretty_print, action_io)
 
 
 class Datastore:

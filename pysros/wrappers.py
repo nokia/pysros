@@ -8,7 +8,7 @@ from .errors import *
 from .singleton import _Empty
 from .yang_type import YangUnion, DECIMAL_LEAF_TYPE
 
-__all__ = ("Container", "Leaf", "LeafList")
+__all__ = ("Action", "Container", "Leaf", "LeafList")
 
 __doc__ = """This module contains wrappers describing the YANG 
 structure and metadata obtained from SR OS.
@@ -199,6 +199,8 @@ class Wrapper(ABC):
     def __setattr__(self, attr, value):
         if attr == "data" or attr == "schema" or attr in Wrapper.__slots__:
             object.__setattr__(self, attr, value)
+        elif attr == "copy":
+            raise AttributeError("'{}' object attribute 'copy' is read-only".format(self.__class__.__name__))
         else:
             setattr(self._data, attr, value)
 
@@ -314,6 +316,17 @@ class Container(Wrapper):
     def _check_data_type(cls, value):
         if not isinstance(value, dict):
             raise make_exception(pysros_err_unsupported_type_for_wrapper, wrapper_name=cls.__name__)
+
+class Action(Container):
+    """YANG Action data structure node wrapper.
+
+    A YANG action in the pySROS data structure behaves in the same way as a pySROS :py:class:`Container`, but
+    it is returned by the :py:meth:`pysros.management.Connection.convert` method.
+
+    :ivar data: dictionary containing the fields data
+    """
+    pass
+
 
 class LeafList(Wrapper):
     """YANG leaf-list data structure node wrapper.

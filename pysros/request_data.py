@@ -9,6 +9,7 @@ from collections import OrderedDict
 from contextlib import ExitStack
 from enum import Enum, auto
 from lxml import etree
+from ncclient.xml_ import to_ele
 from typing import Union
 
 from .errors import *
@@ -16,14 +17,22 @@ from .identifier import NoModule, Identifier
 from .model import Model
 from .model_walker import FilteredDataModelWalker, ModelWalker
 from .singleton import _Singleton, Empty
-from .wrappers import Wrapper, Container, Leaf, LeafList
+from .wrappers import Wrapper, Action, Container, Leaf, LeafList
 
 _get_tag_name = lambda x: etree.QName(x).localname
+_text_in_tag_tail = lambda x: x.tail and x.tail.strip()
+_text_in_tag_text = lambda x: x.text and x.text.strip()
 _create_root_ele = lambda : etree.Element("dummy-root", nsmap={"nokia-attr": "urn:nokia.com:sros:ns:yang:sr:attributes"})
 
 MO_STATEMENT_TYPES = (Model.StatementType.container_, Model.StatementType.list_, Model.StatementType.action_)
 FIELD_STATEMENT_TYPES = (Model.StatementType.leaf_, Model.StatementType.leaf_list_)
 
+def _raise_invalid_text_exception(tag, check_parent_tag=True):
+    tag_to_check = tag.getparent() if check_parent_tag else tag
+    if tag_to_check.tag == "dummy-root":
+        raise make_exception(pysros_err_invalid_xml_root)
+    else:
+        raise make_exception(pysros_err_invalid_xml_element, element=_get_tag_name(tag_to_check))
 
 def _get_local_ns_map(model, ns_map):
     if model.name.prefix in ns_map:
@@ -279,6 +288,8 @@ class _MoStorage(_AStorage):
                     del data[k]
         if self._walker.is_root:
             return data
+        if self._model.data_def_stm == Model.StatementType.action_:
+            return Action._with_model(data, self._model)
         return Container._with_model(data, self._model)
 
     def _leaf_to_model(self, name, value):
@@ -631,8 +642,11 @@ class _LeafSetter(_ASetter):
                 raise make_exception(pysros_err_incorrect_leaf_value, leaf_name=self._walker.get_name().name) from None
         self.set(self._walker.as_model_type(val))
 
-    def set_or_append_as_xml(self, value):
-        value = self._walker.as_model_type(value.text or "")
+    def set_or_append_as_xml(self, value_element):
+        if _text_in_tag_tail(value_element) or (self._walker.get_dds() == Model.StatementType.leaf_list_ and _text_in_tag_text(value_element.getparent())):
+            _raise_invalid_text_exception(value_element)
+        value = self._walker.as_model_type(value_element.text or "")
+
         if self._walker.get_dds() == Model.StatementType.leaf_list_ and isinstance(self._storage._child.get(self._leaf_name), list):
             value = self._storage._child[self._leaf_name] + value
         self.set(value)
@@ -692,11 +706,14 @@ class _KeySetter(_ASetter):
         raise make_exception(pysros_err_invalid_operation_on_key)
 
     def set_as_xml(self, value):
+        if _text_in_tag_tail(value):
+            _raise_invalid_text_exception(value_element)
         if not len(value):
             raise make_exception(pysros_err_malformed_xml)
         for v in value:
-            v = v.text or ""
-            self.set(self._walker.as_model_type(v))
+            if _text_in_tag_tail(v):
+                _raise_invalid_text_exception(v)
+            self.set(self._walker.as_model_type(v.text or ""))
 
     def _set_as_json(self, value, is_root = False):
         if not isinstance(value, dict):
@@ -833,6 +850,8 @@ class _ListSetter(_ASetter):
         keys = {}
         for e in value:
             if _get_tag_name(e) in self._walker.get_local_key_names():
+                if _text_in_tag_tail(e):
+                    _raise_invalid_text_exception(e)
                 keys[_get_tag_name(e)] = e.text or ""
         if set(keys.keys()) != set(self._walker.get_local_key_names()):
             raise make_exception(pysros_err_malformed_keys, full_path=self._walker, value=keys)
@@ -1051,14 +1070,22 @@ class _MoDataSetter(_ASetter):
         walker = self._walker
         if self.rd._action != RequestData._Action.convert:
             walker.return_blocked_regions = True
+        if _text_in_tag_text(value):
+            _raise_invalid_text_exception(value, check_parent_tag=False)
+        if _text_in_tag_tail(value):
+            _raise_invalid_text_exception(value)
         for e in value:
             if not walker.has_child(_get_tag_name(e)) or not self.rd.xml_tag_has_correct_ns(e, walker):
                 raise make_exception(pysros_err_unknown_child, child_name=_get_tag_name(e), path=walker._get_path())
             if walker.is_region_blocked_in_child(_get_tag_name(e)):
                 continue
             else:
-                if walker.get_child_dds(_get_tag_name(e)) in FIELD_STATEMENT_TYPES and _get_tag_name(e) not in walker.get_local_key_names():
-                    self.fields.get_nonexisting(_get_tag_name(e)).set_or_append_as_xml(e)
+                if walker.get_child_dds(_get_tag_name(e)) in FIELD_STATEMENT_TYPES:
+                    if _get_tag_name(e) not in walker.get_local_key_names():
+                        self.fields.get_nonexisting(_get_tag_name(e)).set_or_append_as_xml(e)
+                    elif self.rd._action == RequestData._Action.convert:
+                        xml = to_ele(f"<{_get_tag_name(value)}>{etree.tostring(e, encoding='unicode')}</{_get_tag_name(value)}>")
+                        _KeySetter(self._storage, _get_tag_name(e), self.rd).set_as_xml(xml)
                 elif walker.get_child_dds(_get_tag_name(e)) in MO_STATEMENT_TYPES:
                     self.child_mos.get(_get_tag_name(e)).entry_xml(e).set_as_xml(e)
 

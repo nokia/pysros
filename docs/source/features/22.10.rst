@@ -1,24 +1,32 @@
 Release 22.10
 *************
 
+22.10.2
+#######
+
+* :py:meth:`pysros.management.Connection.convert` method adds support for the
+  conversion of the input/output data of YANG modeled operations (actions).
+
+
+
 22.10.1
 #######
 
 * :py:meth:`pysros.management.Datastore.compare` method provides the ability to compare the
   uncommitted candidate configuration with the baseline configuration prior to a commit.
-* :py:meth:`pysros.management.Connection.action` method provides the ability to execute a YANG modelled
-  action (operation) on SR OS using modelled, structured data as both input and output.
+* :py:meth:`pysros.management.Connection.action` method provides the ability to execute a YANG modeled
+  action (operation) on SR OS using modeled, structured data as both input and output.
 * Updates to the :py:class:`pysros.wrappers.Schema` and :py:class:`pysros.wrappers.SchemaType`
   to include additional YANG schema information,
   specifically:
 
-  * namespace
-  * yang_type
-  * units
-  * default
-  * mandatory
-  * range
-  * union_members
+  * ``namespace``
+  * ``yang_type``
+  * ``units``
+  * ``default``
+  * ``mandatory``
+  * ``range``
+  * ``union_members``
 
 * :py:meth:`pysros.management.Connection.convert` method provides the ability to convert
   any correctly formatted data from either pySROS data structure format, XML format or
