@@ -67,7 +67,7 @@ def connect(*, host, port=830, username, password=None, yang_directory=None,
     :param hostkey_verify: Enables hostkey verification using the SSH known_hosts file. Default True.
     :type hostkey_verify: bool, optional
     :return: Connection object for specific SR OS node.
-    :rtype: .Connection
+    :rtype: :py:class:`Connection`
     :raises RuntimeError: Error occurred during creation of connection
     :raises ModelProcessingError: Error occurred during compilation of the YANG modules
 
@@ -211,6 +211,7 @@ class Connection:
         self.rebuild = rebuild
         self._models    = self._get_yang_models()
         self._ns_map    = types.MappingProxyType({model.name: model.namespace for model in self._models})
+        self._mod_revs  = {model.name: model.revision for model in self._models}
         self.root = self._get_root(self._models)
         self.debug      = False
 
@@ -273,8 +274,12 @@ class Connection:
     def _find_module(self, yang_name):
         if os.path.isfile(f"""{self.yang_directory}/nokia-combined/{yang_name}.yang"""):
             return f"""{self.yang_directory}/nokia-combined/{yang_name}.yang"""
+        if yang_name in self._ns_map: #module
+            for candidate in pathlib.Path(self.yang_directory).rglob(f"{yang_name}*.yang"):
+                if candidate.parts and re.fullmatch(f"{yang_name}[@]{self._mod_revs[yang_name]}.yang", str(candidate.parts[-1])):
+                    return candidate
         for candidate in pathlib.Path(self.yang_directory).rglob(f"{yang_name}*.yang"):
-            if candidate.parts and re.fullmatch(f"{yang_name}(?:[@]\\d{{4}}[-]\\d{{2}}[-]\\d{{2}})?.yang", str(candidate.parts[-1])):
+            if candidate.parts and re.fullmatch(f"{yang_name}.yang", str(candidate.parts[-1])):
                 return candidate
         raise make_exception(pysros_err_can_not_find_yang, yang_name=yang_name)
 
@@ -892,7 +897,7 @@ class Datastore:
         xml_output=""
         for subtree in reply.xpath("/ncbase:rpc-reply/nokiaoper:results/nokiaoper:md-compare-output/*"):
             subtree.getparent().remove(subtree)
-            etree.cleanup_namespaces(subtree, keep_ns_prefixes=["nokia-attr", "yang"])
+            etree.cleanup_namespaces(subtree, keep_ns_prefixes=["nc", "nokia-attr", "yang"])
             xml_output+=etree.tostring(subtree).decode("utf-8")
 
         if xml_output:

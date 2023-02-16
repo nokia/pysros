@@ -174,7 +174,7 @@ class SchemaType:
             and all(attrs_eq(self, other, attr) for attr in self._attributes)
         )
 
-class Wrapper(ABC):
+class Wrapper:
     """Common functionality to support wrappers that describe the YANG structure from
     the SR OS schema.
 
@@ -188,7 +188,7 @@ class Wrapper(ABC):
     __slots__ = ('_data', '_model')
 
     def __init__(self, value):
-        self.data   = value
+        self._data  = value
         self._model = None
 
     def __getattr__(self, attr):
@@ -197,12 +197,14 @@ class Wrapper(ABC):
         return getattr(self._data, attr)
 
     def __setattr__(self, attr, value):
-        if attr == "data" or attr == "schema" or attr in Wrapper.__slots__:
+        if attr == '_data' and not hasattr(self, '_data'):
+            self._check_data_type(value)
             object.__setattr__(self, attr, value)
-        elif attr == "copy":
-            raise AttributeError("'{}' object attribute 'copy' is read-only".format(self.__class__.__name__))
-        else:
-            setattr(self._data, attr, value)
+            return
+        elif attr == '_model' and getattr(self, '_model', None) is None:
+            object.__setattr__(self, attr, value)
+            return
+        raise AttributeError(f"'{self.__class__.__name__}' object attribute '{attr}' is read-only")
 
     def __delattr__(self, attr):
         raise make_exception(pysros_err_attr_cannot_be_deleted, obj=self.__class__.__name__, attribute=attr)
@@ -210,17 +212,19 @@ class Wrapper(ABC):
     def __eq__(self, other):
         return self.__class__ is other.__class__ and self._data == other._data
 
-    def __bool__(self):
-        return bool(self._data)
-
     @property
     def data(self):
         return self._data
 
-    @data.setter
-    def data(self, value):
-        self._check_data_type(value)
-        self._data = value
+    __module__ = 'pysros.wrappers'
+
+    def __dir__(self):
+        result = ['__module__', 'schema', 'data', '__getattr__', '__slots__']
+        old_dir = object.__dir__(self)
+        for item in dir(self.data):
+            if not item.startswith('_') or item in old_dir:
+                result.append(item)
+        return result
 
     @property
     def schema(self):
@@ -241,61 +245,34 @@ class Wrapper(ABC):
     def __repr__(self):
         return "{}({!r})".format(self.__class__.__name__, self._data)
 
-    def __iter__(self):
-        return iter(self._data)
-
-    def __getitem__(self, key):
-        return self._data[key]
-
-    def __setitem__(self, key, value):
-        self._data[key] = value
-
-    def __delitem__(self, key):
-        del self._data[key]
-
-    # helper used in followed loop and deleted
-    def _unwrap_first(op):
-        return lambda w1, w2: op(w1._data, w2)
-
-    for op in ('__add__', '__sub__', '__mul__', '__truediv__', '__floordiv__'
-                , '__mod__', '__pow__', '__lshift__', '__rshift__'
-                , '__and__', '__xor__', '__or__'):
-        locals()[op] = _unwrap_first(getattr(operator, op))
-
-    # helper used in followed loop and deleted
-    def _runwrap_first(op):
-        return lambda w1, w2: op(w2, w1._data)
-
-    for rop in ('__radd__', '__rsub__', '__rmul__', '__rtruediv__', '__rfloordiv__'
-                , '__rmod__', '__rpow__', '__rlshift__', '__rrshift__'
-                , '__rand__', '__rxor__', '__ror__'):
-        assert rop.startswith('__r')
-        op = '__' + rop[3:]
-        locals()[rop] = _runwrap_first(getattr(operator, op))
-
-
-    # helper used in followed loop and deleted
-    def _unwrap_both(op):
-        def fn(self, other):
-            if self.__class__ is not other.__class__:
-                return NotImplemented
-            return op(self._data, other._data)
-        return fn
-
-    for op in ('__lt__', '__le__', '__gt__', '__ge__'):
-        locals()[op] = _unwrap_both(getattr(operator, op))
-
-    del _unwrap_first
-    del _runwrap_first
-    del _unwrap_both
-    del op
-    del rop
 
     @classmethod
     def _with_model(cls, data, model):
         obj = cls(data)
         obj._model = model
         return obj
+
+def forward_methods(C, *methods):
+    def make_forward(method):
+        op = getattr(operator, method, None)
+        if op is not None:
+            # solves most methods like __add__, __and__, , but not special cases
+            def forwad(self, *args):
+                return op(self.data, *args)
+            return forwad
+        if method.startswith('__r'):
+            n_method = "__" + method[3:]
+            if hasattr(operator, n_method): # reverse operator __radd__, __rsub__, __rxor, etc.
+                def forward(self, arg):
+                    return getattr(operator, n_method)(arg, self.data)
+                return forward
+
+        # some methods (eg. __len__) are not defined in operator
+        def forward(self, *args):
+            return getattr(self.data, method)(*args)
+        return forward
+    for method in methods:
+        setattr(C, method, make_forward(method))
 
 class Container(Wrapper):
     """YANG container data structure node wrapper.
@@ -316,6 +293,8 @@ class Container(Wrapper):
     def _check_data_type(cls, value):
         if not isinstance(value, dict):
             raise make_exception(pysros_err_unsupported_type_for_wrapper, wrapper_name=cls.__name__)
+
+forward_methods(Container, '__contains__', '__delitem__', '__getitem__', '__iter__', '__len__', '__reversed__', '__setitem__')
 
 class Action(Container):
     """YANG Action data structure node wrapper.
@@ -351,6 +330,8 @@ class LeafList(Wrapper):
         for value in values:
             Leaf._check_data_type(value)
 
+forward_methods(LeafList, '__add__', '__contains__', '__delitem__', '__getitem__', '__iadd__', '__imul__', '__iter__', '__len__', '__mul__', '__reversed__', '__rmul__', '__setitem__')
+
 class Leaf(Wrapper):
     """YANG leaf data structure node wrapper.
 
@@ -367,3 +348,56 @@ class Leaf(Wrapper):
     def _check_data_type(data):
         if not isinstance(data, (str, int, bool, _Empty)):
             raise make_exception(pysros_err_unsupported_type_for_wrapper, wrapper_name = 'Leaf')
+
+    def __bool__(self):
+        return bool(self.data)
+
+forward_methods(Leaf,
+    '__lt__',
+    '__le__',
+    '__ge__',
+    '__gt__',
+    '__abs__',
+    '__add__',
+    '__and__',
+    '__ceil__',
+    '__contains__',
+    '__divmod__',
+    '__float__',
+    '__floor__',
+    '__floordiv__',
+    '__getitem__',
+    '__getnewargs__',
+    '__index__',
+    '__int__',
+    '__invert__',
+    '__iter__',
+    '__len__',
+    '__lshift__',
+    '__mod__',
+    '__mul__',
+    '__neg__',
+    '__or__',
+    '__pos__',
+    '__pow__',
+    '__radd__',
+    '__rand__',
+    '__rdivmod__',
+    '__rfloordiv__',
+    '__rlshift__',
+    '__rmod__',
+    '__rmul__',
+    '__ror__',
+    '__round__',
+    '__rpow__',
+    '__rrshift__',
+    '__rshift__',
+    '__rsub__',
+    '__rtruediv__',
+    '__rxor__',
+    '__sub__',
+    '__truediv__',
+    '__trunc__',
+    '__xor__',
+)
+del forward_methods
