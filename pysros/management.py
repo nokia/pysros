@@ -38,7 +38,7 @@ It contains functions to obtain and manipulate configuration and state data.
 """
 
 
-def connect(*, host, port=830, username, password=None, yang_directory=None,
+def connect(*, host, port=830, username, password=None, key_filename=None, yang_directory=None,
             rebuild=False, transport="netconf", timeout=300, hostkey_verify=True):
     """Create a :class:`.Connection` object.  This function is the main entry point for
     model-driven management of configuration and state for a specific SR OS node using
@@ -56,6 +56,9 @@ def connect(*, host, port=830, username, password=None, yang_directory=None,
     :param password: User password.  If the password is not provided the systems SSH key
                      is used.
     :type password: str, optional
+    :param key_filename: User path to SSH private key file.  If the password and key_filename is not provided the systems SSH key
+                     is used.
+    :type key_filename: str, optional
     :param yang_directory: Path (absolute or relative to the local machine) to the YANG modules
                            for the specific node. If this argument is used, YANG modules are not
                            downloaded from the SR OS node.
@@ -138,7 +141,7 @@ def connect(*, host, port=830, username, password=None, yang_directory=None,
     """
     if transport != "netconf":
         raise make_exception(pysros_err_invalid_transport)
-    return Connection(host=host, port=port, username=username, password=password,
+    return Connection(host=host, port=port, username=username, password=password, key_filename=key_filename,
                       device_params={'name': 'sros'}, manager_params={'timeout': timeout},
                       nc_params={'capabilities':['urn:nokia.com:nc:pysros:pc']}, hostkey_verify=hostkey_verify,
                       yang_directory=yang_directory, rebuild=rebuild)
