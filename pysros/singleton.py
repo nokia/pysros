@@ -26,4 +26,30 @@ class _Empty(metaclass=_Singleton):
         return "Empty"
 
 Empty = _Empty()
-Empty.__doc__="""Define the YANG Empty type."""
+Empty.__doc__="""Define the YANG ``empty`` type.
+
+    The YANG ``empty`` type is not the same as an empty string ``""`` or as the ``None``
+    type in Python.  It requires specific translation depending on whether it is being
+    used in XML or in JSON IETF encodings.
+
+    The :py:class:`Empty` class is used to represent the value of a node that is of the
+    YANG type ``empty``.
+
+    .. code-block:: python
+       :caption: Example - Obtaining YANG ``empty`` type values
+       :name: pysros-singleton-empty-example-get
+
+       >>> connection_object.running.get('/nokia-conf:configure/system/grpc/allow-unsecure-connection')
+       Leaf(Empty)
+       
+    .. code-block:: python
+       :caption: Example - Configuring a YANG ``empty`` type
+       :name: pysros-singleton-empty-example-set
+
+       >>> from pysros.management import Empty
+       >>> connection_object.candidate.set('/nokia-conf:configure/system/grpc/allow-unsecure-connection', Empty)
+     
+    .. Reviewed by PLM 20230228
+    .. Reviewed by TechComms 20230302
+
+"""

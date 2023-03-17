@@ -338,7 +338,7 @@ Type conversions
    * - enumeration
      - string
    * - identityref
-     - string
+     - string [#f3]_
    * - int8
      - integer
    * - int16
@@ -348,7 +348,7 @@ Type conversions
    * - int64
      - integer
    * - leafref
-     - N/A [#f3]_
+     - N/A [#f4]_
    * - string
      - string
    * - uint8
@@ -360,20 +360,75 @@ Type conversions
    * - uint64
      - integer
    * - union
-     - string [#f4]_
+     - string [#f5]_
 
-.. [#f2] This specific type is provided by the pySROS libraries
-.. [#f3] A leaf-ref takes the YANG native type of the leaf it is referencing.  This type is then
+.. [#f2] This specific type is provided by the pySROS libraries.
+         YANG has a specific data type named ``empty``.  This type is not commonly used in YANG modules but it
+         is important to explain the specific handling :py:mod:`pysros` provides.  For more information, see :py:class:`pysros.management.Empty`
+.. [#f3] Identity references (identityref) require special consideration.
+         See the `YANG identity references`_ section.
+.. [#f4] A leaf-ref takes the YANG native type of the leaf it is referencing.  This type is then
          converted to Python according to this table.
-.. [#f4] A union YANG type may be a union of a variety of different YANG types (for example, a union
+.. [#f5] A union YANG type may be a union of a variety of different YANG types (for example, a union
          of a string and a Boolean).  As it is not possible to identify the intention at the time of
          obtaining the data, automatic type selection is not performed.  Every union is treated as a
          string, allowing the developer to cast the element into a specified type.
 
 
-.. Reviewed by PLM 20210902
-.. Reviewed by TechComms 20210902
+.. Reviewed by PLM 20230228
 
+.. _yang_identityrefs:
+
+YANG identity references
+************************
+Identity references are a YANG construct that provide a way to reference a previously
+defined ``identity``.  This ``identity`` may be located in the same, or more commonly, another YANG
+module.
+
+Unlike other elements in YANG, the namespace for an identityref is
+stored as part of the value of a node, rather than the node itself:
+
+.. code-block:: xml
+   :caption: Example identityref in XML
+   :name: identityref-xml-example
+   :emphasize-lines: 6-8
+
+   <interfaces xmlns="http://openconfig.net/yang/interfaces">
+       <interface>
+           <name>1/1/c1/1</name>
+           <config>
+               <name>1/1/c1/1</name>
+               <type xmlns:iana-if-type="urn:ietf:params:xml:ns:yang:iana-if-type">
+                   iana-if-type:ethernetCsmacd
+               </type>
+           </config>
+       </interface>
+   </interfaces>
+
+In pySROS the namespace portion of an ``identityref`` value must be the YANG *module name*
+of the module where the referenced ``identity`` resides:
+
+.. code-block:: python
+   :caption: Example identityref in pySROS
+   :name: identityref-pysros-example
+   :emphasize-lines: 2,5
+
+   >>> path = '/openconfig-interfaces:interfaces/interface[name="1/1/c1/1"]/config'
+   >>> payload = {'name': '1/1/c1/1', 'type': 'iana-if-type:ethernetCsmacd'}
+   >>> connection_object.candidate.set(path, payload)
+   >>> connection_object.running.get(path+'/type')
+   Leaf('iana-if-type:ethernetCsmacd')
+
+If a YANG *module name* is omitted when referencing an ``identity``, pySROS attempts
+to determine the *module name* from the known YANG schema for that device.  If pySROS
+cannot determine the correct *module name* an :py:exc:`pysros.exceptions.SrosMgmtError` Exception is returned.
+
+.. note::
+
+   Nokia recommends explicitly describing the YANG module name in an ``identityref``.
+
+.. Reviewed by PLM 20230131
+.. Reviewed by TechComms 20230227
 
 Wrappers
 ********
@@ -404,7 +459,6 @@ Example:
 .. Reviewed by PLM 20210902
 .. Reviewed by TechComms 20210902
 
-
 YANG schema information
 ***********************
 Additional information from the model-driven YANG schema is available to developers for
@@ -421,13 +475,13 @@ YANG schema information currently available includes:
    * - Schema variable
      - Description
    * - module
-     - The YANG module name [#f5]_
+     - The YANG module name [#f6]_
    * - namespace
-     - The YANG modules namespace.  This may be in URI or URL format [#f5]_
+     - The YANG modules namespace.  This may be in URI or URL format [#f6]_
    * - yang_type
      - The YANG type.  If this is a typedef in YANG, it resolves to the
        base type in YANG.  If the ``yang_type`` is a *union*, a tuple of YANG
-       base types is returned. [#f6]_
+       base types is returned. [#f7]_
    * - units
      - The unit the YANG node is reporting in the YANG module.
    * - default
@@ -438,10 +492,10 @@ YANG schema information currently available includes:
      - The range defined in the YANG module.
 
 
-.. [#f5] The YANG module name is the root module for the element.  The pySROS libraries
+.. [#f6] The YANG module name is the root module for the element.  The pySROS libraries
          take into consideration YANG imports, includes, deviations, and augmentations
          to provide this result.
-.. [#f6] If a *union* resolves to multiple, identical base YANG types, only one of that
+.. [#f7] If a *union* resolves to multiple, identical base YANG types, only one of that
          type is returned.
 
 Example:
@@ -704,6 +758,7 @@ look like this:
    >>> path = '/example:mycontainer/do-something'
    >>> input_parameters = {'myintput-string': 'mystring', 'myinput-int': 2}
    >>> output = connection_object.action(path, input_parameters)
+   >>> output
    Container({'working': Leaf(True)})
    >>> output['working'].data
    True

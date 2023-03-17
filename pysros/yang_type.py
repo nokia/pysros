@@ -3,9 +3,9 @@
 import base64
 
 from abc import ABC, abstractmethod
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 from enum import Enum
-from typing import Any, Dict, List, Mapping, Optional, Set, Type, Tuple, Union
+from typing import Any, Dict, List, Mapping, Optional, Set, Type, Tuple, Union, NamedTuple, Iterable
 
 from lxml.etree import SubElement
 
@@ -90,20 +90,20 @@ class YangTypeBase(ABC):
     def name(self):
         return self.__str__()
 
-    def to_string(self, val: Any) -> str:
+    def to_string(self, val: Any) -> Tuple[str, str]:
         """Translate value to xml text without any checking."""
         # User input is also checked by check_field_value, paths are not
         if isinstance(val, bool) and isinstance(self, PrimitiveType):
             if self.identifier.name == 'boolean':
-                return str(val).lower()
+                return str(val).lower(), None
             assert self.identifier.name in INTEGRAL_LEAF_TYPE
-            return str(int(val))
+            return str(int(val)), None
         if isinstance(val, (int, str)):
-            return str(val)
+            return str(val), None
         if val is Empty:
-            return ''
+            return '', None
         if isinstance(val, bytes):
-            return base64.b64encode(val).decode('utf8')
+            return base64.b64encode(val).decode('utf8'), None
         raise make_exception(pysros_err_unexpected_value_of_type, val_type=type(val), type=str(self))
 
     def to_value(self, val: str) -> Any:
@@ -120,7 +120,7 @@ class YangTypeBase(ABC):
     def json_name(self) -> str:
         return self.__class__.__name__.lower()
 
-    def as_storage_type(self, obj, is_convert):
+    def as_storage_type(self, obj, is_convert, idref_cb):
         return obj
 
 
@@ -175,7 +175,7 @@ class PrimitiveType(YangTypeBase):
         if t == "boolean":
             if isinstance(val, str) and val.lower() in ("true", "false"):
                 return val.lower() == "true"
-            elif isinstance(val, bool): #TODO is this really good place for this?
+            elif isinstance(val, bool):
                 return val
         if t == "empty":
             return Empty
@@ -208,12 +208,12 @@ class PrimitiveType(YangTypeBase):
     def json_name(self) -> str:
         return self.identifier.name
 
-    def as_storage_type(self, obj, is_convert):
+    def as_storage_type(self, obj, is_convert, idref_cb):
         if self.identifier.name == "boolean" and type(obj) == int:
             return bool(obj)
         elif self.identifier.name in INTEGRAL_LEAF_TYPE and (type(obj) == bool or self.identifier.name in ("int64", "uint64")):
             return int(obj)
-        return super().as_storage_type(obj, is_convert)
+        return super().as_storage_type(obj, is_convert, idref_cb)
 
 class UnresolvedIdentifier(YangTypeBase):
     """Identifier that has not been resolved yet."""
@@ -250,7 +250,7 @@ class UnresolvedIdentifier(YangTypeBase):
             self.fraction_digits,
         ))
 
-    def to_string(self, _val: Any) -> str:
+    def to_string(self, _val: Any) -> Tuple[str, str]:
         raise make_exception(pysros_err_unresolved_type, type=self)
 
     def to_value(self, _val: str) -> Any:
@@ -293,11 +293,13 @@ class YangUnion(YangTypeBase):
     def __len__(self):
         return len(self._types)
 
-    def to_string(self, val: Any) -> str:
+    def to_string(self, val: Any) -> Tuple[str, str]:
         if isinstance(val, str):
-            return val
+            for t in self._types:
+                if isinstance(t, IdentityRef) and t._find_identity(val):
+                    return t.to_string(val)
         if isinstance(val, bool):
-            return "true" if val else "false"
+            return "true" if val else "false", None
         return super().to_string(val)
 
     def to_value(self, val: Any) -> Any:
@@ -315,6 +317,18 @@ class YangUnion(YangTypeBase):
         types = list(OrderedDict.fromkeys(self._types))
         if len(types) != len(self._types):
             self._types = types
+
+    def as_storage_type(self, obj, is_convert, idref_cb):
+        if isinstance(obj, str):
+            for t in self._types:
+                if isinstance(t, IdentityRef):
+                    identinty = t._find_identity(obj)
+                    if identinty is not None:
+                        if idref_cb:
+                            idref_cb(identinty)
+                        return identinty.module + ':' + identinty.name
+
+        return super().as_storage_type(obj,  is_convert, idref_cb)
 
 class Enumeration(OrderedDict, YangTypeBase):
     def __str__(self):
@@ -391,7 +405,7 @@ class LeafRef(YangTypeBase):
     def __hash__(self):
         return hash((self.__class__.__name__, self._path))
 
-    def to_string(self, _val: Any) -> str:
+    def to_string(self, _val: Any) -> Tuple[str, str]:
         raise make_exception(pysros_err_unresolved_leafref, type=str(self))
 
     def to_value(self, _val: str) -> Any:
@@ -404,22 +418,30 @@ class LeafRef(YangTypeBase):
     def path(self):
         return self._path
 
+class Identity(NamedTuple):
+    name: str
+    module: str
+    namespace: str
+
 class IdentityRef(YangTypeBase):
-    def __init__(self, bases = (), values: Optional[Set[Identifier]] = None):
+    def __init__(self, bases = (), identities: Optional[Iterable[Identity]] = None):
         self.bases:  List[Identifier] = list(bases)
-        self.values: Set[Identifier] = values or set()
+        self.values: Dict[str, Identity] = {} if identities is None else {i.name : i for i in identities}
 
     def add_base(self, base: Identifier):
         assert isinstance(base, Identifier)
         self.bases.append(base)
 
-    def set_values(self, derived: Mapping[Identifier, Set[Identifier]]):
+    def set_values(self, derived: Mapping[Identifier, Set[Identifier]], ns_map):
         assert not self.values
-        self.values = set()
+        self.values = {}
         for b in self.bases:
             if b not in derived:
                 continue
-            self.values |= derived[b]
+            for id in derived[b]:
+                if id.prefix not in ns_map:
+                    raise RuntimeError(f"Module {id.prefix} is not in map of known modules")
+                self.values[id.name] = Identity(id.name, id.prefix, ns_map[id.prefix])
 
     def __eq__(self, other):
         return (
@@ -432,20 +454,39 @@ class IdentityRef(YangTypeBase):
         return f"identityref[{', '.join(b.__str__() for b in self.bases)}]"
 
     def __repr__(self):
-        return f"IdentityRef({self.bases!r}, set(({', '.join(sorted(map(repr, self.values)))})))"
+        # values has to be stable order
+        ordered_values = sorted(self.values.values(), key = lambda id: id.name)
+        return f"IdentityRef({self.bases!r}, {ordered_values!r})"
 
     def __hash__(self):
         return hash((self.__class__.__name__, *self.bases, frozenset(self.values)))
 
+    def to_string(self, val: str) -> Tuple[str, str]:
+        identity = self._find_identity(val)
+        if not identity:
+            raise make_exception(pysros_err_invalid_value_for_type, type=self, value=val)
+        return identity.module + ':' + identity.name, identity.module
+
+    def _find_identity(self, val: str):
+        prefix = None
+        if ':' in val:
+            mod,value = val.split(':', 1)
+            result = self.values.get(value, None)
+            return result if result is not None and result.module == mod else None
+        else:
+            return self.values.get(val, None)
+
     def to_value(self, _val: str) -> Any:
         return _val
 
-    def as_storage_type(self, obj, is_convert):
-        return obj
+    def as_storage_type(self, obj, is_convert, idref_cb):
+        identinty = self._find_identity(obj)
+        if idref_cb:
+            idref_cb(identinty)
+        return identinty.module + ':' + identinty.name
 
     def check_field_value(self, value: Any, json=False) -> bool:
-        return isinstance(value, str)
-
+        return isinstance(value, str) and self._find_identity(value) is not None
 
 YangType = Union[
     PrimitiveType,

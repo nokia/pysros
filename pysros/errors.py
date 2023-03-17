@@ -6,7 +6,7 @@ from .exceptions import make_exception
 __doc__ = """This module contains error definitions for pySROS.
 
 .. reviewed by PLM 20211201
-.. reviewed by TechComms 21211202
+.. reviewed by TechComms 20211202
 """
 
 pysros_err_action_subtree_not_supported = (SrosMgmtError, """Md-compare subtree-path is not supported in action method, use compare method instead""")
@@ -19,7 +19,6 @@ pysros_err_can_have_one_semicolon = (InvalidPathError, "Identifier can contain o
 pysros_err_can_not_find_yang = (ModelProcessingError, "Cannot find yang '{yang_name}'")
 pysros_err_cannot_call_go_to_parent = (InvalidPathError, "Cannot call go_to_parent on root")
 pysros_err_cannot_delete_from_state = (SrosMgmtError, "Cannot delete from state tree")
-pysros_err_cannot_find_module_set_id_or_content_id = (RuntimeError, "Cannot find module-set-id or content-id")
 pysros_err_cannot_lock_and_unlock_running = (SrosMgmtError, "Cannot lock and unlock running config")
 pysros_err_cannot_modify_config = (SrosMgmtError, "Cannot modify running config")
 pysros_err_cannot_modify_state = (SrosMgmtError, "Cannot modify state tree")
@@ -66,8 +65,6 @@ pysros_err_not_found_slash_before_name = (InvalidPathError, "'/' not found befor
 pysros_err_path_should_be_string = (TypeError, "path argument should be a string")
 pysros_err_prefix_does_not_have_ns = (LookupError, "prefix '{prefix}' of '{name}' does not have corresponding namespace")
 pysros_err_root_path = (InvalidPathError, "Operation cannot be performed on root")
-pysros_err_server_dos_not_have_required_yang_lib = (RuntimeError, "NETCONF server does not have required yang-library")
-pysros_err_server_dos_not_have_yang_lib = (RuntimeError, "NETCONF server does not have yang-library capability")
 pysros_err_target_should_be_list = (InvalidPathError, "Target should be a list")
 pysros_err_type_must_be = (TypeError, "must be {expected:.50s}, not {actual:.50s}")
 pysros_err_unended_quoted_string = (InvalidPathError, "Unended quoted string")
@@ -95,6 +92,7 @@ pysros_err_unsupported_compare_datastore = (SrosMgmtError, "Compare is only supp
 pysros_err_unsupported_compare_endpoint = (InvalidPathError, "Unsupported compare path endpoint")
 pysros_err_unsupported_action_path = (InvalidPathError, "Path does not point to an action")
 pysros_err_unsupported_convert_method = (SrosMgmtError, "Unsupported convert method")
+pysros_err_unsupported_action_io = (SrosMgmtError, "Unsupported value of argument action_io")
 pysros_err_invalid_rd_state = (InternalError, "Invalid database state")
 pysros_err_convert_root_not_support_pysros = (SrosMgmtError, "'pysros' format is not supported for root")
 pysros_err_convert_wrong_payload_type = (TypeError, "Invalid payload type for convert")
@@ -103,3 +101,5 @@ pysros_err_malformed_xml = (ValueError, "Malformed XML")
 pysros_err_multiple_occurences_of_node = (SrosMgmtError, "Multiple occurrences of node")
 pysros_err_multiple_occurences_of_entry = (SrosMgmtError, "Multiple occurrences of list entry")
 pysros_err_convert_invalid_value_for_type = (SrosMgmtError, "Invalid value for {name}")
+pysros_err_invalid_xml_element = (ValueError, 'XML element {element} can be empty or contain another XML element')
+pysros_err_invalid_xml_root = (ValueError, 'XML root element can be empty or contain another XML element')

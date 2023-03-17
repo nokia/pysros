@@ -40,7 +40,7 @@ class Data:  # pylint: disable=too-few-public-methods
         elif input_format == "json":
             self.payload = self._gen_json()
         else:
-            raise Exception("Valid data formats are pysros, xml or json")
+            raise ValueError("Valid data formats are pysros, xml or json")
 
     def _gen_pysros(self):
         """Private method to generate simple pySROS formatted example data

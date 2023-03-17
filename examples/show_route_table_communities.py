@@ -50,6 +50,7 @@ def get_connection(creds):
 def get_input_args():
     """Obtain and process input arguments."""
 
+    reg_expr = ""
     # expected regular expression as input - defines community name
     if len(sys.argv) == 2:
         reg_expr = sys.argv[1]
@@ -68,7 +69,9 @@ def compile_reg_expr(reg_expr):
     try:
         compiled_regex = re.compile(reg_expr)
     except Exception as error:  # pylint: disable=broad-except
-        print("An error has occured while compiling the regex: {}".format(error))
+        print(
+            "An error has occured while compiling the regex: {}".format(error)
+        )
         sys.exit(-1)
 
     return compiled_regex
@@ -86,6 +89,7 @@ def print_table(rows):
         (7, "Owner"),
         (20, "Rout-ins"),
     ]
+    # pylint: disable=consider-using-generator
     width = sum([col[0] for col in cols])
 
     # init and print table
@@ -125,7 +129,9 @@ def main():
             # store the attribute info
             attr_value = bgp_addr_type["routes"][route]["attr-id"].data
             # iterate the attribute sets
-            for attr in bgp_info["attr-sets"]["attr-set"][("rib-in", attr_value)]:
+            for attr in bgp_info["attr-sets"]["attr-set"][
+                ("rib-in", attr_value)
+            ]:
                 if attr == "communities":
                     for comm in bgp_info["attr-sets"]["attr-set"][
                         ("rib-in", attr_value)

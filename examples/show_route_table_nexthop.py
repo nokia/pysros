@@ -50,6 +50,7 @@ def get_connection(creds):
 def get_input_args():
     """Obtain the input arguments and process them"""
 
+    next_hop = ""
     # expected ip-address as input -> defines next-hop
     if len(sys.argv) == 2:
         try:
@@ -78,7 +79,9 @@ def print_table(rows, next_hop):
     ]
 
     # init and print table
-    table = Table("Route-table for bgp routes with next-hop: {}".format(next_hop), cols)
+    table = Table(
+        "Route-table for bgp routes with next-hop: {}".format(next_hop), cols
+    )
     table.print(rows)
 
 
@@ -111,12 +114,14 @@ def main():
             # store the route attribute info
             attr_value = bgp_addr_type["routes"][route]["attr-id"].data
             # iterate the attribute sets
-            next_hop_value = bgp_info["attr-sets"]["attr-set"][("rib-in", attr_value)][
-                "next-hop"
-            ].data
+            next_hop_value = bgp_info["attr-sets"]["attr-set"][
+                ("rib-in", attr_value)
+            ]["next-hop"].data
             if next_hop_value == target_next_hop:
                 # store the info, address_type, route, neighbor, owner, router_instance
-                routes_info.append([addr_type, route[0], route[1], route[2], route[3]])
+                routes_info.append(
+                    [addr_type, route[0], route[1], route[2], route[3]]
+                )
 
     # print data into table
     print_table(routes_info, target_next_hop)

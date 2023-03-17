@@ -533,7 +533,8 @@ class ModelBuilder:
             if m.data_def_stm != BuildingModel.StatementType.identity_:
                 return
             for b in m.identity_bases:
-                directly_derived[b].add(m.name)
+                if m.status != 'obsolete':
+                    directly_derived[b].add(m.name)
 
         self.root.recursive_walk(find_derived)
         # second step adds all direct and indirect derived identities together
@@ -554,11 +555,11 @@ class ModelBuilder:
             if m.yang_type is None:
                 return
             if type(m.yang_type) is IdentityRef:
-                m.yang_type.set_values(derived)
+                m.yang_type.set_values(derived, self._ns_map)
             elif type(m.yang_type) is YangUnion:
                 for st in m.yang_type:
                     if type(st) is IdentityRef:
-                        st.set_values(derived)
+                        st.set_values(derived, self._ns_map)
 
         self.root.recursive_walk(identityref_set_value)
 

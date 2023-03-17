@@ -41,7 +41,6 @@
    :undoc-members:
    :show-inheritance:
 
-
 :mod:`pysros.exceptions` - pySROS specific exceptions
 -----------------------------------------------------
 

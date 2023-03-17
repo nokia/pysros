@@ -7,7 +7,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name='pysros',
-    version='22.10.1',
+    version='23.3.1',
     packages=['pysros'],
     url='https://www.nokia.com',
     license='Copyright 2021 Nokia.  License available in the LICENSE.md file.',
@@ -27,7 +27,7 @@ setup(
     ],
     install_requires=[
         "ncclient~=0.6.12",
-        "lxml~=4.6.3",
+        "lxml~=4.9.2",
     ],
     python_requires=">=3.6",
     long_description=long_description,

@@ -19,13 +19,13 @@ from lxml import etree
 from ncclient import manager
 from ncclient.operations.rpc import RPCError as nc_RPCError
 from ncclient.transport.errors import TransportError as nc_TransportError
-from ncclient.xml_ import new_ele, to_ele
+from ncclient.xml_ import new_ele, new_ele_nsmap, to_ele
 
 from .errors import *
 from .model import Model
 from .model_builder import ModelBuilder
 from .model_walker import FilteredDataModelWalker, ActionInputFilteredDataModelWalker, ActionOutputFilteredDataModelWalker
-from .request_data import RequestData
+from .request_data import RequestData, COMMON_NAMESPACES
 from .singleton import Empty
 from .wrappers import Container, Leaf, LeafList
 
@@ -67,7 +67,7 @@ def connect(*, host, port=830, username, password=None, yang_directory=None,
     :param hostkey_verify: Enables hostkey verification using the SSH known_hosts file. Default True.
     :type hostkey_verify: bool, optional
     :return: Connection object for specific SR OS node.
-    :rtype: .Connection
+    :rtype: :py:class:`Connection`
     :raises RuntimeError: Error occurred during creation of connection
     :raises ModelProcessingError: Error occurred during compilation of the YANG modules
 
@@ -189,14 +189,6 @@ class Connection:
     .. Reviewed by PLM 20211201
     .. Reviewed by TechComms 20211202
     """
-    _common_namespaces = {
-        "ncbase": "urn:ietf:params:xml:ns:netconf:base:1.0",
-        "monitoring": "urn:ietf:params:xml:ns:yang:ietf-netconf-monitoring",
-        "library": "urn:ietf:params:xml:ns:yang:ietf-yang-library",
-        "nokiaoper": "urn:nokia.com:sros:ns:yang:sr:oper-global",
-        "yang_1_0" : "urn:ietf:params:xml:ns:yang:1",
-        "attrs"    : "urn:nokia.com:sros:ns:yang:sr:attributes",
-    }
 
     def __init__(self, *args, yang_directory, rebuild, **kwargs):
         try:
@@ -211,13 +203,14 @@ class Connection:
         self.rebuild = rebuild
         self._models    = self._get_yang_models()
         self._ns_map    = types.MappingProxyType({model.name: model.namespace for model in self._models})
+        self._mod_revs  = {model.name: model.revision for model in self._models}
         self.root = self._get_root(self._models)
         self.debug      = False
 
     def _get_root(self, modules):
         hasher = hashlib.sha256()
         yangs = sorted(modules, key = lambda m: m.name)
-        hasher.update(b"Schema ver 4\n")
+        hasher.update(b"Schema ver 5\n")
         for m in yangs:
             hasher.update(f"mod:{m.name};rev:{m.revision};".encode())
             for sm in sorted(m.submodules, key = lambda sm: sm.name):
@@ -264,7 +257,7 @@ class Connection:
             print(f"GET SCHEMA {yang_name}")
 
         response = self._nc.get_schema(yang_name)
-        data = response.xpath("/ncbase:rpc-reply/monitoring:data", self._common_namespaces)[0].text
+        data = response.xpath("/ncbase:rpc-reply/monitoring:data", COMMON_NAMESPACES)[0].text
         if debug:
             print(f" * {len(data)/1024:.1f} kB downloaded in {(datetime.datetime.now()-start).total_seconds():.3f} sec")
 
@@ -273,25 +266,14 @@ class Connection:
     def _find_module(self, yang_name):
         if os.path.isfile(f"""{self.yang_directory}/nokia-combined/{yang_name}.yang"""):
             return f"""{self.yang_directory}/nokia-combined/{yang_name}.yang"""
+        if yang_name in self._ns_map: #module
+            for candidate in pathlib.Path(self.yang_directory).rglob(f"{yang_name}*.yang"):
+                if candidate.parts and re.fullmatch(f"{yang_name}[@]{self._mod_revs[yang_name]}.yang", str(candidate.parts[-1])):
+                    return candidate
         for candidate in pathlib.Path(self.yang_directory).rglob(f"{yang_name}*.yang"):
-            if candidate.parts and re.fullmatch(f"{yang_name}(?:[@]\\d{{4}}[-]\\d{{2}}[-]\\d{{2}})?.yang", str(candidate.parts[-1])):
+            if candidate.parts and re.fullmatch(f"{yang_name}.yang", str(candidate.parts[-1])):
                 return candidate
         raise make_exception(pysros_err_can_not_find_yang, yang_name=yang_name)
-
-    def _get_module_set_id(self):
-        caps = list(self._nc.server_capabilities)
-        yang_cap = list(filter(lambda x: x.startswith("urn:ietf:params:netconf:capability:yang-library:"), self._nc.server_capabilities))
-        if len(yang_cap) == 0:
-            raise make_exception(pysros_err_server_dos_not_have_yang_lib)
-        if yang_cap[0].find("yang-library:1.0") != -1:
-            match = re.search("module-set-id=([^&]*)", yang_cap[0])
-        elif yang_cap[0].find("yang-library:1.1") != -1:
-            match = re.search("content-id=([^&]*)", yang_cap[0])
-        else:
-            raise make_exception(pysros_err_server_dos_not_have_required_yang_lib)
-        if match is None:
-            raise make_exception(pysros_err_cannot_find_module_set_id_or_content_id)
-        return match.group(1)
 
     def _get_yang_models(self):
         subtree = to_ele("""
@@ -301,24 +283,17 @@ class Connection:
             </modules-state>""")
         with self._process_connected():
             yangs_resp = self._nc.get(filter=("subtree", subtree))
-        module_set_id = yangs_resp.xpath(
-            "/ncbase:rpc-reply/ncbase:data/library:modules-state/library:module-set-id",
-            self._common_namespaces
-        )[0].text
-
-        if module_set_id != self._get_module_set_id():
-            raise make_exception(pysros_err_invalid_module_set_id_or_content_id)
 
         result = []
         modules = yangs_resp.xpath(
             "/ncbase:rpc-reply/ncbase:data/library:modules-state/library:module",
-            self._common_namespaces
+            COMMON_NAMESPACES
         )
 
-        get_text = lambda e, path: e.findtext(path, namespaces=self._common_namespaces)
+        get_text = lambda e, path: e.findtext(path, namespaces=COMMON_NAMESPACES)
         for m in modules:
             submodules = []
-            for sm in m.xpath("./library:submodule", namespaces=self._common_namespaces):
+            for sm in m.xpath("./library:submodule", namespaces=COMMON_NAMESPACES):
                 submodules.append(YangSubmodule(
                     name      = get_text(sm, "./library:name"),
                     revision  = get_text(sm, "./library:revision"),
@@ -341,7 +316,7 @@ class Connection:
             raise make_exception(pysros_err_action_subtree_not_supported)
         current.set(value)
 
-        xml_action = etree.Element(f"""{{{self._common_namespaces["yang_1_0"]}}}action""")
+        xml_action = etree.Element(f"""{{{COMMON_NAMESPACES["yang_1_0"]}}}action""")
         xml_action.extend(rd.to_xml())
 
         if self.debug:
@@ -360,10 +335,17 @@ class Connection:
         current = rd.process_path(path, strict=True)
         return current.to_model()
 
-    def _convert(self, path, payload, src_fmt, dst_fmt, pretty_print):
+    def _convert(self, path, payload, src_fmt, dst_fmt, pretty_print, action_io):
+        def convert_walker(action_io):
+            if action_io == "input":
+                return ActionInputFilteredDataModelWalker
+            elif action_io == "output":
+                return ActionOutputFilteredDataModelWalker
+            raise make_exception(pysros_err_unsupported_action_io)
+
         if not all(fmt in ("xml", "json", "pysros") for fmt in (src_fmt, dst_fmt)):
             raise make_exception(pysros_err_unsupported_convert_method)
-        rd = RequestData(self.root, self._ns_map, action=RequestData._Action.convert)
+        rd = RequestData(self.root, self._ns_map, action=RequestData._Action.convert, walker=convert_walker(action_io))
         current = rd.process_path(path)
 
         if src_fmt == "pysros":
@@ -457,30 +439,30 @@ class Connection:
         """
         with self._process_connected():
             output = self._nc.md_cli_raw_command(command)
-        status = output.xpath("/ncbase:rpc-reply/nokiaoper:status", self._common_namespaces)
+        status = output.xpath("/ncbase:rpc-reply/nokiaoper:status", COMMON_NAMESPACES)
         if status and status[0].text == "terminated-incomplete":
-            errors = output.xpath("/ncbase:rpc-reply/nokiaoper:error-message", self._common_namespaces)
+            errors = output.xpath("/ncbase:rpc-reply/nokiaoper:error-message", COMMON_NAMESPACES)
             errors = [e.text.strip() for e in errors]
             args = errors or ["MINOR: MGMT_AGENT #2007: Operation failed"]
             raise ActionTerminatedIncompleteError(*args)
-        output = output.xpath("/ncbase:rpc-reply/nokiaoper:results/nokiaoper:md-cli-output-block", self._common_namespaces)
+        output = output.xpath("/ncbase:rpc-reply/nokiaoper:results/nokiaoper:md-cli-output-block", COMMON_NAMESPACES)
         return output[0].text if output else ""
 
     def action(self, path, value={}):
-        """Perform a YANG modelled action on SR OS by providing the *json-instance-path* to the
+        """Perform a YANG modeled action on SR OS by providing the *json-instance-path* to the
         action statement in the chosen operations YANG model, and the pySROS data structure to
-        match the YANG modelled input for that action.
+        match the YANG modeled input for that action.
         This method provides structured data input and output for available operations.
 
         :param path: *json-instance-path* to the YANG action.
         :type path: str
         :param value: pySROS data structure providing the input data for the chosen action.
         :type value: pySROS data structure
-        :returns: YANG modelled, structured data representing the output of the modelled action (operation)
+        :returns: YANG modeled, structured data representing the output of the modeled action (operation)
         :rtype: pySROS data structure
 
         .. code-block:: python
-           :caption: Example calling the **ping** YANG modelled action (operation)
+           :caption: Example calling the **ping** YANG modeled action (operation)
            :name: pysros-action-example
 
            >>> from pysros.management import connect
@@ -575,7 +557,7 @@ class Connection:
         with self._process_connected():
             return self._action(path, value)
 
-    def convert(self, path, payload, *, source_format, destination_format, pretty_print=False):
+    def convert(self, path, payload, *, source_format, destination_format, pretty_print=False, action_io="output"):
         """Returns converted version of the input data (payload) in the destination format.
 
         The input data must be valid according to the YANG schema for the :py:class:`Connection`
@@ -597,31 +579,28 @@ class Connection:
         :type destination_format: str
         :param pretty_print: Format the output for human consumption.
         :type pretty_print: bool, optional
+        :param action_io: When converting the input/output of a YANG modeled operation (action), it is possible
+                          for there to be conflicting fields in the input and output sections of the YANG.  This
+                          parameter selects whether to consider the payload against the ``input`` or ``output``
+                          section of the YANG. Default: ``output``.
+        :type action_io: str, optional
         :returns: Data structure of the same format as ``destination_format``.
         :rtype: pySROS data structure, str
 
         An example of the :py:meth:`convert` function can be found in
         the :ref:`Converting Data Formats` section.
 
-
-        .. note:: The :py:meth:`convert` method supports input payloads containing configuration
-                  and state data only.  Data that forms the input or output of YANG-modelled
-                  actions is not supported in the :py:meth:`convert` method.
-
         .. note:: Any metadata associated with a YANG node is currently not converted.  Metadata
                   includes SR OS configuration comments as well as more general metadata such as
                   insert or delete operations defined in XML attributes.  If metadata is provided
                   in the payload in XML or JSON format, it is stripped from the
-                  resulting output.
+                  resulting output. Attention should be given to converting the output
+                  of the ``compare summary netconf-rpc`` MD-CLI command.
 
-        .. warning:: Do not use :py:meth:`convert` to convert the output of ``compare summary netconf-rpc``
-                     for user-ordered lists on SR OS, as the metadata that provides instructions to
-                     order the list are stripped.
-
-        .. Reviewed by PLM 20220929
-        .. Reviewed by TechComms 20221005
+        .. Reviewed by PLM 20221123
+        .. Reviewed by TechComms 20221124
         """
-        return self._convert(path, payload, source_format, destination_format, pretty_print)
+        return self._convert(path, payload, source_format, destination_format, pretty_print, action_io)
 
 
 class Datastore:
@@ -745,7 +724,6 @@ class Datastore:
         model_walker = FilteredDataModelWalker.user_path_parse(self.connection.root, path)
         if model_walker.current.config == False:
             raise make_exception(pysros_err_cannot_modify_state)
-        config = new_ele("config")
         rd = RequestData(self.connection.root, self.connection._ns_map)
         if action == Datastore._SetAction.delete:
             default_operation="none"
@@ -756,7 +734,10 @@ class Datastore:
             current.set(value)
             if method == "replace":
                 current.replace()
-        config.extend(rd.to_xml())
+        children = rd.to_xml()
+        config = new_ele_nsmap("config", rd._extra_namespaces)
+
+        config.extend(children)
         if self.debug:
             print("SET request")
             print(f"path: '{path}', value: '{value}'")
@@ -856,8 +837,8 @@ class Datastore:
                 raise make_exception(pysros_err_unsupported_compare_endpoint)
             path = rd.to_xml()
 
-        op_ns = self.connection._common_namespaces["nokiaoper"]
-        xml_action = etree.Element(f"""{{{self.connection._common_namespaces["yang_1_0"]}}}action""")
+        op_ns = COMMON_NAMESPACES["nokiaoper"]
+        xml_action = etree.Element(f"""{{{COMMON_NAMESPACES["yang_1_0"]}}}action""")
         xml_gl_op = etree.SubElement(xml_action, f"{{{op_ns}}}global-operations")
         xml_md_cmp = etree.SubElement(xml_gl_op, f"{{{op_ns}}}md-compare")
         if path:
@@ -868,7 +849,7 @@ class Datastore:
         xml_fmt.text=output_format if output_format == "xml" else "md-cli"
         xml_md_cmp.append(xml_fmt)
         xml_src = etree.SubElement(xml_md_cmp, f"{{{op_ns}}}source")
-        xml_src.append(etree.Element(self.target))
+        xml_src.append(etree.Element(f"{{{op_ns}}}{self.target}"))
         xml_dst = etree.SubElement(xml_md_cmp, f"{{{op_ns}}}destination")
         xml_dst.append(etree.Element(f"{{{op_ns}}}baseline"))
 
@@ -888,7 +869,6 @@ class Datastore:
         xml_output=""
         for subtree in reply.xpath("/ncbase:rpc-reply/nokiaoper:results/nokiaoper:md-compare-output/*"):
             subtree.getparent().remove(subtree)
-            etree.cleanup_namespaces(subtree, keep_ns_prefixes=["nokia-attr", "yang"])
             xml_output+=etree.tostring(subtree).decode("utf-8")
 
         if xml_output:
