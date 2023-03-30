@@ -22,8 +22,8 @@ copyright = '2021, Nokia'
 author = 'Nokia'
 
 # The full version, including alpha/beta/rc tags
-version = '21.10.10'
-release = '21.10.10'
+version = '21.10.11'
+release = '21.10.11'
 
 
 # -- General configuration ---------------------------------------------------
@@ -70,6 +70,6 @@ html_theme = 'sphinx_rtd_theme'
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
-html_logo = "_static/nokia-logo-white-on-blue.png"
+html_logo = "_static/nokia-logo-blue-2023.png"
 
 
