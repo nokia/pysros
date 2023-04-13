@@ -1,6 +1,12 @@
 Release 22.10
 *************
 
+
+22.10.4
+#######
+
+* Minimum supported lxml version now 4.9.2
+
 22.10.3
 #######
 

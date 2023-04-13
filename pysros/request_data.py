@@ -589,6 +589,17 @@ class _ASetter(ABC):
         else:
             return walker.get_type().as_storage_type(val, self.rd._action == RequestData._Action.convert)
 
+    def _handle_entry_keys_namespaces(self, entry):
+        """Strip namespace prefixes from entry key names.
+        Also raise an error if there are two identical entry keys, one with the namespace prefix and other one without it.
+        """
+        local_keys = [Identifier(self._walker.get_name().prefix, k) for k in self._walker.get_local_key_names()]
+        for k in local_keys:
+            if k.model_string in entry:
+                if k.name in entry:
+                    raise make_exception(pysros_err_malformed_keys, full_path=self._walker, value=entry[k.model_string])
+                entry[k.name] = entry.pop(k.model_string)
+
 class _LeafSetter(_ASetter):
     """Interface for managing leafs. Because leafs do not have dedicated storage, the
        class has its own implementation of to_model method.
@@ -788,17 +799,6 @@ class _ListSetter(_ASetter):
             return val
         except:
             raise make_exception(pysros_err_invalid_key_in_path) from None
-
-    def _handle_entry_keys_namespaces(self, entry):
-        """Strip namespace prefixes from entry key names.
-        Also raise an error if there are two identical entry keys, one with the namespace prefix and other one without it.
-        """
-        local_keys = [Identifier(self._walker.get_name().prefix, k) for k in self._walker.get_local_key_names()]
-        for k in local_keys:
-            if k.model_string in entry:
-                if k.name in entry:
-                    raise make_exception(pysros_err_malformed_keys, full_path=self._walker, value=entry[k.model_string])
-                entry[k.name] = entry.pop(k.model_string)
 
     def _check_and_unwrap_keys(self, entry, *, json=False):
         for k in self._walker.get_local_key_names():
@@ -1042,6 +1042,7 @@ class _MoDataSetter(_ASetter):
         value = self.rd._unwrap(value)
         if not isinstance(value, dict):
             raise make_exception(pysros_err_invalid_value, data=value)
+        self._handle_entry_keys_namespaces(value)
         children_to_set = set()
         for k, v in value.items():
             v = self.rd._unwrap(v)

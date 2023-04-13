@@ -283,21 +283,6 @@ class Connection:
                 return candidate
         raise make_exception(pysros_err_can_not_find_yang, yang_name=yang_name)
 
-    def _get_module_set_id(self):
-        caps = list(self._nc.server_capabilities)
-        yang_cap = list(filter(lambda x: x.startswith("urn:ietf:params:netconf:capability:yang-library:"), self._nc.server_capabilities))
-        if len(yang_cap) == 0:
-            raise make_exception(pysros_err_server_dos_not_have_yang_lib)
-        if yang_cap[0].find("yang-library:1.0") != -1:
-            match = re.search("module-set-id=([^&]*)", yang_cap[0])
-        elif yang_cap[0].find("yang-library:1.1") != -1:
-            match = re.search("content-id=([^&]*)", yang_cap[0])
-        else:
-            raise make_exception(pysros_err_server_dos_not_have_required_yang_lib)
-        if match is None:
-            raise make_exception(pysros_err_cannot_find_module_set_id_or_content_id)
-        return match.group(1)
-
     def _get_yang_models(self):
         subtree = to_ele("""
             <modules-state xmlns="urn:ietf:params:xml:ns:yang:ietf-yang-library">
@@ -306,13 +291,6 @@ class Connection:
             </modules-state>""")
         with self._process_connected():
             yangs_resp = self._nc.get(filter=("subtree", subtree))
-        module_set_id = yangs_resp.xpath(
-            "/ncbase:rpc-reply/ncbase:data/library:modules-state/library:module-set-id",
-            self._common_namespaces
-        )[0].text
-
-        if module_set_id != self._get_module_set_id():
-            raise make_exception(pysros_err_invalid_module_set_id_or_content_id)
 
         result = []
         modules = yangs_resp.xpath(

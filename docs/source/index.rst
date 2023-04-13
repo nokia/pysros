@@ -1,6 +1,7 @@
-.. image:: _static/nokia-logo-blue-on-white.png
+.. image:: _static/nokia-logo-blue-2023.png
    :align: right
    :width: 200px
+   :alt: Nokia logo
 
 Python 3 for the Nokia Service Router Operating System (pySROS)
 ===============================================================
@@ -16,10 +17,11 @@ documentation will be updated accordingly.
 .. list-table::
    :header-rows: 0
 
-   * - pySROS release: 22.10.3
-   * - Document Number: 3HE 18378 AAAI TQZZA
+   * - pySROS release: 22.10.4
+   * - Document Number: 3HE 18378 AAAJ TQZZA
 
-.. Reviewed by PLM 20230124
+.. Reviewed by PLM 20230223
+.. Reviewed by TechComms 20230317
 
 
 .. toctree::

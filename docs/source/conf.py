@@ -10,8 +10,8 @@ copyright = '2021, Nokia'
 author = 'Nokia'
 
 # The full version, including alpha/beta/rc tags
-version = '22.10.3'
-release = '22.10.3'
+version = '22.10.4'
+release = '22.10.4'
 
 
 # -- General configuration ---------------------------------------------------
@@ -47,6 +47,6 @@ autodoc_member_order = 'bysource'
 
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
-html_logo = "_static/nokia-logo-white-on-blue.png"
+html_logo = "_static/nokia-logo-blue-2023.png"
 
 

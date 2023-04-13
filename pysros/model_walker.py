@@ -260,7 +260,8 @@ class ModelWalker:
                 filter = filter.data
             if not isinstance(filter, dict):
                 raise make_exception(pysros_err_filter_should_be_dict)
-            if "" in filter.values():
+            unwrap = lambda v: v.data if isinstance(v, Leaf) else v
+            if any(unwrap(v) == '' for v in filter.values()):
                 raise make_exception(pysros_err_filter_empty_string)
             for k, v in filter.items():
                 with self.visit_child(k):
