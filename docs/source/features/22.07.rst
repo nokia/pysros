@@ -4,6 +4,8 @@ Release 22.7
 22.7.2
 ######
 
+* No additional features
+
 22.7.1
 ######
 

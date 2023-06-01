@@ -6,12 +6,12 @@ sys.path.insert(0, os.path.relpath('../'))
 # -- Project information -----------------------------------------------------
 
 project = 'pySROS'
-copyright = '2021, Nokia'
+copyright = '2021-2023, Nokia'
 author = 'Nokia'
 
 # The full version, including alpha/beta/rc tags
-version = '23.3.2'
-release = '23.3.2'
+version = '23.3.3'
+release = '23.3.3'
 
 
 # -- General configuration ---------------------------------------------------
@@ -48,5 +48,5 @@ autodoc_member_order = 'bysource'
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
 html_logo = "_static/nokia-logo-blue-2023.png"
-
+html_favicon = '_static/favicon.png'
 

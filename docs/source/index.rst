@@ -17,8 +17,8 @@ documentation will be updated accordingly.
 .. list-table::
    :header-rows: 0
 
-   * - pySROS release: 23.3.2
-   * - Document Number: 3HE 19211 AAAB TQZZA
+   * - pySROS release: 23.3.3
+   * - Document Number: 3HE 19211 AAAC TQZZA
 
 .. Reviewed by PLM 20220621
 .. Reviewed by TechComms 20220624
