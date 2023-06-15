@@ -1,16 +1,26 @@
 Release 22.10
 *************
 
+22.10.5
+#######
+
+* No additional features
+
+.. Reviewed by PLM 20230511
 
 22.10.4
 #######
 
 * Minimum supported lxml version now 4.9.2
 
+.. Reviewed by PLM 20230511
+
 22.10.3
 #######
 
+* No additional features
 
+.. Reviewed by PLM 20230511
 
 22.10.2
 #######
@@ -18,7 +28,7 @@ Release 22.10
 * :py:meth:`pysros.management.Connection.convert` method adds support for the
   conversion of the input/output data of YANG modeled operations (actions).
 
-
+.. Reviewed by PLM 20230511
 
 22.10.1
 #######
