@@ -1,4 +1,4 @@
-# Copyright 2021 Nokia
+# Copyright 2021-2023 Nokia
 
 import copy
 import pprint
@@ -10,7 +10,7 @@ from contextlib import ExitStack
 from enum import Enum, auto
 from lxml import etree
 from ncclient.xml_ import to_ele
-from typing import Union
+from typing import Union, List, Dict
 
 from .errors import *
 from .identifier import NoModule, Identifier
@@ -33,9 +33,35 @@ MO_STATEMENT_TYPES = (Model.StatementType.container_, Model.StatementType.list_,
 FIELD_STATEMENT_TYPES = (Model.StatementType.leaf_, Model.StatementType.leaf_list_)
 
 _get_tag_name = lambda x: etree.QName(x).localname
+_get_tag_ns = lambda x: etree.QName(x).namespace
 _text_in_tag_tail = lambda x: x.tail and x.tail.strip()
 _text_in_tag_text = lambda x: x.text and x.text.strip()
 _create_root_ele = lambda : etree.Element("dummy-root", nsmap={"nokia-attr": COMMON_NAMESPACES["attrs"]})
+
+def subelement(parent, tag, nsmap, text=None, attrib=None, add_ns=None):
+    """Wrapper around etree.Subelement, that raises SrosMgmtError instead of ValueError."""
+    local_nsmap = {}
+    if add_ns:
+        local_nsmap[add_ns] = nsmap[add_ns]
+    try:
+        if tag.is_builtin():
+            result = etree.SubElement(parent, tag.name, attrib, nsmap=local_nsmap)
+        else:
+            module = tag.prefix
+            uri = nsmap[module]
+            local_nsmap[module] = uri
+            result = etree.SubElement(
+                parent,
+                etree.QName(uri, tag.name),
+                attrib,
+                nsmap=local_nsmap
+            )
+
+        if text is not None:
+            result.text = text
+        return result
+    except ValueError as err:
+        raise SrosMgmtError(err.args) from None
 
 def _raise_invalid_text_exception(tag, check_parent_tag=True):
     tag_to_check = tag.getparent() if check_parent_tag else tag
@@ -62,13 +88,14 @@ class RequestData:
         basic   = auto()
         convert = auto()
 
-    def __init__(self, root:Model, ns_map:dict, action:_Action=_Action.basic, walker=FilteredDataModelWalker):
-        self._root = root
-        self._data = _ListStorage(root, self)
-        self._ns_map = ns_map
-        self._action = action
-        self._Walker = walker
-        self._extra_namespaces = {}
+    def __init__(self, root:Model, ns_map:dict, ns_map_rev:dict, *, action:_Action=_Action.basic, walker=FilteredDataModelWalker):
+        self._root             = root
+        self._data             = _ListStorage(root, self)
+        self._ns_map           = ns_map
+        self._ns_map_rev       = ns_map_rev
+        self._action           = action
+        self._Walker           = walker
+        self._extra_ns         = {}
 
     def process_path(self, path:Union[str, FilteredDataModelWalker], *, strict=False):
         """Create all entries in given path and return setter for last section of the path.
@@ -78,7 +105,7 @@ class RequestData:
         walker = path if isinstance(path, ModelWalker) else self._Walker.user_path_parse(self._root, path, accept_root=(self._action == self._Action.convert))
         current = _ASetter.create_setter(self._data, self)
         for elem, keys in zip(walker.path, walker.keys):
-            if not isinstance(current, _MoDataSetter):
+            if not isinstance(current, _MoSetter):
                 raise make_exception(pysros_err_missing_keys, element=current._walker.get_name())
             if elem.data_def_stm not in FIELD_STATEMENT_TYPES:
                 if strict and not current.child_mos.is_created(elem.name.name):
@@ -157,9 +184,10 @@ class RequestData:
     def _unwrap(self, value):
         return value.data if isinstance(value, Wrapper) else value
 
+
     def _add_xml_namespace(self, identity):
         assert self._ns_map[identity.module] == identity.namespace
-        self._extra_namespaces[identity.module] = identity.namespace
+        self._extra_ns[identity.module] = identity.namespace
 
 
 class _AStorage(ABC):
@@ -204,30 +232,36 @@ class _AStorage(ABC):
         else:
             raise make_exception(pysros_err_prefix_does_not_have_ns, prefix=model.name.prefix, name=model.name.name)
 
-def subelement(parent, tag, nsmap, text=None, attrib=None, add_ns=None):
-    """Wrapper around etree.Subelement, that raises SrosMgmtError instead of ValueError."""
-    local_nsmap = {}
-    if add_ns:
-        local_nsmap[add_ns] = nsmap[add_ns]
-    try:
-        if tag.is_builtin():
-            result = etree.SubElement(parent, tag.name, attrib, nsmap=local_nsmap)
-        else:
-            module = tag.prefix
-            uri = nsmap[module]
-            local_nsmap[module] = uri
-            result = etree.SubElement(
-                parent,
-                etree.QName(uri, tag.name),
-                attrib,
-                nsmap=local_nsmap
-            )
+class _FieldStorage(_AStorage):
+    """Data storage for leaves.
+    """
 
-        if text is not None:
-            result.text = text
-        return result
-    except ValueError as err:
-        raise SrosMgmtError(err.args) from None
+    def __init__(self, model:Model, rd:RequestData):
+        super().__init__(rd)
+        self._model = model
+        self._value = None
+        self._operation = ""
+
+    def _to_xml(self, ns_map, root):
+        if self._operation == "delete":
+            subelement(root, self._walker.current.name, ns_map, None, {f"""{{{COMMON_NAMESPACES["ncbase"]}}}operation""": "remove"})
+        elif self._value is FieldValuePlaceholder():
+            pass
+        elif self._value is GetValuePlaceholder():
+            subelement(root, self._walker.current.name, ns_map)
+        else:
+            _leaf_to_xml(self._value, root, self._walker, ns_map, self._operation=="replace")
+
+    def to_model(self, *, key_filter={}):
+        assert self.rd._action == RequestData._Action.convert or self._value is not GetValuePlaceholder()
+        assert self._value is not FieldValuePlaceholder()
+        if self._walker.get_dds() == Model.StatementType.leaf_:
+            return Leaf._with_model(self._value, self._model)
+        return LeafList._with_model(self._value, self._model)
+
+    def debug_dump(self, indent=0):
+        print(f"{' '*(indent+1)}{self._model.name} = {self._value}")
+
 
 class _MoStorage(_AStorage):
     """Data storage for containers and list entries (list+local keys).
@@ -241,10 +275,9 @@ class _MoStorage(_AStorage):
         self._local_keys = copy.deepcopy(local_keys)
         self._child = {}
         self._operation = ""
-        self._replace_field = "" # Could be field storage
 
     def _to_xml(self, ns_map, root):
-        root_attr = None if not self._operation else {f"""{{{COMMON_NAMESPACES["ncbase"]}}}operation""": self._operation}
+        root_attr = {} if not self._operation else {f"""{{{COMMON_NAMESPACES["ncbase"]}}}operation""": self._operation}
         root = subelement(root, self._model.name, ns_map, None, root_attr)
         for k, v in self._local_keys.items():
             if v is FieldValuePlaceholder():
@@ -256,37 +289,13 @@ class _MoStorage(_AStorage):
                subelement(root, self._walker.get_child(k).current.name, ns_map, txt, {}, add_ns)
 
         for k, v in self._child.items():
-            if isinstance(v, (_MoStorage, _ListStorage)):
-                v._to_xml(ns_map, root)
-            else:
-                if v is Delete():
-                    subelement(root, self._walker.get_child(k).current.name, ns_map, None, {f"""{{{COMMON_NAMESPACES["ncbase"]}}}operation""": "remove"})
-                elif v is FieldValuePlaceholder():
-                    pass
-                elif v is GetValuePlaceholder():
-                    self._leaf_placeholder_to_xml(v, root, self._walker.get_child(k), ns_map)
-                elif self._replace_field and self._replace_field == k:
-                    _leaf_to_xml(v, root, self._walker.get_child(k), ns_map, replace_field=True)
-                else:
-                    _leaf_to_xml(v, root, self._walker.get_child(k), ns_map)
+            v._to_xml(ns_map,root)
 
     def to_xml(self, ns_map, root):
-        root_attr = None if not self._operation else {f"""{{{COMMON_NAMESPACES["ncbase"]}}}operation""": self._operation}
+        root_attr = {} if not self._operation else {f"""{{{COMMON_NAMESPACES["ncbase"]}}}operation""": self._operation}
 
         for k, v in self._child.items():
-            if isinstance(v, (_MoStorage, _ListStorage)):
-                v._to_xml(ns_map, root)
-            else:
-                if v is Delete():
-                    subelement(root, self._walker.get_child(k).current.name, ns_map, None, {f"""{{{COMMON_NAMESPACES["ncbase"]}}}operation""": "remove"})
-                elif v is FieldValuePlaceholder():
-                    pass
-                elif v is GetValuePlaceholder():
-                    self._leaf_placeholder_to_xml(v, root, self._walker.get_child(k), ns_map)
-                elif self._replace_field and self._replace_field == k:
-                    _leaf_to_xml(v, root, self._walker.get_child(k), ns_map, replace_field=True)
-                else:
-                    _leaf_to_xml(v, root, self._walker.get_child(k), ns_map)
+            v._to_xml(ns_map, root)
 
     def _leaf_placeholder_to_xml(self, value, root, walker, ns_map):
         subelement(root, walker.current.name, ns_map)
@@ -302,12 +311,9 @@ class _MoStorage(_AStorage):
             key_proxy = DictionaryKeysProxy(self.rd._unwrap(key_filter))
             if is_selection_filter and self._walker.get_child(k).current.name not in key_proxy:
                 continue
-            if not isinstance(v, (_MoStorage, _ListStorage)):
-                data[k] = self._leaf_to_model(k, v)
-            else:
-                data[k] = v.to_model(key_filter=(key_filter.get(k, {})))
-                if not data[k] and not self._walker.get_child(k).has_explicit_presence():
-                    del data[k]
+            data[k] = v.to_model(key_filter=(key_filter.get(k, {})))
+            if not data[k] and not self._walker.get_child(k).has_explicit_presence():
+                del data[k]
         if self._walker.is_root:
             return data
         if self._model.data_def_stm == Model.StatementType.action_:
@@ -462,11 +468,24 @@ class DictionaryKeysProxy():
 class RdJsonEncoder(json.JSONEncoder):
     def add_ns(self, o, d, walker:ModelWalker):
         if o is self.root:
-            return {walker.get_child(k).get_name().model_string: v for k, v in d.items()}
-        return {walker.get_child(k).get_name().model_string if walker.get_name().prefix != walker.get_child(k).get_name().prefix else k: v for k, v in d.items()}
+            return {walker.get_child(k).get_name().model_string: (v if not isinstance(v, _FieldStorage) else v._value) for k, v in d.items()}
+        return {walker.get_child(k).get_name().model_string if walker.get_name().prefix != walker.get_child(k).get_name().prefix else k: (v if not isinstance(v, _FieldStorage) else v._value) for k, v in d.items()}
+
+    def stringify(self, x, dds):
+        return [str(v) for v in x] if dds == Model.StatementType.leaf_list_ else str(x)
+
+    def convert(self, o:_FieldStorage):
+        return self.stringify(o._value, o._walker.get_dds()) if o._walker.get_type().json_name() in ("int64", "uint64") else o._value
+
+    def convert_child(self, o, k, v):
+        return self.stringify(v, o._walker.get_child_dds(k)) if o._walker.get_child_dds(k) in FIELD_STATEMENT_TYPES and o._walker.get_child_type(k).json_name() in ("int64", "uint64") else v
 
     def default(self, o):
         is_root = o is self.root
+        if isinstance(o, _FieldStorage) and is_root:
+            res = {}
+            res[o._walker.get_name().model_string] = self.convert(o)
+            return res
         if isinstance(o, _MoStorage):
             res = {}
             if not is_root:
@@ -474,14 +493,14 @@ class RdJsonEncoder(json.JSONEncoder):
             elif is_root and self.force_key:
                 res[o._walker.get_child(self.force_key).get_name().model_string] = o._local_keys[self.force_key]
             res.update(self.add_ns(o, o._child, o._walker))
-            stringify = lambda x, dds: [str(v) for v in x] if dds == Model.StatementType.leaf_list_ else str(x)
-            cvt = lambda k, v: stringify(v, o._walker.get_child_dds(k)) if o._walker.get_child_dds(k) in FIELD_STATEMENT_TYPES and o._walker.get_child_type(k).json_name() in ("int64", "uint64") else v
-            res = {k: cvt(k, v) for k, v in res.items()}
+            res = {k: self.convert_child(o, k, v) for k, v in res.items()}
             return res
         elif isinstance(o, _ListStorage):
             res = list(o._entries.values())
             return {o._walker.get_name().model_string: res} if is_root else res
-        elif isinstance(o, (str, list, dict, bool)):
+        if isinstance(o, _FieldStorage):
+            o = o._value
+        if isinstance(o, (str, list, dict, bool, int)):
             return o
         elif o is Empty:
             return [None]
@@ -504,7 +523,7 @@ class _ASetter(ABC):
     @staticmethod
     def create_setter(storage:"_AStorage", rd:RequestData):
         if isinstance(storage, _MoStorage):
-            return _MoDataSetter(storage, rd)
+            return _MoSetter(storage, rd)
         else:
             return _ListSetter(storage, rd)
 
@@ -628,7 +647,7 @@ class _LeafSetter(_ASetter):
 
     .. Reviewed by TechComms 20210713
     """
-    def __init__(self, storage:"_ListStorage", leaf_name:str, rd:RequestData):
+    def __init__(self, storage:"_FieldStorage", leaf_name:str, rd:RequestData):
         super().__init__(storage, rd)
         self._leaf_name = leaf_name
 
@@ -641,10 +660,10 @@ class _LeafSetter(_ASetter):
             self._set_nocheck(val)
 
     def _set_nocheck(self, value):
-        self._storage._child[self._leaf_name] = value
+        self._storage._value = value
 
     def set_getValue(self):
-        self._storage._child[self._leaf_name] = GetValuePlaceholder()
+        self._storage._value = GetValuePlaceholder()
 
     def set_as_xml(self, value):
         if not len(value):
@@ -653,7 +672,7 @@ class _LeafSetter(_ASetter):
             self.set_or_append_as_xml(v)
 
     def _set_as_json(self, value, is_root = False):
-        if not isinstance(value, dict):
+        if not isinstance(value, dict) or not all(isinstance(k, str) for k in value):
             raise make_exception(pysros_err_invalid_json_structure)
         value = {k:v for k, v in value.items() if not k.startswith("@")}
         if len(value) != 1:
@@ -677,7 +696,8 @@ class _LeafSetter(_ASetter):
         self.set(self._walker.as_model_type(val))
 
     def set_or_append_as_xml(self, value_element):
-        if _text_in_tag_tail(value_element) or (self._walker.get_dds() == Model.StatementType.leaf_list_ and _text_in_tag_text(value_element.getparent())):
+        is_leaflist = self._walker.get_dds() == Model.StatementType.leaf_list_
+        if _text_in_tag_tail(value_element) or (is_leaflist and _text_in_tag_text(value_element.getparent())):
             _raise_invalid_text_exception(value_element)
         value = self._walker.as_model_type(value_element.text or "")
 
@@ -691,29 +711,25 @@ class _LeafSetter(_ASetter):
             if value_ns is not None and value_ns!=identity.namespace:
                 raise make_exception(pysros_err_incorrect_leaf_value, leaf_name = self._walker.current.name.name)
 
-        if self._walker.get_dds() == Model.StatementType.leaf_list_ and isinstance(self._storage._child.get(self._leaf_name), list):
-            value = self._storage._child[self._leaf_name] + value
+        if is_leaflist and isinstance(self._storage._value, list):
+            value = self._storage._value + value
         self.set(value)
 
     def to_model(self, *, key_filter={}):
-        return self._storage._leaf_to_model(self._leaf_name, self._storage._child[self._leaf_name])
+        return self._storage.to_model(key_filter=key_filter)
 
     def to_xml(self):
         root = _create_root_ele()
-        _leaf_to_xml(self._storage._child[self._leaf_name], root, self._walker, self.rd._ns_map)
+        self._storage._to_xml(self.rd._ns_map, root)
         return root
 
     def delete(self):
         if self._walker.get_dds() == Model.StatementType.leaf_list_:
             raise make_exception(pysros_err_invalid_operation_on_leaflist)
-        self._storage._child[self._leaf_name] = Delete()
+        self._storage._operation = "delete"
 
     def replace(self):
-        self._storage._replace_field = self._leaf_name
-
-    @property
-    def _walker(self):
-        return super()._walker.get_child(self._leaf_name)
+        self._storage._operation = "replace"
 
 class _KeySetter(_ASetter):
     """Interface for keys. Most of this class are stub methods to provide
@@ -852,7 +868,7 @@ class _ListSetter(_ASetter):
             value = copy.copy(value)
         self._handle_entry_keys_namespaces(value)
         self._check_and_unwrap_keys(value, json=json)
-        return _MoDataSetter(self._storage.get_or_create_entry(self._extract_keys(value)), self.rd)
+        return _MoSetter(self._storage.get_or_create_entry(self._extract_keys(value)), self.rd)
 
     def add_entry(self, value, *, json=False):
         if json:
@@ -862,7 +878,7 @@ class _ListSetter(_ASetter):
         keys = self._extract_keys(value)
         if self._storage.has_entry(keys):
             raise make_exception(pysros_err_multiple_occurences_of_entry)
-        return _MoDataSetter(self._storage.get_or_create_entry(keys), self.rd)
+        return _MoSetter(self._storage.get_or_create_entry(keys), self.rd)
 
     def entry_nocheck(self, value):
         """Receive entry with specified keys in value without checking for the correct type. Keys are expected
@@ -870,7 +886,7 @@ class _ListSetter(_ASetter):
 
         .. Reviewed by PLM 20211018
         """
-        return _MoDataSetter(self._storage.get_or_create_entry(self._convert_keys_to_model(self._extract_keys(value))), self.rd)
+        return _MoSetter(self._storage.get_or_create_entry(self._convert_keys_to_model(self._extract_keys(value))), self.rd)
 
     def entry_exists_nocheck(self, value):
         """Receive entry with specified keys in value without checking for the correct type. Keys are expected
@@ -922,17 +938,17 @@ class _ListSetter(_ASetter):
 
     def entry_get_keys(self):
         keys = {key:GetValuePlaceholder() for key in self._walker.get_local_key_names()}
-        setter = _MoDataSetter(self._storage.get_or_create_entry(keys), self.rd)
+        setter = _MoSetter(self._storage.get_or_create_entry(keys), self.rd)
         setter.set({})
         return setter
 
-class _MoDataSetter(_ASetter):
+class _MoSetter(_ASetter):
     """Interface managing specific list entry or container.
 
     .. Reviewed by TechComms 20210712
     """
     class _AChild:
-        def __init__(self, setter:"_MoDataSetter"):
+        def __init__(self, setter:"_MoSetter"):
             self._setter = setter
 
         @property
@@ -983,20 +999,28 @@ class _MoDataSetter(_ASetter):
             name = Identifier.from_model_string(name).name
             self.get(name)._set_as_json({name: value})
 
+        def get_as_json(self, name):
+            name = Identifier.from_model_string(name).name
+            return self.get(name)
+
         def set_getValue(self, name):
             self.get(name).set_getValue()
 
         def get(self, name):
             if not self.can_contains(name):
                 raise make_exception(pysros_err_unknown_child, child_name=name, path=self._walker._get_path())
-            return _LeafSetter(self._setter._storage, name, self._setter.rd)
+            if not self.contains(name):
+                self._setter._storage._child[name] = _FieldStorage(self._setter._walker.get_child(name).current, self._setter.rd)
+            return _LeafSetter(self._setter._storage._child[name], name, self._setter.rd)
 
         def get_nonexisting(self, name):
             if not self.can_contains(name):
                 raise make_exception(pysros_err_unknown_child, child_name=name, path=self._walker._get_path())
             if self.contains(name) and self._walker.get_child_dds(name) != Model.StatementType.leaf_list_:
-                raise make_exception(pysros_err_multiple_occurences_of_node)
-            return _LeafSetter(self._setter._storage, name, self._setter.rd)
+                raise make_exception(pysros_err_multiple_occurences_of_node) #rewrite these two conditions
+            if not self.contains(name):
+                self._setter._storage._child[name] = _FieldStorage(self._setter._walker.get_child(name).current, self._setter.rd)
+            return _LeafSetter(self._setter._storage._child[name], name, self._setter.rd)
 
         def contains(self, name):
             return name in self._setter._storage._child
@@ -1128,11 +1152,30 @@ class _MoDataSetter(_ASetter):
             raise make_exception(pysros_err_invalid_json_structure)
 
         children_to_set = set()
+        already_set = set()
+        def check_duplicates(name):
+            if name in children_to_set:
+                raise make_exception(pysros_err_duplicate_found, duplicate=name)
+            children_to_set.add(name)
+
         for k, v in value.items():
             if k.startswith("@"):
+                k = k[1:]
+                self._walker.get_child(k) #module name check?
+                name = Identifier.from_model_string(k).name
+                if not self.fields.can_contains(name):
+                    raise make_exception(pysros_err_unknown_field, field_name=name, path=self._walker._get_path())
+                if k not in value:
+                    raise make_exception(pysros_err_annotation_without_value, child_name=name, path=self._walker._get_path())
+                if not self.fields.contains(name):
+                    self.fields.set_as_json(name, value[k])
+                    check_duplicates(name)
+                    already_set.add(name)
                 continue
             self._walker.get_child(k) #module name check?
             k = Identifier.from_model_string(k).name
+            if k in already_set:
+                continue
             if k in self._walker.get_local_key_names():
                 self.keys.set_as_json(k, v)
             elif self._walker.get_child_dds(k) in FIELD_STATEMENT_TYPES:
@@ -1141,10 +1184,7 @@ class _MoDataSetter(_ASetter):
                 self.child_mos.set_as_json(k, v)
             else:
                 raise make_exception(pysros_err_unknown_dds, dds=self._walker.get_child_dds(k))
-            name = Identifier.from_model_string(k).name
-            if name in children_to_set:
-                raise make_exception(pysros_err_duplicate_found, duplicate=name)
-            children_to_set.add(name)
+            check_duplicates(k)
 
     def delete(self):
         self._storage._operation = "delete"
@@ -1161,5 +1201,3 @@ class GetValuePlaceholder(metaclass=_Singleton):
 class FieldValuePlaceholder(metaclass=_Singleton):
     pass
 
-class Delete(metaclass=_Singleton):
-    pass

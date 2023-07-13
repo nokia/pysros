@@ -1,3 +1,5 @@
+# Copyright 2021-2023 Nokia
+
 class _Singleton(type):
     _instances = {}
     def __new__(cls, *args, **kwargs):

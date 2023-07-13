@@ -45,7 +45,7 @@ To use the pySROS libraries, the following pre-requisites must be met:
   - With NETCONF enabled and accessible by an authorized user (to execute applications
     remotely)
 
-- a Python 3 interpreter of version 3.6 or newer when using the pySROS libraries to
+- a Python 3 interpreter of version 3.10 or newer when using the pySROS libraries to
   execute applications remotely
 
 All the required software is included and installed automatically on the SR OS node, including

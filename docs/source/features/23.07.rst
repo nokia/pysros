@@ -1,0 +1,12 @@
+Release 23.7
+************
+
+23.7.1
+######
+
+* Minimum supported Python 3 version now 3.10
+
+
+
+
+

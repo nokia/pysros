@@ -1,4 +1,4 @@
-# Copyright 2021 Nokia
+# Copyright 2021-2023 Nokia
 
 import copy
 import xml.parsers.expat
@@ -415,6 +415,9 @@ class ModelBuilder:
         self.delete_blueprints()
         self.convert_model()
 
+    def walk_models(self, cb):
+        self.root.recursive_walk(cb)
+
     def perform_parse(self, yang_name, yang_handler=None):
         if yang_name in self.parsed_yangs:
             return
@@ -461,7 +464,7 @@ class ModelBuilder:
                 self.resolved_types[key].yang_type.deduplicate()
                 assert len(self.resolved_types[key].yang_type) == 1 and self.resolved_types[key].yang_type._types[0].identifier.name == "string"
                 self.resolved_types[key].yang_type = self.resolved_types[key].yang_type._types[0]
-        self.root.recursive_walk(self.set_correct_types)
+        self.walk_models(self.set_correct_types)
 
     def set_correct_range(self, yt:YangTypeBase):
         assert yt.json_name() != "decimal64" or yt.fraction_digits
@@ -523,7 +526,7 @@ class ModelBuilder:
         def setter(m:BuildingModel):
             if isinstance(m.yang_type, YangTypeBase):
                 self.set_correct_range(m.yang_type)
-        self.root.recursive_walk(setter)
+        self.walk_models(setter)
 
     def resolve_identities(self):
         # first step creates dict, where we find for each identity
@@ -536,7 +539,7 @@ class ModelBuilder:
                 if m.status != 'obsolete':
                     directly_derived[b].add(m.name)
 
-        self.root.recursive_walk(find_derived)
+        self.walk_models(find_derived)
         # second step adds all direct and indirect derived identities together
         def add_derived_recursive(result_set, id):
             got = directly_derived.get(id, set())
@@ -561,7 +564,7 @@ class ModelBuilder:
                     if type(st) is IdentityRef:
                         st.set_values(derived, self._ns_map)
 
-        self.root.recursive_walk(identityref_set_value)
+        self.walk_models(identityref_set_value)
 
     def resolve_leafrefs(self):
         def replace_leafrefs(m: BuildingModel):
@@ -580,7 +583,7 @@ class ModelBuilder:
                         w.go_to_parent()
                 w.go_to(path, module_name)
             m.yang_type = w.current.yang_type
-        self.root.recursive_walk(replace_leafrefs)
+        self.walk_models(replace_leafrefs)
 
     def resolve_groupings(self):
         def inner(m:BuildingModel):
@@ -669,7 +672,7 @@ class ModelBuilder:
     def delete_blueprints(self):
         def deleter(m: BuildingModel):
             del m.blueprint
-        self.root.recursive_walk(deleter)
+        self.walk_models(deleter)
 
     def resolve_config(self):
         def false_setter(m: BuildingModel):
@@ -679,7 +682,7 @@ class ModelBuilder:
                 m.recursive_walk(false_setter)
                 return False
 
-        self.root.recursive_walk(resolver)
+        self.walk_models(resolver)
 
     def convert_model(self):
         new_root = StorageConstructionModel("root", BuildingModel.StatementType["container_"], None)

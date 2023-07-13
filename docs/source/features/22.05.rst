@@ -5,6 +5,8 @@ Release 22.5
 22.5.2
 ######
 
+* No additional features
+
 .. Reviewed by PLM 20220617
 .. Reviewed by TechComms 20220620
 

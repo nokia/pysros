@@ -23,12 +23,12 @@ In order to use the pySROS library the following pre-requisites must be met:
     - Running SR OS 21.7.R1 or greater (to execute applications on the SR OS device)
     - With NETCONF enabled and accessible by an authorized user (to execute applications
     remotely)
-- A Python 3 interpreter of version 3.6 or newer when using the pySROS library to
+- A Python 3 interpreter of version 3.10 or newer when using the pySROS library to
   execute applications remotely
 
 ## License ##
 
-Copyright 2021 Nokia.
+Copyright 2021-2023 Nokia.
 
 The license is located [here](LICENSE.md).
 

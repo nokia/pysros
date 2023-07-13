@@ -1,11 +1,11 @@
-# Copyright 2021 Nokia
+# Copyright 2021-2023 Nokia
 
 import base64
 
 from abc import ABC, abstractmethod
 from collections import OrderedDict, namedtuple
 from enum import Enum
-from typing import Any, Dict, List, Mapping, Optional, Set, Type, Tuple, Union, NamedTuple, Iterable
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Set, Type, Tuple, Union, NamedTuple, Iterable
 
 from lxml.etree import SubElement
 
@@ -340,6 +340,10 @@ class Enumeration(OrderedDict, YangTypeBase):
     def add_enum(self, name: str):
         val = 1+max(self.values()) if self else 0
         self[name] = val
+
+    def add_enums(self, *names: Iterable[str]):
+        for name in names:
+            self.add_enum(name)
 
     def set_last_enum_value(self, val: int):
         assert self

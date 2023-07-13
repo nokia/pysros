@@ -1,8 +1,9 @@
-# Copyright 2021 Nokia
+# Copyright 2021-2023 Nokia
 
 import operator
 
 from abc import ABC, abstractmethod
+from io import StringIO
 
 from .errors import *
 from .singleton import _Empty
@@ -10,7 +11,7 @@ from .yang_type import YangUnion, DECIMAL_LEAF_TYPE, INTEGRAL_LEAF_TYPE
 
 __all__ = ("Action", "Container", "Leaf", "LeafList")
 
-__doc__ = """This module contains wrappers describing the YANG 
+__doc__ = """This module contains wrappers describing the YANG
 structure and metadata obtained from SR OS.
 
 .. Reviewed by PLM 20211201
@@ -112,7 +113,7 @@ class Schema:
                 self._model.StatementType.anyxml_,
             ):
                 return True if self._model.mandatory else False
-        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{attr}'")
+        raise make_exception(pysros_err_attr_object_has_no_attribute, obj=self.__class__.__name__, attribute=attr)
 
     def __eq__(self, other):
         attrs_eq = lambda self, other, attr: getattr(self, attr, None) == getattr(other, attr, None)
@@ -164,7 +165,7 @@ class SchemaType:
         if attr == "union_members":
             if isinstance(self._yang_type, YangUnion):
                 return tuple(SchemaType(yt) for yt in self._yang_type)
-        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{attr}'")
+        raise make_exception(pysros_err_attr_object_has_no_attribute, obj=self.__class__.__name__, attribute=attr)
 
     def __str__(self):
         return self._yang_type.json_name()
@@ -210,7 +211,7 @@ class Wrapper:
         elif attr == '_model' and getattr(self, '_model', None) is None:
             object.__setattr__(self, attr, value)
             return
-        raise AttributeError(f"'{self.__class__.__name__}' object attribute '{attr}' is read-only")
+        raise make_exception(pysros_err_attr_is_read_only, obj=self.__class__.__name__, attribute=attr)
 
     def __delattr__(self, attr):
         raise make_exception(pysros_err_attr_cannot_be_deleted, obj=self.__class__.__name__, attribute=attr)
@@ -407,3 +408,6 @@ forward_methods(Leaf,
     '__xor__',
 )
 del forward_methods
+
+_sentinel = object()
+

@@ -1,4 +1,4 @@
-# Copyright 2021 Nokia
+# Copyright 2021-2023 Nokia
 
 import base64
 import contextlib
@@ -196,16 +196,17 @@ class Connection:
         except Exception as e:
             raise make_exception(pysros_err_could_not_create_conn, reason=e) from None
 
-        self.running    = Datastore(self, 'running')
-        self.candidate  = Datastore(self, 'candidate')
+        self.running                = Datastore(self, 'running')
+        self.candidate              = Datastore(self, 'candidate')
 
-        self.yang_directory = yang_directory
-        self.rebuild = rebuild
-        self._models    = self._get_yang_models()
-        self._ns_map    = types.MappingProxyType({model.name: model.namespace for model in self._models})
-        self._mod_revs  = {model.name: model.revision for model in self._models}
-        self.root = self._get_root(self._models)
-        self.debug      = False
+        self.yang_directory         = yang_directory
+        self.rebuild                = rebuild
+        self._models                = self._get_yang_models()
+        self._ns_map                = types.MappingProxyType({model.name: model.namespace for model in self._models})
+        self._ns_map_rev            = {v : k for k, v in self._ns_map.items()}
+        self._mod_revs              = {model.name: model.revision for model in self._models}
+        self.root                   = self._get_root(self._models)
+        self.debug                  = False
 
     def _get_root(self, modules):
         hasher = hashlib.sha256()
@@ -307,8 +308,11 @@ class Connection:
             ))
         return tuple(result)
 
+    def _request_data(self, **kwargs):
+        return RequestData(self.root, self._ns_map, self._ns_map_rev, **kwargs)
+
     def _action(self, path, value):
-        rd = RequestData(self.root, self._ns_map, walker=ActionInputFilteredDataModelWalker)
+        rd = self._request_data(walker=ActionInputFilteredDataModelWalker)
         current = rd.process_path(path)
         if not current.is_action():
             raise make_exception(pysros_err_unsupported_action_path)
@@ -330,7 +334,9 @@ class Connection:
             print(response)
 
         del rd
-        rd = RequestData(self.root, self._ns_map, walker=ActionOutputFilteredDataModelWalker)
+        rd = self._request_data(walker=ActionOutputFilteredDataModelWalker)
+        #data should be wrapped in dummy root. RPC reply can be dummy root if does not have attributes
+        response.xpath('.')[0].attrib.clear()
         rd.set_action_as_xml(path, response)
         current = rd.process_path(path, strict=True)
         return current.to_model()
@@ -345,7 +351,7 @@ class Connection:
 
         if not all(fmt in ("xml", "json", "pysros") for fmt in (src_fmt, dst_fmt)):
             raise make_exception(pysros_err_unsupported_convert_method)
-        rd = RequestData(self.root, self._ns_map, action=RequestData._Action.convert, walker=convert_walker(action_io))
+        rd = self._request_data(action=RequestData._Action.convert, walker=convert_walker(action_io))
         current = rd.process_path(path)
 
         if src_fmt == "pysros":
@@ -634,7 +640,6 @@ class Datastore:
             if '' in k.values():
                 raise make_exception(pysros_err_filter_empty_string)
 
-
     def _prepare_root_ele(self, subtree, path):
         root = etree.Element("filter")
         root.extend(subtree)
@@ -665,7 +670,7 @@ class Datastore:
 
         self._check_empty_string(model_walker)
 
-        rd = RequestData(self.connection.root, self.connection._ns_map)
+        rd = self.connection._request_data()
         current = rd.process_path(model_walker)
         if filter is not None:
             model_walker.validate_get_filter(filter)
@@ -689,7 +694,7 @@ class Datastore:
             print(response)
         del rd, current
 
-        rd = RequestData(self.connection.root, self.connection._ns_map)
+        rd = self.connection._request_data()
         rd.set_as_xml(response)
         try:
             current = rd.process_path(model_walker, strict=True)
@@ -724,7 +729,7 @@ class Datastore:
         model_walker = FilteredDataModelWalker.user_path_parse(self.connection.root, path)
         if model_walker.current.config == False:
             raise make_exception(pysros_err_cannot_modify_state)
-        rd = RequestData(self.connection.root, self.connection._ns_map)
+        rd = self.connection._request_data()
         if action == Datastore._SetAction.delete:
             default_operation="none"
             rd.process_path(path).delete()
@@ -735,7 +740,7 @@ class Datastore:
             if method == "replace":
                 current.replace()
         children = rd.to_xml()
-        config = new_ele_nsmap("config", rd._extra_namespaces)
+        config = new_ele_nsmap("config", rd._extra_ns)
 
         config.extend(children)
         if self.debug:
@@ -778,7 +783,7 @@ class Datastore:
         model_walker = FilteredDataModelWalker.user_path_parse(self.connection.root, path)
         self._check_empty_string(model_walker)
 
-        rd = RequestData(self.connection.root, self.connection._ns_map)
+        rd = self.connection._request_data()
         current = rd.process_path(model_walker)
 
         #get possible errors related to the getting candidate from state before
@@ -799,7 +804,7 @@ class Datastore:
             print(response)
         del rd, current
 
-        rd = RequestData(self.connection.root, self.connection._ns_map)
+        rd = self.connection._request_data()
         rd.set_as_xml(response)
         try:
             current = rd.process_path(model_walker, strict=True)
@@ -831,7 +836,7 @@ class Datastore:
             model_walker = FilteredDataModelWalker.user_path_parse(self.connection.root, path)
             if model_walker.current.config == False:
                 raise make_exception(pysros_err_unsupported_compare_endpoint)
-            rd = RequestData(self.connection.root, self.connection._ns_map)
+            rd = self.connection._request_data()
             current = rd.process_path(model_walker)
             if not current.is_compare_supported_endpoint():
                 raise make_exception(pysros_err_unsupported_compare_endpoint)
