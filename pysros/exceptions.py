@@ -1,4 +1,4 @@
-# Copyright 2021 Nokia
+# Copyright 2021-2023 Nokia
 
 __all__ = ("SrosMgmtError", "InvalidPathError", "ModelProcessingError", "InternalError", "SrosConfigConflictError", "ActionTerminatedIncompleteError", )
 

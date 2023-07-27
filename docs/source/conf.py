@@ -18,12 +18,12 @@ sys.path.insert(0, os.path.relpath('../'))
 # -- Project information -----------------------------------------------------
 
 project = 'pySROS'
-copyright = '2021, Nokia'
+copyright = '2021-2023, Nokia'
 author = 'Nokia'
 
 # The full version, including alpha/beta/rc tags
-version = '21.10.11'
-release = '21.10.11'
+version = '21.10.12'
+release = '21.10.12'
 
 
 # -- General configuration ---------------------------------------------------
@@ -71,5 +71,5 @@ html_theme = 'sphinx_rtd_theme'
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
 html_logo = "_static/nokia-logo-blue-2023.png"
-
+html_favicon = '_static/favicon.png'
 
