@@ -1,6 +1,13 @@
 Release 22.10
 *************
 
+22.10.6
+#######
+
+* Minimum supported Python 3 version now 3.10
+
+.. Reviewed by PLM 20230801
+
 22.10.5
 #######
 
