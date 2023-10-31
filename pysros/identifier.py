@@ -3,7 +3,9 @@
 import re
 
 from .errors import *
+from .errors import make_exception
 from .singleton import _Singleton
+
 
 class LazyBindModule(metaclass=_Singleton):
     def __str__(self):
@@ -15,6 +17,7 @@ class LazyBindModule(metaclass=_Singleton):
     def __eq__(self, other):
         return self is other
 
+
 class NoModule(metaclass=_Singleton):
     def __str__(self):
         return f"{self.__class__.__name__}()"
@@ -24,6 +27,7 @@ class NoModule(metaclass=_Singleton):
 
     def __eq__(self, other):
         return self is other
+
 
 class Identifier:
     """Class to hold prefix-name pair for single YANG entry"""
@@ -47,23 +51,26 @@ class Identifier:
     def is_builtin(self):
         return self._prefix is NoModule()
 
-
     def is_lazy_bound(self):
         return self._prefix is LazyBindModule()
 
     @staticmethod
-    def from_yang_string(s:str, default_module, prefix_module_mapping:dict):
+    def from_yang_string(s: str, default_module, prefix_module_mapping: dict):
         if ":" not in s:
             return Identifier(default_module, s)
         if s.count(":") != 1:
             raise make_exception(pysros_err_can_have_one_semicolon)
         prefix, name = s.split(":")
         if prefix not in prefix_module_mapping:
-            raise make_exception(pysros_err_unknown_prefix_for_name, prefix=prefix, name=name)
+            raise make_exception(
+                pysros_err_unknown_prefix_for_name,
+                prefix=prefix,
+                name=name
+            )
         return Identifier(prefix_module_mapping[prefix], name)
 
     @staticmethod
-    def from_model_string(s:str):
+    def from_model_string(s: str):
         if ":" not in s:
             return Identifier.lazy_bound(s)
         if s.count(":") != 1:
@@ -74,7 +81,7 @@ class Identifier:
         return hash((self.prefix, self.name))
 
     def __str__(self):
-        return  f"""{(str(self.prefix)+":") if self.prefix != NoModule() else ""}{self.name}"""
+        return f"""{(str(self.prefix)+":") if self.prefix != NoModule() else ""}{self.name}"""
 
     def __repr__(self):
         if self.prefix is NoModule():
@@ -93,9 +100,10 @@ class Identifier:
         return False
 
     def __ne__(self, other):
-        return not(self == other)
+        return not (self == other)
 
     _IDENTIFIER_RE = re.compile(r'[a-zA-Z_][a-zA-Z0-9_\-.]*')
+
     def is_valid(self) -> bool:
         def valid_identifier(x):
             return bool(Identifier._IDENTIFIER_RE.fullmatch(x))
@@ -115,4 +123,3 @@ class Identifier:
     @property
     def model_string(self):
         return f"{self.prefix+':' if self.prefix else ''}{self.name}"
-

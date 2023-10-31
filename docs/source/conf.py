@@ -10,8 +10,8 @@ copyright = '2021-2023, Nokia'
 author = 'Nokia'
 
 # The full version, including alpha/beta/rc tags
-version = '23.7.1'
-release = '23.7.1'
+version = '23.10.1'
+release = '23.10.1'
 
 
 # -- General configuration ---------------------------------------------------
@@ -49,4 +49,3 @@ html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
 html_logo = "_static/nokia-logo-blue-2023.png"
 html_favicon = '_static/favicon.png'
-

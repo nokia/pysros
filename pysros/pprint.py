@@ -1,9 +1,12 @@
 # Copyright 2021-2023 Nokia
 
-from .wrappers import *
 from .errors import *
+from .errors import make_exception
+from .wrappers import *
 
-__all__ = ("TreePrinter", "printTree", "Column", "Padding", "Table", "KeyValueTable", )
+__all__ = (
+    "TreePrinter", "printTree", "Column", "Padding", "Table", "KeyValueTable",
+)
 
 __doc__ = """This module contains functions to assist with stylized
 formatting of data.
@@ -11,6 +14,7 @@ formatting of data.
 .. reviewed by PLM 20211201
 .. reviewed by TechComms 20211202
 """
+
 
 def _signalLast(iterable):
     iterable = iter(iterable)
@@ -23,12 +27,14 @@ def _signalLast(iterable):
     except StopIteration:
         pass
 
+
 def _groupByTwo(it):
     while True:
         try:
             yield (next(it), next(it))
         except StopIteration:
             break
+
 
 class TreePrinter:
     """Object used to print the result of a call
@@ -88,9 +94,9 @@ class TreePrinter:
             print("")
 
         padding = max([len(key) for key in container.keys()], default=0) if self.align else 0
-        for last,(key,value) in _signalLast(container.items()):
+        for last, (key, value) in _signalLast(container.items()):
             if isinstance(value, list):
-                for list_last,value in _signalLast(value):
+                for list_last, value in _signalLast(value):
                     self._printKeyValue(key, value, last and list_last, branches, padding)
             else:
                 self._printKeyValue(key, value, last, branches, padding)
@@ -103,6 +109,7 @@ class TreePrinter:
         branches.append("    " if last else "|   ")
         self._printItem(value, branches)
         branches.pop()
+
 
 def printTree(obj, **kwargs):
     """Print the result of a call to :py:meth:`pysros.management.Datastore.get`
@@ -132,6 +139,7 @@ def printTree(obj, **kwargs):
     """
     TreePrinter(**kwargs).print(obj)
 
+
 class Column:
     """Column descriptor to be used in :class:`pysros.pprint.Table`
     and :class:`pysros.pprint.KeyValueTable`.
@@ -155,12 +163,12 @@ class Column:
     def __init__(self, width, name=None, align='<', padding=0):
         if align != '<' and align != '>' and align != '^':
             raise make_exception(pysros_err_invalid_align, align=align)
-        self.name     = name
-        self.width    = width
-        self.align    = align
-        self.padding  = padding
-        self._padstr  = " " * padding
-        self._format  = self._make_format()
+        self.name = name
+        self.width = width
+        self.align = align
+        self.padding = padding
+        self._padstr = " " * padding
+        self._format = self._make_format()
 
     def _make_format(self):
         return "{{}}{{:{}{}s}}".format(self.align, self.width - self.padding)
@@ -199,6 +207,7 @@ class Column:
         else:
             raise make_exception(pysros_err_invalid_col_description)
 
+
 class Padding(Column):
     """Special type of column which takes no data.  It is only used to add empty space into a table.
 
@@ -212,6 +221,7 @@ class Padding(Column):
     def __init__(self, width):
         super().__init__(width, padding=width)
 
+
 class ATable:
     """Abstract parent class for Table and KeyValueTable containing the common functionality.
 
@@ -219,14 +229,14 @@ class ATable:
     .. Reviewed by TechComms 20210712
     """
     def __init__(self, title, width=79):
-        self._title      = title
-        self._width      = width
-        self._double     = "=" * self._width
-        self._single     = "-" * self._width
+        self._title = title
+        self._width = width
+        self._double = "=" * self._width
+        self._single = "-" * self._width
         self.reset()
 
     def reset(self):
-        self._numRows   = 0
+        self._numRows = 0
         self._truncated = False
 
     def printDoubleLine(self):
@@ -267,8 +277,9 @@ class ATable:
         s = str(value)
         if col.padding + len(s) > col.width:
             self._truncated = True
-            s = s[:col.width-col.padding-1]+"*"
+            s = s[:col.width - col.padding - 1] + "*"
         return col.format(s)
+
 
 class Table(ATable):
     """Class that provides the functionality to display tabulated data in the standard SR OS style.
@@ -314,10 +325,9 @@ class Table(ATable):
     """
     def __init__(self, title, columns, width=79, showCount=None, summary=None):
         super().__init__(title, width=width)
-        self._columns   = list(map(Column.create, columns))
+        self._columns = list(map(Column.create, columns))
         self._showCount = showCount
-        self._summary   = summary
-
+        self._summary = summary
 
     def print(self, rows):
         """
@@ -413,7 +423,7 @@ class Table(ATable):
         """
         width = self._width
         row_iter = iter(row)
-        for last,col in _signalLast(self._columns):
+        for last, col in _signalLast(self._columns):
             # In case there is no data, or if the column is padding,
             # use the empty string as data
             data = ""
@@ -500,6 +510,7 @@ class Table(ATable):
         if customSummary is not None:
             print(customSummary)
 
+
 class KeyValueTable(ATable):
     """Display a list of key and value data in an SR OS table format.
 
@@ -545,16 +556,19 @@ class KeyValueTable(ATable):
         last_col = False
         last_data = True
         while not last_col:
-            last_col,key_col = next(col_iter)
+            last_col, key_col = next(col_iter)
 
             # print padding-columns
             if isinstance(key_col, Padding):
-                print(self._prepareValue("", key_col), end=('' if last_col else ' '))
+                print(
+                    self._prepareValue("", key_col),
+                    end=('' if last_col else ' ')
+                )
                 continue
 
             # In case there is no data, stop printing
             try:
-                last_data,(key,value) = next(item_iter)
+                last_data, (key, value) = next(item_iter)
             except StopIteration:
                 break
 
@@ -564,7 +578,10 @@ class KeyValueTable(ATable):
             # format both key and value
             print(self._prepareValue(key, key_col), end='')
             print(": ", end='')
-            print(self._prepareValue(value, value_col), end=('' if last_col else ' '))
+            print(
+                self._prepareValue(value, value_col),
+                end=('' if last_col else ' ')
+            )
 
         print()
         return not last_data
@@ -685,4 +702,3 @@ class KeyValueTable(ATable):
         if any(col.name for col in self._columns):
             self.printKV(*[col.name for col in self._columns])
             self.printSingleLine()
-

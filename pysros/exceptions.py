@@ -1,6 +1,10 @@
 # Copyright 2021-2023 Nokia
 
-__all__ = ("SrosMgmtError", "InvalidPathError", "ModelProcessingError", "InternalError", "SrosConfigConflictError", "ActionTerminatedIncompleteError", "JsonDecodeError", "XmlDecodeError", )
+__all__ = (
+    "SrosMgmtError", "InvalidPathError", "ModelProcessingError",
+    "InternalError", "SrosConfigConflictError",
+    "ActionTerminatedIncompleteError", "JsonDecodeError", "XmlDecodeError",
+)
 
 __doc__ = """This module contains exceptions for error handling within pySROS.
 
@@ -22,6 +26,7 @@ class SrosMgmtError(Exception):
     """
     pass
 
+
 class InvalidPathError(Exception):
     """Exception raised when a path provided by the user:
 
@@ -35,6 +40,7 @@ class InvalidPathError(Exception):
     """
     pass
 
+
 class ModelProcessingError(Exception):
     """Exception raised when an error occurs during processing of the YANG model (schema) when:
 
@@ -46,6 +52,7 @@ class ModelProcessingError(Exception):
     """
     pass
 
+
 class InternalError(Exception):
     """Exception raised for broader issues when:
 
@@ -55,6 +62,7 @@ class InternalError(Exception):
     .. Reviewed by TechComms 20210630
     """
     pass
+
 
 class SrosConfigConflictError(Exception):
     """Exception raised when a configuration commit failed due to conflicts
@@ -69,6 +77,7 @@ class SrosConfigConflictError(Exception):
     """
     pass
 
+
 class ActionTerminatedIncompleteError(Exception):
     """Exception raised when an operation (also known as an action)
     completes with a ``terminated-incomplete`` status.
@@ -78,13 +87,16 @@ class ActionTerminatedIncompleteError(Exception):
     """
     pass
 
+
 class JsonDecodeError(Exception):
     """Exception raised when parsing json input fail."""
     pass
 
+
 class XmlDecodeError(Exception):
     """Exception raised when parsing xml input fail."""
     pass
+
 
 def make_exception(arg, **kwarg):
     """Create an exception.

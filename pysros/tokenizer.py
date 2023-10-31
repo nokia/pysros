@@ -4,7 +4,7 @@ import collections
 import re
 
 from .errors import *
-
+from .errors import make_exception
 
 NL_RE = "[\n]+"
 WSP_RE = "[ \t\r]+"
@@ -33,7 +33,6 @@ TOKEN_REGEX = re.compile(f"""(?:\
 )""", re.DOTALL)
 
 
-
 TOKEN_KIND_STR = 0
 TOKEN_STMT_END = 1
 TOKEN_BLOCK_BEGIN = 2
@@ -50,7 +49,8 @@ TOKEN_NAME_TO_ID = {
     "MULTILINE_COMMENT_RE": TOKEN_COMMENT,
 }
 
-def tokenize(s:str):
+
+def tokenize(s: str):
     for i in re.finditer(TOKEN_REGEX, s):
         if i.lastgroup in ("WSP", "SINGLELINE_COMMENT"):
             continue
@@ -61,6 +61,7 @@ def tokenize(s:str):
         if i.lastgroup == "QUOTED_STR":
             val = val[1:-1]
         yield (TOKEN_NAME_TO_ID[i.lastgroup], val)
+
 
 def yang_parser(yang, handler):
     it = iter(tokenize(yang))

@@ -1,7 +1,9 @@
 # Copyright 2021-2023 Nokia
 
-from .exceptions import *
-from .exceptions import make_exception
+from .exceptions import (ActionTerminatedIncompleteError, InternalError,
+                         InvalidPathError, JsonDecodeError,
+                         ModelProcessingError, SrosConfigConflictError,
+                         SrosMgmtError, XmlDecodeError, make_exception)
 
 __doc__ = """This module contains error definitions for pySROS.
 
@@ -31,7 +33,6 @@ pysros_err_convert_invalid_value_for_type = (SrosMgmtError, "Invalid value for {
 pysros_err_convert_root_not_support_pysros = (SrosMgmtError, "'pysros' format is not supported for root")
 pysros_err_convert_wrong_payload_type = (TypeError, "Invalid payload type for convert")
 pysros_err_could_not_create_conn = (RuntimeError, "Cannot create connection - {reason}")
-pysros_err_data_missing = (SrosMgmtError, "Entry does not exist")
 pysros_err_depth_must_be_positive = (ValueError, "Depth must be > 0")
 pysros_err_duplicate_found = (SrosMgmtError, "Entry cannot contain duplicates - {duplicate}")
 pysros_err_empty_path = (InvalidPathError, "Empty path")
@@ -50,6 +51,7 @@ pysros_err_invalid_config = (ModelProcessingError, "Invalid config statement")
 pysros_err_invalid_identifier = (InvalidPathError, "Invalid identifier")
 pysros_err_invalid_json_structure = (ValueError, "Invalid JSON structure")
 pysros_err_invalid_key_in_path = (SrosMgmtError, "Invalid key value in path")
+pysros_err_invalid_annotation_type = (SrosMgmtError, "Invalid annotation value type")
 pysros_err_invalid_module_set_id_or_content_id = (RuntimeError, "Invalid module-set-id")
 pysros_err_invalid_operation_on_key = (InvalidPathError, "Operation cannot be performed on key")
 pysros_err_invalid_operation_on_leaflist = (InvalidPathError, "Operation cannot be performed on leaflist")
@@ -68,7 +70,6 @@ pysros_err_malformed_keys = (TypeError, "Malformed keys for '{full_path}' with v
 pysros_err_malformed_xml = (ValueError, "Malformed XML")
 pysros_err_missing_keys = (InvalidPathError, "Missing keys on element '{element}'")
 pysros_err_multiple_occurences_of_entry = (SrosMgmtError, "Multiple occurrences of list entry")
-pysros_err_multiple_occurences_of_node = (SrosMgmtError, "Multiple occurrences of node")
 pysros_err_no_data_found = (LookupError, "No data found")
 pysros_err_not_connected = (RuntimeError, "Not connected")
 pysros_err_not_found_slash_before_name = (InvalidPathError, "'/' not found before element name")
@@ -76,7 +77,6 @@ pysros_err_path_should_be_string = (TypeError, "path argument should be a string
 pysros_err_prefix_does_not_have_ns = (LookupError, "prefix '{prefix}' of '{name}' does not have corresponding namespace")
 pysros_err_root_path = (InvalidPathError, "Operation cannot be performed on root")
 pysros_err_target_should_be_list = (InvalidPathError, "Target should be a list")
-pysros_err_type_must_be = (TypeError, "must be {expected:.50s}, not {actual:.50s}")
 pysros_err_unended_quoted_string = (InvalidPathError, "Unended quoted string")
 pysros_err_unexpected_change_of_path_ctx = (ModelProcessingError, "Unexpected change of path ctx")
 pysros_err_unexpected_end_of_yang = (ModelProcessingError, "Unexpected end of YANG")
@@ -105,3 +105,19 @@ pysros_err_use_deepcopy = (NotImplementedError, "Use '.deepcopy' instead")
 pysros_err_wrong_json_root = (JsonDecodeError, "JSON root must be object")
 pysros_err_wrong_netconf_response = (SrosMgmtError, "Wrong NETCONF response")
 pysros_err_wrong_rhs = (ModelProcessingError, "Invalid argument to the right of the plus symbol")
+pysros_err_unknown_attribute = (SrosMgmtError, "Unknown attribute '{name}'")
+pysros_err_multiple_occurences_of_xml_attribute = (SrosMgmtError, "Multiple occurrences of xml attribute")
+pysros_err_multiple_occurences_of_node = (SrosMgmtError, "Multiple occurrences of node")
+pysros_err_multiple_occurences_of_annotation = (SrosMgmtError, "Multiple occurrences of annotation")
+pysros_err_annotation_incorrect_value = (SrosMgmtError, "Invalid value for annotation '{name}'")
+pysros_err_annotation_not_found = (ValueError, "Annotation not found")
+pysros_err_annotation_too_many_instances = (ValueError, "Too many annotations match the criteria")
+pysros_err_annotation_without_value = (SrosMgmtError, "Missing value for '{child_name}' in path '{path}', but metadata set")
+pysros_err_annotation_type_key = (TypeError, """Annotation argument "key" must be a string""")
+pysros_err_annotation_invalid_type = (TypeError, "Invalid type of argument annotations_only")
+pysros_err_annotation_invalid = (TypeError, "Cannot find annotation")
+pysros_err_annotation_cannot_delete = (TypeError, "Cannot delete annotation")
+pysros_err_annotation_invalid_key = (SrosMgmtError, "Invalid annotation key")
+pysros_err_too_many_leaflist_annotations = (SrosMgmtError, "Too many annotations in leaflist")
+pysros_err_expected_type_but_got_another = (TypeError, "expected {expected} object but got {type_name}")
+pysros_err_annotation_invalid_module = (SrosMgmtError, "Invalid annotation module")

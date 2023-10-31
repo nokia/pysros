@@ -1,8 +1,9 @@
 # Copyright 2021-2023 Nokia
 
-from typing import Dict, Iterable
+from typing import Iterable
 
 from .identifier import Identifier
+
 
 class ModelPath:
     """Representation of path as a sequence of identifiers.

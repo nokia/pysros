@@ -3,42 +3,41 @@
 import copy
 import locale
 import sys
-
-from enum import Enum, IntFlag, IntEnum, auto
-from typing import Any, Dict, List, Optional, Tuple
-
-from lxml import etree
+from enum import Enum, IntEnum, IntFlag
+from typing import List, Optional
 
 from .errors import *
-from .identifier import Identifier, NoModule
-from .yang_type import Enumeration, YangType, YangTypeBase
+from .errors import make_exception
+from .identifier import Identifier
 from .yang_type import YangType
+
 
 class AModel:
     class StatementType(Enum):
-        leaf_         = 0
-        list_         = 1
-        container_    = 2
-        leaf_list_    = 3
-        choice_       = 4
-        case_         = 5
-        augment_      = 6
-        uses_         = 7
-        typedef_      = 8
-        module_       = 9
-        submodule_    = 10
-        grouping_     = 11
-        import_       = 12
-        identity_     = 13
-        action_       = 14
-        anydata_      = 15
-        anyxml_       = 16
+        leaf_ = 0
+        list_ = 1
+        container_ = 2
+        leaf_list_ = 3
+        choice_ = 4
+        case_ = 5
+        augment_ = 6
+        uses_ = 7
+        typedef_ = 8
+        module_ = 9
+        submodule_ = 10
+        grouping_ = 11
+        import_ = 12
+        identity_ = 13
+        action_ = 14
+        anydata_ = 15
+        anyxml_ = 16
         notification_ = 17
-        rpc_          = 18
-        input_        = 19
-        output_       = 20
-        deviation_    = 21
-        deviate_      = 22
+        rpc_ = 18
+        input_ = 19
+        output_ = 20
+        deviation_ = 21
+        deviate_ = 22
+        annotate_ = 23
 
     __slots__ = ()
 
@@ -53,34 +52,35 @@ class AModel:
         return f"""Model("{str(self.name)}")"""
 
     def __repr__(self):
-       return f"""Model("{str(self.name)}")"""
+        return f"""Model("{str(self.name)}")"""
 
     def __deepcopy__(self, memo):
         raise make_exception(pysros_err_use_deepcopy)
 
-    def debug_print(self, prefix="", last = False):
+    def debug_print(self, prefix="", last=False):
         class Colors:
-            RED    = '\033[1;31;48m'
-            GREEN  = '\033[1;32;48m'
+            RED = '\033[1;31;48m'
+            GREEN = '\033[1;32;48m'
             DGREEN = '\033[2;32;48m'
-            BLUE   = '\033[1;34;48m'
-            CYAN   = '\033[1;36;48m'
+            BLUE = '\033[1;34;48m'
+            CYAN = '\033[1;36;48m'
             PURPLE = '\033[1;35;48m'
             YELLOW = '\033[1;33;48m'
-            RESET  = '\033[1;37;0m'
+            RESET = '\033[1;37;0m'
 
         utf_supported = locale.getlocale()[1] == "UTF-8"
+
         class AsciiArt:
-            CHILD =         "+-- " if not utf_supported else "\u251c\u2500\u2500 "
-            LAST_CHILD =    "+-- " if not utf_supported else "\u2514\u2500\u2500 "
+            CHILD = "+-- " if not utf_supported else "\u251c\u2500\u2500 "
+            LAST_CHILD = "+-- " if not utf_supported else "\u2514\u2500\u2500 "
             VERTICAL_LINE = "   |" if not utf_supported else "   \u2502"
 
         data_def_stm = self.data_def_stm.name[:-1]
 
         if sys.stdout.isatty():
-            colorize = lambda data, color : color + str(data) + Colors.RESET
+            colorize = lambda data, color: color + str(data) + Colors.RESET
         else:
-            colorize = lambda data, color : str(data)
+            colorize = lambda data, color: str(data)
 
         if not prefix:
             field_prefix = ""
@@ -146,7 +146,7 @@ class AModel:
             return "-n"
         return "mp"
 
-    def test_print(self, prefix="", _last = False):
+    def test_print(self, prefix="", _last=False):
         data_def_stm = self.data_def_stm.name[:-1]
         if not prefix:
             field_prefix = ""
@@ -178,6 +178,7 @@ class AModel:
             remain -= 1
         return res
 
+
 class BuildingModel(AModel):
     __slots__ = (
         "name",
@@ -204,7 +205,7 @@ class BuildingModel(AModel):
         self.children: List[Model] = []
         self.yang_type: Optional[YangType] = None
         self.units: Optional[str] = None
-        self.namespace: str = None
+        self.namespace: Optional[str] = None
         self.default: Optional[str] = None
         self.mandatory: Optional[str] = None
         self.status: Optional[str] = None
@@ -255,7 +256,10 @@ class BuildingModel(AModel):
             if quiet:
                 return
             else:
-                raise make_exception(pysros_err_cannot_remove_node, node=self.name)
+                raise make_exception(
+                    pysros_err_cannot_remove_node,
+                    node=self.name
+                )
         del self.parent.children[idx]
         self.parent = None
 
@@ -272,6 +276,7 @@ class BuildingModel(AModel):
             child.deepcopy(result)
         return result
 
+
 class StorageModel(AModel):
     __slots__ = (
         "_storage",
@@ -279,32 +284,35 @@ class StorageModel(AModel):
     )
 
     class DataBitmask(IntFlag):
-        data_def_stm        = 0xff
-        presence_container  = 1 << 8
-        user_ordered        = 1 << 9
-        config              = 1 << 10
-        mandatory           = 1 << 11
-        status              = 1 << 12
+        data_def_stm = 0xff
+        presence_container = 1 << 8
+        user_ordered = 1 << 9
+        config = 1 << 10
+        mandatory = 1 << 11
+        status = 1 << 12
 
     class DataMembers(IntEnum):
-        name            = 0
-        children        = 1
-        yang_type       = 2
-        local_keys      = 3
-        target_path     = 4
-        identity_bases  = 5
-        parent          = 6
-        bitmask         = 7
-        units           = 8
-        namespace       = 9
-        default         = 10
+        name = 0
+        children = 1
+        yang_type = 2
+        local_keys = 3
+        target_path = 4
+        identity_bases = 5
+        parent = 6
+        bitmask = 7
+        units = 8
+        namespace = 9
+        default = 10
+
 
 class Model(StorageModel):
     """Class to represent a single YANG entry and hold additional information, such as type, configuration state, children, and data definition statement.
 
     .. Reviewed by TechComms 20210713
     """
-    __slots__ = ("_data", "children", "parent", "name", "_bitmask", "data_def_stm",)
+    __slots__ = (
+        "_data", "children", "parent", "name", "_bitmask", "data_def_stm",
+    )
 
     def __init__(self, storage, index, parent):
         assert storage
@@ -335,13 +343,17 @@ class Model(StorageModel):
         return Identifier(*name)
 
     def _children_getter(self):
-        return [Model(self._storage, index, self) for index in self._data[Model.DataMembers.children]]
+        return [
+            Model(self._storage, index, self) for index in self._data[Model.DataMembers.children]
+        ]
 
     def _bitmask_getter(self):
         return self._data[Model.DataMembers.bitmask]
 
     def _data_def_stm_getter(self):
-        return Model.StatementType(int(self._bitmask & Model.DataBitmask.data_def_stm))
+        return Model.StatementType(
+            int(self._bitmask & Model.DataBitmask.data_def_stm)
+        )
 
     @property
     def prefix(self):
@@ -393,7 +405,10 @@ class Model(StorageModel):
 
     @property
     def is_region_blocked(self):
-        return self.prefix in ("nokia-bof-state", "nokia-li-state", "nokia-debug-state", "nokia-li-conf", "nokia-bof-conf", "nokia-debug-conf")
+        return self.prefix in (
+            "nokia-bof-state", "nokia-li-state", "nokia-debug-state",
+            "nokia-li-conf", "nokia-bof-conf", "nokia-debug-conf"
+        )
 
     @property
     def local_keys(self):
@@ -427,6 +442,7 @@ class Model(StorageModel):
 
     def __eq__(self, other):
         return self._data is other._data
+
 
 class StorageConstructionModel(StorageModel):
     __slots__ = ()
@@ -652,6 +668,7 @@ class StorageConstructionModel(StorageModel):
 
     def __eq__(self, other):
         return self._data is other._data
+
 
 def new_Model_data(name: Identifier, data_def_stm: Model.StatementType, parent):
     return (parent._storage if parent is not None else []), [

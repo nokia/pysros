@@ -520,6 +520,38 @@ Example:
 .. Reviewed by TechComms 20221012
 
 
+Annotations and metadata
+************************
+
+Annotations and metadata are terms often used interchangeably for additional supporting information
+applied to a node in a YANG tree without being included as part of the actual value of that node and
+without the need to create a new node to contain the information.
+
+Annotations are defined in YANG and fall into two broad categories:
+
+* **User defined annotations**
+
+  Supporting information provided and consumed by the user of pySROS attached to a YANG
+  node.  An example is a configuration comment applied to a node in an SR OS configuration
+  using the MD-CLI ``annotate`` command.
+
+* **System or protocol defined annotations**
+
+  Defined in a specification for a specific purpose only.  These may be added, removed, or edited by a user
+  but they have very specific meanings and perform very specific functions in a protocol.  An example is the ``operation`` attribute of an XML document used with NETCONF when manipulating user-ordered
+  lists.
+
+Annotations (metadata) are defined in `RFC 7952 <https://www.rfc-editor.org/rfc/rfc7952>`_ and are
+supported in XML and JSON (IETF) encodings.
+
+Annotations in pySROS are similar to the :py:class:`pysros.wrappers.Schema` class but, unlike the
+:py:class:`pysros.wrappers.Schema` class, the :py:class:`pysros.wrappers.Annotations` is writable.
+
+See the :py:class:`pysros.wrappers.Annotations` class for more details.
+
+.. Reviewed by PLM 20231003
+.. Reviewed by TechComms 20231009 
+
 Getting Started
 ###############
 

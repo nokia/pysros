@@ -270,7 +270,6 @@ User-ordered lists are therefore represented as ordered dictionaries in Python.
 
 .. Reviewed by PLM 20221012
 
-
 .. _pysros-examples-connecting-to-md-interfaces:
 
 Connecting to the SR OS model-driven interface

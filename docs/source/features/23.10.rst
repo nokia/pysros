@@ -1,0 +1,20 @@
+Release 23.10
+*************
+
+23.10.1
+#######
+
+* Introduction of YANG annotation (metadata) handling for
+  :py:meth:`pysros.management.Datastore.get`, :py:meth:`pysros.management.Datastore.set`
+  and :py:meth:`pysros.management.Connection.convert`
+
+  * Introduction of the :py:class:`pysros.wrappers.Annotations` class
+  * Introduction of the :py:class:`pysros.wrappers.Annotation` class
+
+* Change of the default method for :py:meth:`pysros.management.Datastore.set` from ``merge``
+  to ``default``.  Due to the default operation of NETCONF on SR OS being ``merge`` this change
+  will not impact any currently implemented pySROS applications.
+
+
+
+
