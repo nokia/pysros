@@ -17,14 +17,11 @@ documentation will be updated accordingly.
 .. list-table::
    :header-rows: 0
 
-   * - pySROS release: 23.10.1
-   * - Document Number: 3HE 19211 AAAF TQZZA
+   * - pySROS release: 23.10.2
+   * - Document Number: 3HE 19211 AAAG TQZZA
 
-.. todo: Change release numbers for new branch
-
-
-.. Reviewed by PLM 20220621
-.. Reviewed by TechComms 20220624
+.. Reviewed by PLM 20231129
+.. Reviewed by TechComms 20231129
 
 
 .. toctree::
