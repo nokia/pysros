@@ -7,12 +7,12 @@
 # pylint: disable=import-error, import-outside-toplevel, line-too-long, too-many-branches, too-many-locals, too-many-statements
 
 """
-Tested on: SR OS 22.2.R1
+Tested on: SR OS 23.10.R2
 
 Show all BGP peers for an ASN.
 
 Execution on SR OS
-    usage: pyexec show_router_bgp_asn.py <number>
+    usage: pyexec bin/show_router_bgp_asn.py <number>
 Execution on remote machine
     usage: python show_router_bgp_asn.py username@host <number>
 Execution on remote machine if show_router_bgp_asn.py is executable
@@ -22,7 +22,7 @@ Add the following alias so that the Python application can be run as a
 native MD-CLI command.
 
 /configure python { python-script "show-router-bgp-asn" admin-state enable }
-/configure python { python-script "show-router-bgp-asn" urls ["cf3:show_router_bgp_asn.py"] }
+/configure python { python-script "show-router-bgp-asn" urls ["cf3:bin/show_router_bgp_asn.py"] }
 /configure python { python-script "show-router-bgp-asn" version python3 }
 
 /configure system { management-interface cli md-cli environment command-alias alias "asn" }
@@ -78,7 +78,9 @@ def get_remote_connection(my_username, my_host, my_password):
     # the execution of the connect method the information provided in
     # that exception is loaded into the runtime_error variable for use.
     except RuntimeError as runtime_error:
-        print("Failed to connect during the creation of the Connection object.")
+        print(
+            "Failed to connect during the creation of the Connection object."
+        )
         print("Error:", runtime_error, end="")
         print(".")
         sys.exit(100)
@@ -108,7 +110,9 @@ def show_router_bgp_asn_output(connection_object, asn):
     reset_color = "\u001b[0m"
     bgp_stats = None
 
-    oper_name = connection_object.running.get("/nokia-state:state/system/oper-name")
+    oper_name = connection_object.running.get(
+        "/nokia-state:state/system/oper-name"
+    )
 
     # Get BGP configuration data
     try:
@@ -130,7 +134,9 @@ def show_router_bgp_asn_output(connection_object, asn):
         if "peer-as" not in bgp_config[neighbor]:
             # If not, try to get the peer-as from the neighbor's group
             try:
-                bgp_config[neighbor]["peer-as"] = connection_object.running.get(
+                bgp_config[neighbor][
+                    "peer-as"
+                ] = connection_object.running.get(
                     "/nokia-conf:configure/router[router-name=Base]/bgp/group[group-name=%s]/peer-as"
                     % bgp_config[neighbor]["group"]
                 )
@@ -151,7 +157,10 @@ def show_router_bgp_asn_output(connection_object, asn):
             )
         # Get state if the ASN is configured, only need to do this the first
         # time the ASN is found
-        elif int(asn) == bgp_config[neighbor]["peer-as"].data and bgp_stats is None:
+        elif (
+            int(asn) == bgp_config[neighbor]["peer-as"].data
+            and bgp_stats is None
+        ):
             bgp_stats = connection_object.running.get(
                 '/nokia-state:state/router[router-name="Base"]/bgp/neighbor'
             )
@@ -179,10 +188,13 @@ def show_router_bgp_asn_output(connection_object, asn):
         )
     print("=" * 80)
     # Longest possible IP address is 45 characters
-    print("{0:<45} {1}".format("Neighbor", "Last Up/Down Time"))
+    print("{0:<45} {1}".format("Neighbor", "Last Up/Down Time (Transitions)"))
     print("Description")
     print("Group")
-    print("{0:<13} {1:<13}/{2:<17}".format("ASN", "Messages Rcvd", "In Queue"), end="")
+    print(
+        "{0:<13} {1:<13}/{2:<17}".format("ASN", "Messages Rcvd", "In Queue"),
+        end="",
+    )
     print(
         " State|"
         + bright_cyan
@@ -198,12 +210,19 @@ def show_router_bgp_asn_output(connection_object, asn):
     print("-" * 80)
 
     # Print each neighbor's info
+    num_up_neighbors = 0
+    num_down_neighbors = 0
+    num_disabled_neighbors = 0
     for neighbor in sorted(bgp_config):
         if asn == 0 or int(asn) == bgp_config[neighbor]["peer-as"].data:
             # Print line 1
             print(
-                "{0:<45} {1}".format(
-                    neighbor, bgp_stats[neighbor]["statistics"]["last-established-time"]
+                "{0:<45} {1} ({2})".format(
+                    neighbor,
+                    bgp_stats[neighbor]["statistics"]["last-established-time"],
+                    bgp_stats[neighbor]["statistics"][
+                        "established-transitions"
+                    ],
                 )
             )
 
@@ -220,12 +239,22 @@ def show_router_bgp_asn_output(connection_object, asn):
             print(
                 "{0:<13} {1:>13}/{2:<17} ".format(
                     str(bgp_config[neighbor]["peer-as"]),
-                    str(bgp_stats[neighbor]["statistics"]["received"]["messages"]),
-                    str(bgp_stats[neighbor]["statistics"]["received"]["queues"]),
+                    str(
+                        bgp_stats[neighbor]["statistics"]["received"][
+                            "messages"
+                        ]
+                    ),
+                    str(
+                        bgp_stats[neighbor]["statistics"]["received"]["queues"]
+                    ),
                 ),
                 end="",
             )
-            if str(bgp_stats[neighbor]["statistics"]["session-state"]) == "Established":
+            if (
+                str(bgp_stats[neighbor]["statistics"]["session-state"])
+                == "Established"
+            ):
+                num_up_neighbors += 1
                 if (
                     str(bgp_stats[neighbor]["statistics"]["negotiated-family"])
                     == "['IPv4']"
@@ -233,24 +262,24 @@ def show_router_bgp_asn_output(connection_object, asn):
                     print(
                         bright_cyan
                         + str(
-                            bgp_stats[neighbor]["statistics"]["family-prefix"]["ipv4"][
-                                "received"
-                            ]
+                            bgp_stats[neighbor]["statistics"]["family-prefix"][
+                                "ipv4"
+                            ]["received"]
                         )
                         + reset_color
                         + "/"
                         + bright_green
                         + str(
-                            bgp_stats[neighbor]["statistics"]["family-prefix"]["ipv4"][
-                                "received"
-                            ]
+                            bgp_stats[neighbor]["statistics"]["family-prefix"][
+                                "ipv4"
+                            ]["received"]
                         )
                         + reset_color
                         + "/"
                         + str(
-                            bgp_stats[neighbor]["statistics"]["family-prefix"]["ipv4"][
-                                "sent"
-                            ]
+                            bgp_stats[neighbor]["statistics"]["family-prefix"][
+                                "ipv4"
+                            ]["sent"]
                         )
                         + " (IPv4)"
                     )
@@ -261,24 +290,24 @@ def show_router_bgp_asn_output(connection_object, asn):
                     print(
                         bright_cyan
                         + str(
-                            bgp_stats[neighbor]["statistics"]["family-prefix"]["ipv6"][
-                                "received"
-                            ]
+                            bgp_stats[neighbor]["statistics"]["family-prefix"][
+                                "ipv6"
+                            ]["received"]
                         )
                         + reset_color
                         + "/"
                         + bright_green
                         + str(
-                            bgp_stats[neighbor]["statistics"]["family-prefix"]["ipv6"][
-                                "received"
-                            ]
+                            bgp_stats[neighbor]["statistics"]["family-prefix"][
+                                "ipv6"
+                            ]["received"]
                         )
                         + reset_color
                         + "/"
                         + str(
-                            bgp_stats[neighbor]["statistics"]["family-prefix"]["ipv6"][
-                                "sent"
-                            ]
+                            bgp_stats[neighbor]["statistics"]["family-prefix"][
+                                "ipv6"
+                            ]["sent"]
                         )
                         + " (IPv6)"
                     )
@@ -288,7 +317,11 @@ def show_router_bgp_asn_output(connection_object, asn):
                         + +bgp_stats[neighbor]["statistics"]["session-state"]
                         + reset_color
                     )
-            elif str(bgp_stats[neighbor]["statistics"]["session-state"]) == "disabled":
+            elif (
+                str(bgp_stats[neighbor]["statistics"]["session-state"])
+                == "disabled"
+            ):
+                num_disabled_neighbors += 1
                 print(
                     bright_red
                     + "Disabled"
@@ -301,12 +334,14 @@ def show_router_bgp_asn_output(connection_object, asn):
                 str(bgp_stats[neighbor]["statistics"]["session-state"])
                 == "Idle (shutdown)"
             ):
+                num_down_neighbors += 1
                 print(
                     bright_yellow
                     + str(bgp_stats[neighbor]["statistics"]["session-state"])
                     + reset_color
                 )
             else:
+                num_down_neighbors += 1
                 print(
                     bright_yellow
                     + str(bgp_stats[neighbor]["statistics"]["session-state"])
@@ -324,6 +359,28 @@ def show_router_bgp_asn_output(connection_object, asn):
                     str(bgp_stats[neighbor]["statistics"]["sent"]["queues"]),
                 )
             )
+
+    # Print the total neighbors
+    print("-" * 80)
+    print(
+        "Total neighbors : "
+        + bright_cyan
+        + str(num_up_neighbors + num_down_neighbors + num_disabled_neighbors)
+        + reset_color
+        + " ("
+        + bright_green
+        + str(num_up_neighbors)
+        + reset_color
+        + " up, "
+        + bright_yellow
+        + str(num_down_neighbors)
+        + reset_color
+        + " down, "
+        + bright_red
+        + str(num_disabled_neighbors)
+        + reset_color
+        + " disabled)"
+    )
 
     # Print the closing deliminator
     print("=" * 80)
@@ -394,13 +451,16 @@ def get_connection_with_argv():
 
         # Get a remote Connection object
         connection_object = get_remote_connection(
-            my_username=username_host[0], my_host=username_host[1], my_password=password
+            my_username=username_host[0],
+            my_host=username_host[1],
+            my_password=password,
         )
 
     return connection_object, parsed_asn
 
 
 if __name__ == "__main__":
-
     my_connection_object, my_asn = get_connection_with_argv()
-    show_router_bgp_asn_output(connection_object=my_connection_object, asn=my_asn)
+    show_router_bgp_asn_output(
+        connection_object=my_connection_object, asn=my_asn
+    )

@@ -1,23 +1,37 @@
 #!/usr/bin/env python3
 
-### make_connection_extended_with_argv.py
-#   Copyright 2021 Nokia
+### who.py
+#   Copyright 2024 Nokia
 ###
 
 # pylint: disable=import-error, import-outside-toplevel, line-too-long, too-many-branches, too-many-locals, too-many-statements
 
 """
-Tested on: SR OS 22.2.R1
+Tested on: SR OS 23.10.R2
 
-Example to show how to make a connection and handle exceptions with an
-optional argument.
+Show who is logged on.
 
 Execution on SR OS
-    usage: pyexec make_connection_extended_with_argv.py [<parameter>]
+    usage: pyexec bin/who.py
+    usage: pyexec bin/who.py am i
 Execution on remote machine
-    usage: python make_connection_extended_with_argv.py username@host [<parameter>]
-Execution on remote machine if show_system_summary.py is executable
-    usage: ./make_connection_extended_with_argv.py username@host [<parameter>]
+    usage: python who.py username@host
+    usage: python who.py username@host am i
+Execution on remote machine if who.py is executable
+    usage: ./who.py username@host
+    usage: ./who.py username@host am i
+
+Add the following alias so that the Python application can be run as
+a native MD-CLI command.
+
+/configure python { python-script "who" admin-state enable }
+/configure python { python-script "who" urls ["cf3:bin/who.py"] }
+/configure python { python-script "who" version python3 }
+/configure system { management-interface cli md-cli environment command-alias alias "who" }
+/configure system { management-interface cli md-cli environment command-alias alias "who" admin-state enable }
+/configure system { management-interface cli md-cli environment command-alias alias "who" description "Show who is logged on" }
+/configure system { management-interface cli md-cli environment command-alias alias "who" python-script "who" }
+/configure system { management-interface cli md-cli environment command-alias alias "who" mount-point global }
 """
 
 # Import sys for parsing arguments and returning specific exit codes
@@ -29,10 +43,8 @@ from pysros.management import connect, sros
 
 def usage():
     """Print the usage"""
-    if sros():
-        print("Usage:", sys.argv[0], "[<parameter>]")
-    else:
-        print("Usage:", sys.argv[0], "username@host [<parameter>]")
+
+    print("Usage:", sys.argv[0], "username@host [am i]")
 
 
 def get_remote_connection(my_username, my_host, my_password):
@@ -84,8 +96,8 @@ def get_remote_connection(my_username, my_host, my_password):
 def get_connection_with_argv():
     """Parse arguments and get a connection"""
 
-    # The parameter in this example is optional, so we need a default value
-    parameter = ""
+    # The "am i" is optional, so we need a default value
+    parsed_arg = 0
 
     # Use the sros() function to determine if the application is executed
     # locally on an SR OS device, or remotely so that the same application
@@ -93,15 +105,10 @@ def get_connection_with_argv():
 
     # The application is running locally
     if sros():
-        # Parse the arguments for an optional argument parameter
+        # Like who(1), we don't really care what the arguments are
+        # 'am i' or 'mom likes' are usual
         if len(sys.argv) > 2:
-            usage()
-            sys.exit(2)
-
-        # Set the argument value
-        if len(sys.argv) == 2:
-            # This quick example doesn't check if the parameter contains a valid value
-            parameter = sys.argv[1]
+            parsed_arg = 1
 
         # Get a local Connection object
         connection_object = connect()  # pylint: disable=missing-kwoa
@@ -111,15 +118,15 @@ def get_connection_with_argv():
         # Import getpass to read the password
         import getpass
 
-        # Parse the arguments for username, host and optional argument parameters
-        if len(sys.argv) > 3 or len(sys.argv) < 2:
+        # Parse the arguments for an optional argument
+        if len(sys.argv) < 2:
             usage()
             sys.exit(2)
 
-        # Set the argument value
-        if len(sys.argv) == 3:
-            # This quick example doesn't check if the parameter contains a valid value
-            parameter = sys.argv[2]
+        # Like who(1), we don't really care what the arguments are,
+        # 'am i' or 'mom likes' are usual
+        if len(sys.argv) > 2:
+            parsed_arg = 1
 
         # Split the username and host arguments, the host can be an IP
         # address or a hostname
@@ -138,18 +145,49 @@ def get_connection_with_argv():
             my_password=password,
         )
 
-    if parameter:
-        print(
-            'Connection established successfully with optional argument value "'
-            + parameter
-            + '"!'
-        )
-    else:
-        print(
-            "Connection established successfully with no optional argument value!"
-        )
-    return connection_object
+    return connection_object, parsed_arg
+
+
+def who_output(connection_object, arg):
+    """Main function for the who command"""
+
+    # Get the users state
+    users = connection_object.running.get("/nokia-state:state/users/session")
+
+    # Step through the sessions
+    for session_id in sorted(users):
+        if "login-time" in users[session_id]:
+            # Check for arg that means to show the current session
+            if (
+                arg == 1
+                and str(users[session_id]["current-active-session"]) == "False"
+            ):
+                continue
+
+            # Print session info in who(1) format
+            # GNU who displays "%-8s" for user, use same format
+            print(
+                "{0:8.8} {1}/{2}\t{3}".format(
+                    str(users[session_id]["user"]),
+                    str(users[session_id]["connection-type"]),
+                    str(session_id),
+                    str(users[session_id]["login-time"]),
+                ),
+                end="",
+            )
+
+            if "connection-ip" in users[session_id]:
+                print(
+                    " ("
+                    + str(users[session_id]["router-instance"])
+                    + "/"
+                    + str(users[session_id]["connection-ip"])
+                    + ")"
+                )
+            else:
+                print()
 
 
 if __name__ == "__main__":
-    my_connection_object = get_connection_with_argv()
+    my_connection_object, my_arg = get_connection_with_argv()
+    who_output(connection_object=my_connection_object, arg=my_arg)

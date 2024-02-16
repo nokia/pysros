@@ -79,7 +79,9 @@ def print_table(
         (15, "Curr value"),
         (15, "Delta"),
     ]
-    width = sum([col[0] for col in cols])
+    width = sum(  # pylint: disable=consider-using-generator
+        [col[0] for col in cols]
+    )
     if sros():
         if width > 79:
             print("The table width is too large to display on SR OS")

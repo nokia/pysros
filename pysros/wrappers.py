@@ -523,7 +523,7 @@ class Leaf(Wrapper):
 
     @staticmethod
     def _check_data_type(data):
-        if not isinstance(data, (str, int, bool, _Empty)):
+        if not isinstance(data, (str, int, bool, _Empty)) and data is not None:
             raise make_exception(
                 pysros_err_unsupported_type_for_wrapper,
                 wrapper_name='Leaf'

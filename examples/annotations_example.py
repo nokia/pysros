@@ -47,9 +47,9 @@ def demo_get_functions(myleaf, one):
     """Demonstrates the use of get and get_annotation methods."""
     print("\n---- GET FUNCTIONS ----\n")
     print(
-        "The get method takes an input and returns the annotation instance of the match.  This function "
-        "must match exactly and completely, meaning in the case of annotation one "
-        "the full one object must be used on input:",
+        "The get method takes an input and returns the annotation instance of the match.  "
+        "This function must match exactly and completely, meaning in the case of "
+        "annotation one the full one object must be used on input:",
         one,
     )
     print("")
@@ -72,9 +72,9 @@ def demo_remove_functions(myleaf, one):
     """Demonstrates the use of remove and remove_annotation methods."""
     print("\n---- REMOVE FUNCTIONS ----\n")
     print(
-        "The remove method takes an input and removes the matching annotation instance from the list. "
-        "This function must match exactly and completely, meaning in the case of annotation one "
-        "the full one object must be used on input:",
+        "The remove method takes an input and removes the matching annotation instance "
+        "from the list.  This function must match exactly and completely, meaning in the "
+        "case of annotation one the full one object must be used on input:",
         one,
     )
     print("")
@@ -108,7 +108,8 @@ def demo_annotations():
     print("Consider this leaf (called myleaf):", repr(myleaf))
     print("")
     print(
-        "The annotations (YANG metadata) assigned to the leaf can be seen by issuing myleaf.annotations:",
+        "The annotations (YANG metadata) assigned to the leaf can be seen by issuing "
+        "myleaf.annotations:",
         myleaf.annotations,
     )
     print("")

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+
 ### set_user_example.py
 #   Copyright 2021 Nokia
 ###
@@ -33,7 +34,12 @@ def check_user(*, connection, user_details):
         if running_config_user["user-name"].data == user_details["user-name"]:
             print("User:", user_details["user-name"], "Validated: True")
     except Exception as error:  # pylint: disable=broad-except
-        print("User:", user_details["user-name"], "Validated: False Error:", error)
+        print(
+            "User:",
+            user_details["user-name"],
+            "Validated: False Error:",
+            error,
+        )
 
 
 def add_user(*, connection, users):
@@ -61,6 +67,7 @@ def add_user(*, connection, users):
         except Exception as error:  # pylint: disable=broad-except
             print("Failed to create", user, "Error:", error)
             continue
+
 
 def get_connection(host=None, credentials=None):
     """Function definition to obtain a Connection object to a specific SR OS device

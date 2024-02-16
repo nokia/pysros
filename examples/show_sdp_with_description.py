@@ -64,7 +64,9 @@ def print_table(rows):
     ]
 
     # Initalize the Table object with the heading and columns.
-    table = Table("Service Destination Points with Descriptions", cols, showCount="SDP")
+    table = Table(
+        "Service Destination Points with Descriptions", cols, showCount="SDP"
+    )
 
     # Print the output passing the data for the rows as an argument to the function.
     table.print(rows)
@@ -96,7 +98,6 @@ def main():
     # Identify the SDP ID numbers and store this value as the variable 'id' and perform
     # the following operations for every SDP.
     for ident in sdp_conf.keys():
-
         # Initalize the description variable as it is referenced later
         description = None
 

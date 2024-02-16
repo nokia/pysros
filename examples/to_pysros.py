@@ -18,6 +18,7 @@ Execution on remote machine
     Not supported.
 """
 import builtins
+
 # Required imports
 import sys
 import json
@@ -40,7 +41,9 @@ def get_connection():
     # the execution of the connect method the information provided in
     # that exception is loaded into the runtime_error variable for use.
     except builtins.RuntimeError as runtime_error:
-        print("Failed to connect during the creation of the Connection object.")
+        print(
+            "Failed to connect during the creation of the Connection object."
+        )
         print("Error:", runtime_error, end="")
         print(".")
         sys.exit(100)
@@ -62,7 +65,8 @@ def get_connection():
 
 def main():
     """Main function reads from STDIN (redirected info full-context json SR OS command) and
-    uses the pySROS convert method to return the pySROS data structure for the data."""
+    uses the pySROS convert method to return the pySROS data structure for the data.
+    """
     # Read in from STDIN
     data = ""
     for line in sys.stdin:

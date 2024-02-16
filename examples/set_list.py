@@ -66,11 +66,18 @@ def set_list_method_1(connection_object):
     # path is the json-instance-path to the YANG list
     path = "/nokia-conf:configure/log/log-id"
     # payload is a dict including the list key-values as the Python dict keys
-    payload = {"10": {"description": "Log ten"}, "11": {"description": "Log eleven"}}
+    payload = {
+        "10": {"description": "Log ten"},
+        "11": {"description": "Log eleven"},
+    }
     print("YANG list configuration - Method 1")
     print("  {: <15}: {: <}".format(*["Path", path]))
     print("  {: <15}: {: <}".format(*["Payload", str(payload)]))
-    print("  {: <15}: {: <}".format(*["API call", "c.candidate.set(path, payload)"]))
+    print(
+        "  {: <15}: {: <}".format(
+            *["API call", "c.candidate.set(path, payload)"]
+        )
+    )
     print("  c.candidate.set(path, payload)")
     # Configure the SR OS device
     connection_object.candidate.set(path, payload)
@@ -92,7 +99,9 @@ def set_list_method_2(connection_object):
         print("  {: <15}: {: <}".format(*["Path", path]))
         print("  {: <15}: {: <}".format(*["Payload", str(payload)]))
         print(
-            "  {: <15}: {: <}".format(*["API call", "c.candidate.set(path, payload)"])
+            "  {: <15}: {: <}".format(
+                *["API call", "c.candidate.set(path, payload)"]
+            )
         )
         # Configure the SR OS device
         connection_object.candidate.set(path, payload)
@@ -115,7 +124,9 @@ def set_list_method_3(connection_object):
         print("  {: <15}: {: <}".format(*["Path", path]))
         print("  {: <15}: {: <}".format(*["Payload", str(payload)]))
         print(
-            "  {: <15}: {: <}".format(*["API call", "c.candidate.set(path, payload)"])
+            "  {: <15}: {: <}".format(
+                *["API call", "c.candidate.set(path, payload)"]
+            )
         )
         # Configure the SR OS device
         connection_object.candidate.set(path, payload)
@@ -124,7 +135,8 @@ def set_list_method_3(connection_object):
 def main():
     """Main function to demonstrate various options to configure YANG lists"""
     connection_object = get_connection(
-        host="192.168.1.1", credentials={"username": "myusername", "password": "mypassword"}
+        host="192.168.1.1",
+        credentials={"username": "myusername", "password": "mypassword"},
     )
 
     # Call the various configuration methods in turn

@@ -39,9 +39,7 @@ def main():
     else:
         raise SystemExit("Example for on-box use only")
 
-    state = connection_object.running.get(
-        "/nokia-state:state/service/vprn"
-    )
+    state = connection_object.running.get("/nokia-state:state/service/vprn")
     # cols we want to fetch
     cols = [
         (15, "Interface Name"),
@@ -62,9 +60,7 @@ def main():
                 row = [vrtr_name]
                 row.append(if_name)
                 if_state = vrtr_state["interface"][if_name]
-                if keys_exists(
-                    if_state, "ipv4", "primary", "oper-address"
-                ):
+                if keys_exists(if_state, "ipv4", "primary", "oper-address"):
                     oper_address = if_state["ipv4"]["primary"][
                         "oper-address"
                     ].data

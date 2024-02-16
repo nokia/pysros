@@ -74,6 +74,8 @@ class YangTypeBase(ABC):
     def to_string(self, val: Any) -> Tuple[str, Optional[str]]:
         """Translate value to xml text without any checking."""
         # User input is also checked by check_field_value, paths are not
+        if val is None:
+            return '', None
         if isinstance(val, bool) and isinstance(self, PrimitiveType):
             if self.identifier.name == 'boolean':
                 return str(val).lower(), None
@@ -100,7 +102,7 @@ class YangTypeBase(ABC):
         )
 
     @abstractmethod
-    def check_field_value(self, value: Any, json=False) -> bool:
+    def check_field_value(self, value: Any, json=False, strict=False, is_convert=False, metadata=None) -> bool:
         """Check whether value is acceptable for a specific yang_type."""
         return False
 
@@ -108,6 +110,8 @@ class YangTypeBase(ABC):
         return self.__class__.__name__.lower()
 
     def as_storage_type(self, obj, is_convert, idref_cb):
+        if obj is None:
+            return ""
         return obj
 
 
@@ -160,6 +164,10 @@ class PrimitiveType(YangTypeBase):
 
     def to_value(self, val: str) -> Any:
         t = self.identifier.name
+        if val is None or val == "":
+            if t == "empty":
+                return Empty
+            return ("" if t in ("string", "decimal64", "binary") else None)
         if t in INTEGRAL_LEAF_TYPE:
             return int(val)
         if t == "boolean":
@@ -183,8 +191,12 @@ class PrimitiveType(YangTypeBase):
         "binary": _is_valid_base64
     }
 
-    def check_field_value(self, value: Any, json=False) -> bool:
+    def check_field_value(self, value: Any, json=False, strict=False, is_convert=False, metadata=None) -> bool:
         name = self.identifier.name
+        if not strict and value is None:
+            if not is_convert and name == "empty":
+                return metadata and metadata.get("ietf-netconf:operation") in ("remove", "delete")
+            return True
         cmp = self._check_field_value.get(name, None)
         if cmp is not None:
             return cmp(value)
@@ -199,6 +211,13 @@ class PrimitiveType(YangTypeBase):
         return self.identifier.name
 
     def as_storage_type(self, obj, is_convert, idref_cb):
+        if obj is None:
+            if self.identifier.name == "empty":
+                return Empty
+            elif self.identifier.name in ("string", "decimal64", "binary"):
+                return ""
+            else:
+                return obj
         if self.identifier.name == "boolean" and type(obj) == int:
             return bool(obj)
         elif self.identifier.name in INTEGRAL_LEAF_TYPE and (type(obj) == bool or self.identifier.name in ("int64", "uint64")):
@@ -248,7 +267,7 @@ class UnresolvedIdentifier(YangTypeBase):
     def to_value(self, _val: str) -> Any:
         raise make_exception(pysros_err_unresolved_type, type=self)
 
-    def check_field_value(self, value: Any, json=False) -> bool:
+    def check_field_value(self, value: Any, json=False, strict=False, is_convert=False, metadata=None) -> bool:
         return False
 
 
@@ -287,6 +306,8 @@ class YangUnion(YangTypeBase):
         return len(self._types)
 
     def to_string(self, val: Any) -> Tuple[str, Optional[str]]:
+        if val is None:
+            return '', None
         if isinstance(val, str):
             for t in self._types:
                 if isinstance(t, IdentityRef) and t._find_identity(val):
@@ -296,12 +317,16 @@ class YangUnion(YangTypeBase):
         return super().to_string(val)
 
     def to_value(self, val: Any) -> Any:
+        if val is None:
+            return ""
         return val
 
-    def check_field_value(self, value: Any, json=False) -> bool:
+    def check_field_value(self, value: Any, json=False, strict=False, is_convert=False, metadata=None) -> bool:
+        if not strict and value is None:
+            return True
         if isinstance(value, str):
             return True
-        return any(t.check_field_value(value, json) for t in self._types)
+        return any(t.check_field_value(value, json=json, strict=strict, is_convert=is_convert, metadata=metadata) for t in self._types)
 
     def json_name(self) -> str:
         return "union"
@@ -320,6 +345,8 @@ class YangUnion(YangTypeBase):
         return None
 
     def as_storage_type(self, obj, is_convert, idref_cb):
+        if obj is None:
+            return ""
         if isinstance(obj, str):
             identity = self._find_identity(obj)
             if identity is not None:
@@ -351,9 +378,13 @@ class Enumeration(OrderedDict, YangTypeBase):
         self[last_used_key] = val
 
     def to_value(self, val: str) -> Any:
+        if val is None:
+            return ""
         return str(val)
 
-    def check_field_value(self, value: Any, json=False) -> bool:
+    def check_field_value(self, value: Any, json=False, strict=False, is_convert=False, metadata=None) -> bool:
+        if not strict and value is None:
+            return True
         return isinstance(value, str)
 
 
@@ -377,11 +408,15 @@ class Bits(set, YangTypeBase):
         return isinstance(val, str)
 
     def to_value(self, val: str) -> Any:
+        if val is None:
+            return ""
         if self.is_valid_value(val):
             return val
         return super().to_value(val)
 
-    def check_field_value(self, value: Any, json=False) -> bool:
+    def check_field_value(self, value: Any, json=False, strict=False, is_convert=False, metadata=None) -> bool:
+        if not strict and value is None:
+            return True
         return self.is_valid_value(value)
 
 
@@ -418,7 +453,7 @@ class LeafRef(YangTypeBase):
     def to_value(self, _val: str) -> Any:
         raise make_exception(pysros_err_unresolved_leafref, type=str(self))
 
-    def check_field_value(self, value: Any, json=False) -> bool:
+    def check_field_value(self, value: Any, json=False, strict=False, is_convert=False, metadata=None) -> bool:
         return False
 
     @property
@@ -473,6 +508,8 @@ class IdentityRef(YangTypeBase):
         return hash((self.__class__.__name__, *self.bases, frozenset(self.values)))
 
     def to_string(self, val: str) -> Tuple[str, Optional[str]]:
+        if val == "":
+            return "", None
         identity = self._find_identity(val)
         if not identity:
             raise make_exception(
@@ -499,15 +536,21 @@ class IdentityRef(YangTypeBase):
             return self.values.get(val, None)
 
     def to_value(self, _val: str) -> Any:
+        if _val == "":
+            return None
         return _val
 
     def as_storage_type(self, obj, is_convert, idref_cb):
+        if obj is None:
+            return ""
         identinty = self._find_identity(obj)
         if idref_cb:
             idref_cb(identinty)
         return identinty.module + ':' + identinty.name
 
-    def check_field_value(self, value: Any, json=False) -> bool:
+    def check_field_value(self, value: Any, json=False, strict=False, is_convert=False, metadata=None) -> bool:
+        if not strict and value is None:
+            return True
         return (
             isinstance(value, str) and
             self._find_identity(value) is not None

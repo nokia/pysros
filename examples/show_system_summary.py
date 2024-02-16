@@ -7,12 +7,12 @@
 # pylint: disable=import-error, import-outside-toplevel, line-too-long, too-many-branches, too-many-locals, too-many-statements
 
 """
-Tested on: SR OS 22.2.R1
+Tested on: SR OS 23.10.R2
 
 Show system summary information.
 
 Execution on SR OS
-    usage: pyexec show_system_summary.py [<keyword>]
+    usage: pyexec bin/show_system_summary.py [<keyword>]
 Execution on remote machine
     usage: python show_system_summary.py username@host [<keyword>]
 Execution on remote machine if show_system_summary.py is executable
@@ -28,7 +28,7 @@ Add the following alias so that the Python application can be run as a
 native MD-CLI command.
 
 /configure python { python-script "show-system-summary" admin-state enable }
-/configure python { python-script "show-system-summary" urls ["cf3:show_system_summary.py"]
+/configure python { python-script "show-system-summary" urls ["cf3:bin/show_system_summary.py"] }
 /configure python { python-script "show-system-summary" version python3 }
 /configure system { management-interface cli md-cli environment command-alias alias "summary" }
 /configure system { management-interface cli md-cli environment command-alias alias "summary" admin-state enable }
@@ -171,7 +171,9 @@ def get_remote_connection(my_username, my_host, my_password):
     # the execution of the connect method the information provided in
     # that exception is loaded into the runtime_error variable for use.
     except RuntimeError as runtime_error:
-        print("Failed to connect during the creation of the Connection object.")
+        print(
+            "Failed to connect during the creation of the Connection object."
+        )
         print("Error:", runtime_error, end="")
         print(".")
         sys.exit(100)
@@ -313,7 +315,9 @@ def show_system_summary_output(connection_object, language):
     )
     card_stats = connection_object.running.get("/nokia-state:state/card")
     port_stats = connection_object.running.get("/nokia-state:state/port")
-    oper_name = connection_object.running.get("/nokia-state:state/system/oper-name")
+    oper_name = connection_object.running.get(
+        "/nokia-state:state/system/oper-name"
+    )
 
     # Get the current date and time
     now = datetime.datetime.now()
@@ -355,6 +359,7 @@ def show_system_summary_output(connection_object, language):
         # Check to see if a card is equipped, if there is then print the statistics
         if (str(card_stats[card]["equipped-type"]) != "unassigned") and (
             str(card_stats[card]["equipped-type"]) != "unknown"
+            and ("fp" in card_stats[card])
         ):
             for fp_number in sorted(card_stats[card]["fp"]):
                 # Only set the width once
@@ -374,7 +379,9 @@ def show_system_summary_output(connection_object, language):
                     language, width, local_str["FP"][language], fp_number
                 )
                 print("-" * 80)
-                print_rows(card_stats[card]["fp"][fp_number]["statistics"], width)
+                print_rows(
+                    card_stats[card]["fp"][fp_number]["statistics"], width
+                )
 
     # Print the port statistics
     print("=" * 80)
@@ -392,7 +399,9 @@ def show_system_summary_output(connection_object, language):
             is_first_item = False
         else:
             print("-" * 80)
-        print_row_mixed_spacing(language, width, local_str["Port"][language], port)
+        print_row_mixed_spacing(
+            language, width, local_str["Port"][language], port
+        )
 
         # Print oper-state values
         print(
@@ -407,7 +416,9 @@ def show_system_summary_output(connection_object, language):
         if port in port_config and "description" in port_config[port]:
             print(
                 "{0:<{column}} : {1}".format(
-                    "description", str(port_config[port]["description"]), column=width
+                    "description",
+                    str(port_config[port]["description"]),
+                    column=width,
                 )
             )
 
@@ -476,14 +487,15 @@ def get_connection_with_argv():
 
         # Get a remote Connection object
         connection_object = get_remote_connection(
-            my_username=username_host[0], my_host=username_host[1], my_password=password
+            my_username=username_host[0],
+            my_host=username_host[1],
+            my_password=password,
         )
 
     return connection_object, parsed_language
 
 
 if __name__ == "__main__":
-
     my_connection_object, my_language = get_connection_with_argv()
     show_system_summary_output(
         connection_object=my_connection_object, language=my_language

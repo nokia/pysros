@@ -72,7 +72,9 @@ def get_connection():
         # gracefully
         try:
             connection_object = connect(
-                username=username_host[0], host=username_host[1], password=password
+                username=username_host[0],
+                host=username_host[1],
+                password=password,
             )
             return connection_object
 
@@ -82,7 +84,9 @@ def get_connection():
         # the execution of the connect method the information provided in
         # that exception is loaded into the runtime_error variable for use.
         except RuntimeError as runtime_error:
-            print("Failed to connect during the creation of the Connection object.")
+            print(
+                "Failed to connect during the creation of the Connection object."
+            )
             print("Error:", runtime_error, end="")
             print(".")
             sys.exit(100)

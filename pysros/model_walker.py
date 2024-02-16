@@ -100,17 +100,17 @@ class ModelWalker:
             except SrosMgmtError as e:
                 raise InvalidPathError(*e.args) from None
 
-    def check_child_field_value(self, name: Union[str, Identifier], value, *, json=False):
+    def check_child_field_value(self, name: Union[str, Identifier], value, *, json=False, strict=False):
         with self.visit_child(name):
-            return self.check_field_value(value, json=json)
+            return self.check_field_value(value, json=json, strict=strict)
 
-    def check_field_value(self, value, *, json=False):
+    def check_field_value(self, value, *, json=False, strict=False, is_convert=False, metadata=None):
         if self.get_dds() == Model.StatementType.leaf_list_:
             if not isinstance(value, list):
                 raise make_exception(pysros_err_leaflist_should_be_list, type_name=value.__class__.__name__)
-            return all(self.get_type().check_field_value(i, json) for i in value)
+            return all(self.get_type().check_field_value(i, json=json, strict=strict, is_convert=is_convert, metadata=metadata) for i in value)
         elif self.get_dds() == Model.StatementType.leaf_:
-            return self.get_type().check_field_value(value, json)
+            return self.get_type().check_field_value(value, json=json, strict=strict, is_convert=is_convert, metadata=metadata)
         else:
             assert False, "Checking field value for non-field walker"
 
@@ -158,13 +158,13 @@ class ModelWalker:
                 i = (i,)
             if (len(self.get_local_key_names()) != len(i)):
                 return False
-            if not all(self.check_child_field_value(key_name, key_val) for key_name, key_val in zip(self.get_local_key_names(), i)):
+            if not all(self.check_child_field_value(key_name, key_val, strict=True) for key_name, key_val in zip(self.get_local_key_names(), i)):
                 return False
         return all(isinstance(v, (dict, Container)) for v in value.values())
 
     def entry_keys(self, value):
         def correct_key(entry, key):
-            if key in entry and self.check_child_field_value(key, entry[key]):
+            if key in entry and self.check_child_field_value(key, entry[key], strict=True):
                 return True
             return False
 
@@ -297,7 +297,7 @@ class ModelWalker:
                     raise make_exception(pysros_err_filter_wrong_leaf_value, leaf_name=self.get_name().name)
             elif isinstance(filter, str):
                 pass
-            elif not self.check_field_value(filter):
+            elif not self.check_field_value(filter, strict=True):
                 raise make_exception(
                     pysros_err_incorrect_leaf_value,
                     leaf_name=self.get_name().name

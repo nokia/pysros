@@ -20,7 +20,7 @@ from .model_walker import FilteredDataModelWalker, ModelWalker
 from .singleton import Empty, _Singleton
 from .wrappers import (Action, Annotation, Annotations, Container, Leaf,
                        LeafList, Wrapper)
-from .yang_type import IdentityRef, YangUnion
+from .yang_type import IdentityRef, YangUnion, INTEGRAL_LEAF_TYPE
 
 COMMON_NAMESPACES = {
     "ncbase":     "urn:ietf:params:xml:ns:netconf:base:1.0",
@@ -601,9 +601,13 @@ class RdJsonEncoder(json.JSONEncoder):
         return [str(v) for v in x] if dds == Model.StatementType.leaf_list_ else str(x)
 
     def convert(self, o: _FieldStorage):
+        if o._value is None:
+            return ""
         return self.stringify(o._value, o._walker.get_dds()) if o._walker.get_type().json_name() in ("int64", "uint64") else o._value
 
     def convert_child(self, o, k, v):
+        if v is None:
+            return ""
         return self.stringify(v, o._walker.get_child_dds(k)) if o._walker.get_child_dds(k) in FIELD_STATEMENT_TYPES and o._walker.get_child_type(k).json_name() in ("int64", "uint64") else v
 
     def convert_metadata(self, metadata):
@@ -722,7 +726,8 @@ class _ASetter(ABC):
                         raise make_exception(
                             pysros_err_multiple_occurences_of_annotation
                         )
-                    if not m.yang_type.check_field_value(annotation.data):
+                    if not m.yang_type.check_field_value(annotation.data,
+                                                         is_convert=self.rd._action == RequestData._Action.convert):
                         raise make_exception(
                             pysros_err_annotation_incorrect_value, name=name
                         )
@@ -741,7 +746,8 @@ class _ASetter(ABC):
             for k, v in val.items():
                 m = self._find_metadata_model_by_name(k)
                 name = m.name.model_string
-                if is_json and not m.yang_type.check_field_value(v, json=True):
+                if is_json and not m.yang_type.check_field_value(v, json=True,
+                                                                 is_convert=self.rd._action == RequestData._Action.convert):
                     raise make_exception(
                         pysros_err_annotation_incorrect_value,
                         name=name
@@ -756,7 +762,7 @@ class _ASetter(ABC):
         return res if is_leaflist else res[0]
 
     def _fix_xml_identityref_prefix(self, value, value_type, *, is_leaflist=False, nsmap={}):
-        if isinstance(value_type, (IdentityRef, YangUnion)):
+        if isinstance(value_type, (IdentityRef, YangUnion)) and value is not None:
             if is_leaflist:
                 assert len(value) == 1
             identity = value_type._find_identity(value[0] if is_leaflist else value, nsmap)
@@ -955,7 +961,8 @@ class _LeafSetter(_ASetter):
         if not self._storage.metadata:
             self._set_metadata(model_value=value)
         value = self.rd._unwrap(value)
-        if not self._walker.check_field_value(value):
+        if not self._walker.check_field_value(value, is_convert=self.rd._action == RequestData._Action.convert,
+                                              metadata=self._storage.metadata):
             raise make_exception(
                 pysros_err_incorrect_leaf_value,
                 leaf_name=self._leaf_name
@@ -992,7 +999,7 @@ class _LeafSetter(_ASetter):
         if self._walker.get_name() != val[0]:
             raise make_exception(pysros_err_invalid_json_structure)
         val = val[1]
-        if self._walker.get_type().json_name() in ("int64", "uint64"):
+        if self._walker.get_type().json_name() in ("int64", "uint64") and val != "":
             if self._walker.get_dds() != Model.StatementType.leaf_list_:
                 val = [self.rd._unwrap(val)]
             else:
@@ -1015,7 +1022,7 @@ class _LeafSetter(_ASetter):
         self._set_metadata(xml_metadata=_metadata_from_xml(value_element, self.rd._ns_map_rev), nsmap=value_element.nsmap)
         if _text_in_tag_tail(value_element) or (is_leaflist and _text_in_tag_text(value_element.getparent())):
             _raise_invalid_text_exception(value_element)
-        value = self._walker.as_model_type(value_element.text or "")
+        value = self._walker.as_model_type(value_element.text)
         value = self._fix_xml_identityref_prefix(value, self._walker.get_type(), is_leaflist=is_leaflist, nsmap=value_element.nsmap)
 
         if is_leaflist and isinstance(self._storage._value, list):
@@ -1051,7 +1058,8 @@ class _KeySetter(_ASetter):
         if not self._storage.metadata:
             self._set_metadata(model_value=value)
         value = self.rd._unwrap(value)
-        if not self._walker.check_field_value(value):
+        if not self._walker.check_field_value(value, is_convert=self.rd._action == RequestData._Action.convert,
+                                              metadata=self._storage.metadata):
             raise make_exception(pysros_err_incorrect_leaf_value, leaf_name=self._key_name)
         elif self._as_storage_type(value) != self._storage._value:
             raise make_exception(pysros_err_key_val_mismatch, key_name=self._key_name)
@@ -1178,7 +1186,7 @@ class _ListSetter(_ASetter):
                     full_path=self._walker, value=k
                 )
             entry[k] = self.rd._unwrap(entry[k])
-            if not self._walker.check_child_field_value(k, entry[k], json=json):
+            if not self._walker.check_child_field_value(k, entry[k], json=json, strict=True):
                 raise make_exception(pysros_err_incorrect_leaf_value, leaf_name=k)
             entry[k] = self._walker.get_child_type(k).as_storage_type(entry[k], self.rd._action == RequestData._Action.convert, self.rd._add_xml_namespace)
 
