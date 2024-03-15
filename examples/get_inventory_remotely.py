@@ -68,7 +68,9 @@ def get_input_args():
     # If no arguments have been provided then print the usage information to the screen and
     # exit the application
     else:
-        print("This application expects a whitespace separated list of IP addresses\n")
+        print(
+            "This application expects a whitespace separated list of IP addresses\n"
+        )
         print("Usage:", sys.argv[0], "<IP address> [IP address] ...\n")
         sys.exit(-1)
     return -1

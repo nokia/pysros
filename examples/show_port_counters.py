@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 
 ### show_port_counters.py
-#   Copyright 2021 Nokia
+#   Copyright 2021-2024 Nokia
 ###
 
 # pylint: disable=import-error, import-outside-toplevel, line-too-long, too-many-branches, too-many-locals, too-many-statements
 
 """
-Tested on: SR OS 22.2.R1
+Tested on: SR OS 23.10.R2
 
 Show port counters.
 
 Execution on SR OS
-    usage: pyexec show_port_counters.py [<keyword>]
+    usage: pyexec bin/show_port_counters.py [<keyword>]
 Execution on remote machine
     usage: python show_port_counters.py username@host [<keyword>]
 Execution on remote machine if show_port_counters.py is executable
@@ -27,7 +27,7 @@ Add the following alias so that the Python application can be run as a
 native MD-CLI command.
 
 /configure python { python-script "show-port-counters" admin-state enable }
-/configure python { python-script "show-port-counters" urls ["cf3:show_port_counters.py"]
+/configure python { python-script "show-port-counters" urls ["cf3:bin/show_port_counters.py"] }
 /configure python { python-script "show-port-counters" version python3 }
 /configure system { management-interface cli md-cli environment command-alias alias "counters" }
 /configure system { management-interface cli md-cli environment command-alias alias "counters" admin-state enable }
@@ -304,9 +304,8 @@ def get_remote_connection(my_username, my_host, my_password):
     from pysros.exceptions import ModelProcessingError
     # fmt: on
 
-    # The try statement coupled with the except statements allow an
-    # operation(s) to be attempted and specific error conditions handled
-    # gracefully
+    # The try statement and except statements allow an operation
+    # attempt with specific error conditions handled gracefully
     try:
         remote_connection_object = connect(
             username=my_username, host=my_host, password=my_password
@@ -316,10 +315,12 @@ def get_remote_connection(my_username, my_host, my_password):
     # This first exception is described in the pysros.management.connect
     # method and references errors that occur during the creation of the
     # Connection object.  If the provided exception is raised during
-    # the execution of the connect method the information provided in
+    # the execution of the connect method, the information provided in
     # that exception is loaded into the runtime_error variable for use.
     except RuntimeError as runtime_error:
-        print("Failed to connect during the creation of the Connection object.")
+        print(
+            "Failed to connect during the creation of the Connection object."
+        )
         print("Error:", runtime_error, end="")
         print(".")
         sys.exit(100)
@@ -328,7 +329,7 @@ def get_remote_connection(my_username, my_host, my_password):
     # method and references errors that occur whilst compiling the YANG
     # modules that have been obtained into a model-driven schema.  If the
     # provided exception is raised during the execution of the connect
-    # method the information provided in that exception is loaded into
+    # method, the information provided in that exception is loaded into
     # the model_proc_error variable for use.
     except ModelProcessingError as model_proc_error:
         print("Failed to compile YANG modules.")
@@ -433,7 +434,9 @@ def show_port_counters_output(connection_object, language):
     # Get configuration and state data
     port_config = connection_object.running.get("/nokia-conf:configure/port")
     port_stats = connection_object.running.get("/nokia-state:state/port")
-    oper_name = connection_object.running.get("/nokia-state:state/system/oper-name")
+    oper_name = connection_object.running.get(
+        "/nokia-state:state/system/oper-name"
+    )
 
     # Get the current date and time
     now = datetime.datetime.now()
@@ -451,7 +454,16 @@ def show_port_counters_output(connection_object, language):
 
     width = set_column_width(language)
     is_first_item = True
-    for port in sorted(port_stats):
+
+    # Copy port_stats to use as indices in the for loop.
+    # Use sorted order if running on SR OS, or ordered returned
+    # by connection_object.running.get() if running remotely
+    if sros():
+        port_stats_keys = sorted(port_stats)
+    else:
+        port_stats_keys = port_stats
+
+    for port in port_stats_keys:
         # Only print the separator after the first item
         if is_first_item:
             is_first_item = False
@@ -460,7 +472,10 @@ def show_port_counters_output(connection_object, language):
 
         # Print row header
         print_row_with_spacing(
-            local_str["spacer"][language], width, local_str["Port"][language], str(port)
+            local_str["spacer"][language],
+            width,
+            local_str["Port"][language],
+            str(port),
         )
 
         # Print oper-state values
@@ -480,70 +495,17 @@ def show_port_counters_output(connection_object, language):
                 str(port_config[port]["description"].data),
             )
 
-            # counter-discontinuity-time is a conditional state leaf, check existence
-            if "counter-discontinuity-time" in port_stats[port]["statistics"]:
-                print_row_with_spacing(
-                    local_str["spacer"][language],
-                    width,
-                    local_str["counter-discontinuity-time"][language],
-                    str(
-                        port_stats[port]["statistics"][
-                            "counter-discontinuity-time"
-                        ].data
-                    ),
-                )
-
-            # last-cleared-time is a conditional state leaf, check existence
-            if "last-cleared-time" in port_stats[port]["statistics"]:
-                print_row_with_spacing(
-                    local_str["spacer"][language],
-                    width,
-                    local_str["last-cleared-time"][language],
-                    str(port_stats[port]["statistics"]["last-cleared-time"].data),
-                )
-
-            # Print input statistics
-            print_row_with_spacing(
-                local_str["spacer"][language],
-                width,
-                local_str["in-discards"][language],
-                port_stats[port]["statistics"]["in-discards"].data,
-            )
-            print_row_with_spacing(
-                local_str["spacer"][language],
-                width,
-                local_str["in-errors"][language],
-                port_stats[port]["statistics"]["in-errors"].data,
-            )
-            print_row_with_spacing(
-                local_str["spacer"][language],
-                width,
-                local_str["in-octets"][language],
-                port_stats[port]["statistics"]["in-octets"].data,
-            )
-            print_row_with_spacing(
-                local_str["spacer"][language],
-                width,
-                local_str["in-packets"][language],
-                port_stats[port]["statistics"]["in-packets"].data,
-            )
-            print_row_with_spacing(
-                local_str["spacer"][language],
-                width,
-                local_str["in-unknown-protocol-discards"][language],
-                port_stats[port]["statistics"]["in-unknown-protocol-discards"].data,
-            )
-            print_row_with_spacing(
-                local_str["spacer"][language],
-                width,
-                local_str["in-broadcast-packets"][language],
-                port_stats[port]["statistics"]["in-broadcast-packets"].data,
-            )
+        # counter-discontinuity-time is a conditional state leaf, check existence
+        if "counter-discontinuity-time" in port_stats[port]["statistics"]:
             print_row_with_spacing(
                 local_str["spacer"][language],
                 width,
                 local_str["counter-discontinuity-time"][language],
-                str(port_stats[port]["statistics"]["counter-discontinuity-time"].data),
+                str(
+                    port_stats[port]["statistics"][
+                        "counter-discontinuity-time"
+                    ].data
+                ),
             )
 
         # last-cleared-time is a conditional state leaf, check existence
@@ -584,7 +546,9 @@ def show_port_counters_output(connection_object, language):
             local_str["spacer"][language],
             width,
             local_str["in-unknown-protocol-discards"][language],
-            port_stats[port]["statistics"]["in-unknown-protocol-discards"].data,
+            port_stats[port]["statistics"][
+                "in-unknown-protocol-discards"
+            ].data,
         )
         print_row_with_spacing(
             local_str["spacer"][language],
@@ -711,14 +675,15 @@ def get_connection_with_argv():
 
         # Get a remote Connection object
         connection_object = get_remote_connection(
-            my_username=username_host[0], my_host=username_host[1], my_password=password
+            my_username=username_host[0],
+            my_host=username_host[1],
+            my_password=password,
         )
 
     return connection_object, parsed_language
 
 
 if __name__ == "__main__":
-
     my_connection_object, my_language = get_connection_with_argv()
     show_port_counters_output(
         connection_object=my_connection_object, language=my_language

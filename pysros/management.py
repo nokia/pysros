@@ -681,7 +681,7 @@ class Datastore:
 
     def __init__(self, connection, target):
         if target != 'running' and target != 'candidate':
-            raise make_exception(pysros_invalid_target)
+            raise make_exception(pysros_err_invalid_target)
         self.connection = connection
         self.nc = connection._nc
         self.target = target
@@ -1162,12 +1162,10 @@ class Datastore:
                       wrapped in a :class:`pysros.wrappers.Container`).
                       Valid nested data structures are supported.
 
-        :param commit: Specify whether update and commit should be executed after set.  Default ``True``.
+        :param commit: Specify whether update and commit should be executed after set.  Default True.
         :type commit: bool
 
-        :param method: Specify whether set operation should be ``default`` or ``merge`` or ``replace``.
-                       Selecting ``default`` as the method will leave the router to select its default
-                       method (in most implementations this is ``merge``).  Default ``default``.
+        :param method: Specify whether set operation should be ``default`` or ``merge`` or ``replace``.  Default ``default``.
         :type method: str
 
         :raises RuntimeError: Error if the connection is lost.

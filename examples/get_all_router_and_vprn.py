@@ -49,7 +49,9 @@ def print_table(rows, cols):
     """Setup and print the SR OS style table"""
     # compute total width of table
     all_cols = [(30, "Name"), (20, "Type")] + cols
-    width = sum([col[0] for col in all_cols])
+    width = sum(  # pylint: disable=consider-using-generator
+        [col[0] for col in all_cols]
+    )
 
     # init and print table
     table = Table("Router List", all_cols, width=width)

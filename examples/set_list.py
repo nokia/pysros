@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 ### set_list.py
-#   Copyright 2021 Nokia
+#   Copyright 2021-2024 Nokia
 ###
 
 """Simple example to explain the various YANG list configuration options"""
@@ -18,8 +18,8 @@ def get_connection(host=None, credentials=None):
     """Function definition to obtain a Connection object to a specific SR OS device
     and access the model-driven information."""
 
-    # The try statement coupled with the except statements allow an operation(s) to be
-    # attempted and specific error conditions handled gracefully
+    # The try statement and except statements allow an operation
+    # attempt with specific error conditions handled gracefully
     try:
         connection_object = connect(
             host=host,
@@ -47,7 +47,7 @@ def get_connection(host=None, credentials=None):
     # This second exception is described in the pysros.management.connect method
     # and references errors that occur whilst compiling the YANG modules that have been
     # obtained into a model-driven schema.
-    # If the provided exception is raised during the execution of the connect method the
+    # If the provided exception is raised during the execution of the connect method, the
     # information provided in that exception is loaded into the e2 variable for use.
     except ModelProcessingError as error2:
         print("Failed to create model-driven schema.  Error:", error2)
@@ -66,11 +66,18 @@ def set_list_method_1(connection_object):
     # path is the json-instance-path to the YANG list
     path = "/nokia-conf:configure/log/log-id"
     # payload is a dict including the list key-values as the Python dict keys
-    payload = {"10": {"description": "Log ten"}, "11": {"description": "Log eleven"}}
+    payload = {
+        "10": {"description": "Log ten"},
+        "11": {"description": "Log eleven"},
+    }
     print("YANG list configuration - Method 1")
     print("  {: <15}: {: <}".format(*["Path", path]))
     print("  {: <15}: {: <}".format(*["Payload", str(payload)]))
-    print("  {: <15}: {: <}".format(*["API call", "c.candidate.set(path, payload)"]))
+    print(
+        "  {: <15}: {: <}".format(
+            *["API call", "c.candidate.set(path, payload)"]
+        )
+    )
     print("  c.candidate.set(path, payload)")
     # Configure the SR OS device
     connection_object.candidate.set(path, payload)
@@ -92,7 +99,9 @@ def set_list_method_2(connection_object):
         print("  {: <15}: {: <}".format(*["Path", path]))
         print("  {: <15}: {: <}".format(*["Payload", str(payload)]))
         print(
-            "  {: <15}: {: <}".format(*["API call", "c.candidate.set(path, payload)"])
+            "  {: <15}: {: <}".format(
+                *["API call", "c.candidate.set(path, payload)"]
+            )
         )
         # Configure the SR OS device
         connection_object.candidate.set(path, payload)
@@ -115,7 +124,9 @@ def set_list_method_3(connection_object):
         print("  {: <15}: {: <}".format(*["Path", path]))
         print("  {: <15}: {: <}".format(*["Payload", str(payload)]))
         print(
-            "  {: <15}: {: <}".format(*["API call", "c.candidate.set(path, payload)"])
+            "  {: <15}: {: <}".format(
+                *["API call", "c.candidate.set(path, payload)"]
+            )
         )
         # Configure the SR OS device
         connection_object.candidate.set(path, payload)
@@ -124,7 +135,8 @@ def set_list_method_3(connection_object):
 def main():
     """Main function to demonstrate various options to configure YANG lists"""
     connection_object = get_connection(
-        host="192.168.1.1", credentials={"username": "myusername", "password": "mypassword"}
+        host="192.168.1.1",
+        credentials={"username": "myusername", "password": "mypassword"},
     )
 
     # Call the various configuration methods in turn

@@ -1,6 +1,24 @@
 Release 23.10
 *************
 
+23.10.3
+#######
+
+* No additional features
+
+.. Reviewed by PLM 20240124
+.. Reviewed by TechComms 20240125
+
+
+23.10.2
+#######
+
+* No additional features
+
+.. Reviewed by PLM 20231129
+.. Reviewed by TechComms 20231129
+
+
 23.10.1
 #######
 
@@ -14,7 +32,6 @@ Release 23.10
 * Change of the default method for :py:meth:`pysros.management.Datastore.set` from ``merge``
   to ``default``.  Due to the default operation of NETCONF on SR OS being ``merge`` this change
   will not impact any currently implemented pySROS applications.
-
 
 
 

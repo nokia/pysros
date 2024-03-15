@@ -1,6 +1,15 @@
 Release 22.10
 *************
 
+22.10.7
+#######
+
+* No additional features
+
+.. Reviewed by PLM 20231129
+.. Reviewed by TechComms 20231129
+
+
 22.10.6
 #######
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 ### to_pysros.py
-#   Copyright 2023 Nokia
+#   Copyright 2023-2024 Nokia
 ###
 
 """
@@ -18,6 +18,7 @@ Execution on remote machine
     Not supported.
 """
 import builtins
+
 # Required imports
 import sys
 import json
@@ -28,19 +29,20 @@ from pysros.exceptions import ModelProcessingError
 def get_connection():
     """Function definition to obtain a Connection object on a local SR OS device"""
 
-    # The try statement coupled with the except statements allow an
-    # operation(s) to be attempted and specific error conditions handled
-    # gracefully
+    # The try statement and except statements allow an operation
+    # attempt with specific error conditions handled gracefully
     try:
         connection_object = connect(host=None, username=None)
 
     # This first exception is described in the pysros.management.connect
     # method and references errors that occur during the creation of the
     # Connection object.  If the provided exception is raised during
-    # the execution of the connect method the information provided in
+    # the execution of the connect method, the information provided in
     # that exception is loaded into the runtime_error variable for use.
     except builtins.RuntimeError as runtime_error:
-        print("Failed to connect during the creation of the Connection object.")
+        print(
+            "Failed to connect during the creation of the Connection object."
+        )
         print("Error:", runtime_error, end="")
         print(".")
         sys.exit(100)
@@ -49,7 +51,7 @@ def get_connection():
     # method and references errors that occur whilst compiling the YANG
     # modules that have been obtained into a model-driven schema.  If the
     # provided exception is raised during the execution of the connect
-    # method the information provided in that exception is loaded into
+    # method, the information provided in that exception is loaded into
     # the model_proc_error variable for use.
     except ModelProcessingError as model_proc_error:
         print("Failed to compile YANG modules.")
@@ -62,7 +64,8 @@ def get_connection():
 
 def main():
     """Main function reads from STDIN (redirected info full-context json SR OS command) and
-    uses the pySROS convert method to return the pySROS data structure for the data."""
+    uses the pySROS convert method to return the pySROS data structure for the data.
+    """
     # Read in from STDIN
     data = ""
     for line in sys.stdin:

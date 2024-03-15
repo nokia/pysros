@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 ### show_system_commit.py
-#   Copyright 2021 Nokia
+#   Copyright 2021-2024 Nokia
 ###
 
 # pylint: disable=import-error, import-outside-toplevel, line-too-long, too-many-branches, too-many-locals, too-many-statements
@@ -12,7 +12,7 @@ Tested on: SR OS 22.2.R1
 Show the commit history in an alternate format.
 
 Execution on SR OS
-    usage: pyexec show_system_commit.py
+    usage: pyexec bin/show_system_commit.py
 Execution on remote machine
     usage: python show_system_commit.py username@host
 Execution on remote machine if show_system_commit.py is executable
@@ -24,7 +24,7 @@ a native MD-CLI command.  The alias is named "commit-history" because
 "show system commit" using command completion though.
 
 /configure python { python-script "show-system-commit-history" admin-state enable }
-/configure python { python-script "show-system-commit-history" urls ["cf3:show_system_commit.py"] }
+/configure python { python-script "show-system-commit-history" urls ["cf3:bin/show_system_commit.py"] }
 /configure python { python-script "show-system-commit-history" version python3 }
 /configure system { management-interface cli md-cli environment command-alias alias "commit-history" }
 /configure system { management-interface cli md-cli environment command-alias alias "commit-history" admin-state enable }
@@ -81,22 +81,25 @@ def get_connection():
         # Get the password
         password = getpass.getpass()
 
-        # The try statement coupled with the except statements allow an
-        # operation(s) to be attempted and specific error conditions handled
-        # gracefully
+        # The try statement and except statements allow an operation
+        # attempt with specific error conditions handled gracefully
         try:
             connection_object = connect(
-                username=username_host[0], host=username_host[1], password=password
+                username=username_host[0],
+                host=username_host[1],
+                password=password,
             )
             return connection_object
 
         # This first exception is described in the pysros.management.connect
         # method and references errors that occur during the creation of the
         # Connection object.  If the provided exception is raised during
-        # the execution of the connect method the information provided in
+        # the execution of the connect method, the information provided in
         # that exception is loaded into the runtime_error variable for use.
         except RuntimeError as runtime_error:
-            print("Failed to connect during the creation of the Connection object.")
+            print(
+                "Failed to connect during the creation of the Connection object."
+            )
             print("Error:", runtime_error, end="")
             print(".")
             sys.exit(100)
@@ -105,7 +108,7 @@ def get_connection():
         # method and references errors that occur whilst compiling the YANG
         # modules that have been obtained into a model-driven schema.  If the
         # provided exception is raised during the execution of the connect
-        # method the information provided in that exception is loaded into
+        # method, the information provided in that exception is loaded into
         # the model_proc_error variable for use.
         except ModelProcessingError as model_proc_error:
             print("Failed to compile YANG modules.")
@@ -128,11 +131,18 @@ def commit_history_output():
     # Step through the commit history state and print output to match Juniper's
     for commit_ref in sorted(commit_history["commit-id"], reverse=True):
         print("{0:<3}".format(commit_ref), end=" ")
-        print(commit_history["commit-id"][commit_ref]["timestamp"][:10], end=" ")
-        # Assume the time is in UTC for this example, ideally you'd parse the timezone
-        print(commit_history["commit-id"][commit_ref]["timestamp"][11:19], end=" UTC")
         print(
-            " by " + str(commit_history["commit-id"][commit_ref]["user"]) + " via ",
+            commit_history["commit-id"][commit_ref]["timestamp"][:10], end=" "
+        )
+        # Assume the time is in UTC for this example, ideally you'd parse the timezone
+        print(
+            commit_history["commit-id"][commit_ref]["timestamp"][11:19],
+            end=" UTC",
+        )
+        print(
+            " by "
+            + str(commit_history["commit-id"][commit_ref]["user"])
+            + " via ",
             end="",
         )
         print(str(commit_history["commit-id"][commit_ref]["type"]), end="")
@@ -141,7 +151,10 @@ def commit_history_output():
         else:
             print("")
         if "comment" in commit_history["commit-id"][commit_ref]:
-            print("    " + str(commit_history["commit-id"][commit_ref]["comment"]))
+            print(
+                "    "
+                + str(commit_history["commit-id"][commit_ref]["comment"])
+            )
 
 
 if __name__ == "__main__":

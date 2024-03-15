@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 ### convert_example.py
-#   Copyright 2022 Nokia
+#   Copyright 2022-2024 Nokia
 ###
 
 """Example to demonstrate the convert function to manipulate data formats.
@@ -132,8 +132,8 @@ def get_connection(host=None, credentials=None, port=830):
     :rtype: :py:class:`pysros.management.Connection`
     """
 
-    # The try statement coupled with the except statements allow an operation
-    # attempt and specific error conditions handled gracefully
+    # The try statement and except statements allow an operation
+    # attempt with specific error conditions handled gracefully
     try:
         print("-" * 79)
         print("Obtaining connection to", host)
@@ -195,7 +195,7 @@ def converting(input_format, output_format, data, connection_object):
     """
     print("-" * 79)
     print("Converting", input_format, "to", output_format, "\n")
-    print("The path used as the YANG modelled root for the data is:")
+    print("The path used as the YANG modeled root for the data is:")
     print(data.path, "\n")
     print("The payload is:")
     print(data.payload, "\n")

@@ -489,6 +489,9 @@ class ModelBuilder:
             m.yang_type = tdm.yang_type
             m.default = tdm.default
             m.units = tdm.units
+        #RFC6020: If the type referenced by the leaf-list has a default value, it has no effect in the leaf-list.
+        if m.data_def_stm == AModel.StatementType.leaf_list_ and m.default:
+            m.default = None
 
     def resolve_typedefs(self):
         for key, value in self.types_to_resolve.items():

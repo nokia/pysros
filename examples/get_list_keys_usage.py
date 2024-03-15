@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 ### get_list_keys_usage.py
-#   Copyright 2022 Nokia
+#   Copyright 2022-2024 Nokia
 ###
 
 """
@@ -63,9 +63,8 @@ def get_connection():
         # Get the password
         password = getpass.getpass()
 
-        # The try statement coupled with the except statements allow an
-        # operation(s) to be attempted and specific error conditions handled
-        # gracefully
+        # The try statement and except statements allow an operation
+        # attempt with specific error conditions handled gracefully
         try:
             connection_object = connect(
                 username=username_host[0],
@@ -77,7 +76,7 @@ def get_connection():
         # This first exception is described in the pysros.management.connect
         # method and references errors that occur during the creation of the
         # Connection object.  If the provided exception is raised during
-        # the execution of the connect method the information provided in
+        # the execution of the connect method, the information provided in
         # that exception is loaded into the runtime_error variable for use.
         except RuntimeError as runtime_error:
             print(
@@ -91,7 +90,7 @@ def get_connection():
         # method and references errors that occur whilst compiling the YANG
         # modules that have been obtained into a model-driven schema.  If the
         # provided exception is raised during the execution of the connect
-        # method the information provided in that exception is loaded into
+        # method, the information provided in that exception is loaded into
         # the model_proc_error variable for use.
         except ModelProcessingError as model_proc_error:
             print("Failed to compile YANG modules.")

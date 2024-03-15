@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 ### make_connection.py
-#   Copyright 2021 Nokia
+#   Copyright 2021-2024 Nokia
 ###
 
 """Example to show how to make a connection and handle exceptions"""
@@ -21,8 +21,8 @@ def get_connection(host=None, credentials=None):
     """Function definition to obtain a Connection object to a specific SR OS device
     and access the model-driven information."""
 
-    # The try statement coupled with the except statements allow an operation(s) to be
-    # attempted and specific error conditions handled gracefully
+    # The try statement and except statements allow an operation
+    # attempt with specific error conditions handled gracefully
     try:
         connection_object = connect(
             host=host,
@@ -50,7 +50,7 @@ def get_connection(host=None, credentials=None):
     # This second exception is described in the pysros.management.connect method
     # and references errors that occur whilst compiling the YANG modules that have been
     # obtained into a model-driven schema.
-    # If the provided exception is raised during the execution of the connect method the
+    # If the provided exception is raised during the execution of the connect method, the
     # information provided in that exception is loaded into the e2 variable for use.
     except ModelProcessingError as error2:
         print("Failed to create model-driven schema.  Error:", error2)

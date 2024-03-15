@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 
 ### show_command_aliases.py
-#   Copyright 2021 Nokia
+#   Copyright 2021-2024 Nokia
 ###
 
 # pylint: disable=import-error, import-outside-toplevel, line-too-long, too-many-branches, too-many-locals, too-many-statements
 
 """
-Tested on: SR OS 22.2.R1
+Tested on: SR OS 23.10.R2
 
 Show command aliaseses.
 
 Execution on SR OS
-    usage: pyexec show_command_aliases.py
+    usage: pyexec bin/show_command_aliases.py
 Execution on remote machine
     usage: python show_command_aliases.py username@host
 Execution on remote machine if show_command_aliases.py is executable
@@ -24,7 +24,7 @@ Add the following alias so that the Python application can be run as a
 native MD-CLI command.
 
 /configure python { python-script "show-command-aliases" admin-state enable }
-/configure python { python-script "show-command-aliases" urls ["cf3:show_command_aliases.py"]
+/configure python { python-script "show-command-aliases" urls ["cf3:bin/show_command_aliases.py"] }
 /configure python { python-script "show-command-aliases" version python3 }
 /configure system { management-interface cli md-cli environment command-alias alias "command-aliases" }
 /configure system { management-interface cli md-cli environment command-alias alias "command-aliases" admin-state enable }
@@ -60,9 +60,8 @@ def get_remote_connection(my_username, my_host, my_password):
     from pysros.exceptions import ModelProcessingError
     # fmt: on
 
-    # The try statement coupled with the except statements allow an
-    # operation(s) to be attempted and specific error conditions handled
-    # gracefully
+    # The try statement and except statements allow an operation
+    # attempt with specific error conditions handled gracefully
     try:
         remote_connection_object = connect(
             username=my_username, host=my_host, password=my_password
@@ -72,10 +71,12 @@ def get_remote_connection(my_username, my_host, my_password):
     # This first exception is described in the pysros.management.connect
     # method and references errors that occur during the creation of the
     # Connection object.  If the provided exception is raised during
-    # the execution of the connect method the information provided in
+    # the execution of the connect method, the information provided in
     # that exception is loaded into the runtime_error variable for use.
     except RuntimeError as runtime_error:
-        print("Failed to connect during the creation of the Connection object.")
+        print(
+            "Failed to connect during the creation of the Connection object."
+        )
         print("Error:", runtime_error, end="")
         print(".")
         sys.exit(100)
@@ -84,7 +85,7 @@ def get_remote_connection(my_username, my_host, my_password):
     # method and references errors that occur whilst compiling the YANG
     # modules that have been obtained into a model-driven schema.  If the
     # provided exception is raised during the execution of the connect
-    # method the information provided in that exception is loaded into
+    # method, the information provided in that exception is loaded into
     # the model_proc_error variable for use.
     except ModelProcessingError as model_proc_error:
         print("Failed to compile YANG modules.")
@@ -98,9 +99,10 @@ def get_remote_connection(my_username, my_host, my_password):
 def show_command_aliases_output(connection_object):
     """Main function for the show_command_aliases command"""
 
-    bright_cyan = "\u001b[36;1m"
     bright_red = "\u001b[31;1m"
     bright_green = "\u001b[32;1m"
+    bright_blue = "\u001b[34;1m"
+    bright_cyan = "\u001b[36;1m"
     reset_color = "\u001b[0m"
 
     # Get environment configuration data
@@ -114,14 +116,19 @@ def show_command_aliases_output(connection_object):
         print(".")
         sys.exit(102)
 
-    # Get python configuration data.  It doesn't matter it there is
+    # Get python configuration and state data.  It doesn't matter it there is
     # none since it's only referenced if a Python alias is configured in
     # alias_config.
-    python_config = connection_object.running.get("/nokia-conf:configure/python")
+    python_config = connection_object.running.get(
+        "/nokia-conf:configure/python"
+    )
+    python_state = connection_object.running.get("/nokia-state:state/python")
 
     # Make sure that aliases are actually configured
     if "alias" not in alias_config:
-        print("Failed to get alias configuration.  Are any aliases configured?")
+        print(
+            "Failed to get alias configuration.  Are any aliases configured?"
+        )
         sys.exit(103)
 
     # Print the header
@@ -130,38 +137,78 @@ def show_command_aliases_output(connection_object):
 
     # Print the aliases
     is_first_item = True
-    num_up_aliases = 0
-    num_down_aliases = 0
+    num_admin_up_aliases = 0
+    num_admin_down_aliases = 0
+    num_oper_down_aliases = 0
     for alias_name in sorted(alias_config["alias"]):
-
         # Only print the separator after the first item
         if is_first_item:
             is_first_item = False
         else:
             print("-" * 80)
 
-        # Print the alias name in a color depending on its admin-state
+        # Print the alias name and admin-state depending on its color
         if (
             "admin-state" in alias_config["alias"][alias_name]
-            and str(alias_config["alias"][alias_name]["admin-state"]) == "enable"
+            and str(alias_config["alias"][alias_name]["admin-state"])
+            == "enable"
         ):
             print(
                 "Alias name    : "
-                + bright_green
+                + bright_cyan
                 + alias_name
                 + reset_color
-                + " (enabled)"
+                + " ("
+                + bright_green
+                + "enabled"
+                + reset_color,
+                end="",
             )
-            num_up_aliases += 1
+            num_admin_up_aliases += 1
         else:
             print(
                 "Alias name    : "
-                + bright_red
+                + bright_cyan
                 + alias_name
                 + reset_color
-                + " (disabled)"
+                + " ("
+                + bright_red
+                + "disabled"
+                + reset_color,
+                end="",
             )
-            num_down_aliases += 1
+            num_admin_down_aliases += 1
+
+        # Print the cli-command or python-script depending on which one is configured
+        if "cli-command" in alias_config["alias"][alias_name]:
+            print(")")
+        elif "python-script" in alias_config["alias"][alias_name]:
+            if (
+                str(
+                    python_state["python-script"][
+                        str(alias_config["alias"][alias_name]["python-script"])
+                    ]["oper-state"]
+                )
+                == "up"
+            ):
+                print("/" + bright_green + "up" + reset_color + ")")
+            else:
+                print(
+                    "/"
+                    + bright_red
+                    + str(
+                        python_state["python-script"][
+                            str(
+                                alias_config["alias"][alias_name][
+                                    "python-script"
+                                ]
+                            )
+                        ]["oper-state"]
+                        + reset_color
+                        + ")"
+                    )
+                )
+                num_oper_down_aliases += 1
 
         # Print the description if it exists
         if "description" in alias_config["alias"][alias_name]:
@@ -191,13 +238,15 @@ def show_command_aliases_output(connection_object):
 
         # Print the command availability as the mount point and alias name together
         is_first_mount_point = True
-        for mount_point in sorted(alias_config["alias"][alias_name]["mount-point"]):
+        for mount_point in sorted(
+            alias_config["alias"][alias_name]["mount-point"]
+        ):
             if is_first_mount_point:
                 is_first_mount_point = False
                 if mount_point == "global":
                     print(
                         "Availability  : "
-                        + bright_cyan
+                        + bright_blue
                         + alias_name
                         + reset_color
                         + " (global)"
@@ -205,7 +254,7 @@ def show_command_aliases_output(connection_object):
                 else:
                     print(
                         "Availability  : "
-                        + bright_cyan
+                        + bright_blue
                         + mount_point.replace("/", "")
                         + " "
                         + alias_name
@@ -215,7 +264,7 @@ def show_command_aliases_output(connection_object):
                 if mount_point == "global":
                     print(
                         "              : "
-                        + bright_cyan
+                        + bright_blue
                         + alias_name
                         + reset_color
                         + " (global)"
@@ -235,17 +284,21 @@ def show_command_aliases_output(connection_object):
     print(
         "Total aliases : "
         + bright_cyan
-        + str(num_up_aliases + num_down_aliases)
+        + str(num_admin_up_aliases + num_admin_down_aliases)
         + reset_color
         + " ("
         + bright_green
-        + str(num_up_aliases)
+        + str(num_admin_up_aliases)
         + reset_color
-        + " up, "
+        + " enabled, "
         + bright_red
-        + str(num_down_aliases)
+        + str(num_admin_down_aliases)
         + reset_color
-        + " down)",
+        + " disabled, "
+        + bright_red
+        + str(num_oper_down_aliases)
+        + reset_color
+        + " down)"
     )
 
     # Print the closing deliminator
@@ -288,13 +341,14 @@ def get_connection_with_argv():
 
         # Get a remote Connection object
         connection_object = get_remote_connection(
-            my_username=username_host[0], my_host=username_host[1], my_password=password
+            my_username=username_host[0],
+            my_host=username_host[1],
+            my_password=password,
         )
 
     return connection_object
 
 
 if __name__ == "__main__":
-
     my_connection_object = get_connection_with_argv()
     show_command_aliases_output(connection_object=my_connection_object)

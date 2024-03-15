@@ -72,7 +72,9 @@ def print_table(route_list, searched_ip_address):
         (20, "Traffic Type"),
         (20, "Ipv Type"),
     ]
-    width = sum([col[0] for col in cols])
+    width = sum(  # pylint: disable=consider-using-generator
+        [col[0] for col in cols]
+    )
 
     # init and print table
     table = Table(
