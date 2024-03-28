@@ -28,7 +28,7 @@ In order to use the pySROS library the following pre-requisites must be met:
 
 ## License ##
 
-Copyright 2021-2023 Nokia.
+Copyright 2021-2024 Nokia.
 
 The license is located [here](LICENSE.md).
 
