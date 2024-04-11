@@ -255,15 +255,40 @@ def show_router_bgp_asn_output(connection_object, asn):
                 == "Established"
             ):
                 num_up_neighbors += 1
-                if (
-                    str(bgp_stats[neighbor]["statistics"]["negotiated-family"])
-                    == "['IPv4']"
+                num_families = 0
+                for family in sorted(
+                    bgp_stats[neighbor]["statistics"]["negotiated-family"]
                 ):
+                    num_families += 1
+                    # Print line 5 now if there are 2 families
+                    if num_families == 2:
+                        print(
+                            "{0:<13} {1:>13}/{2:<18}".format(
+                                "",
+                                str(
+                                    bgp_stats[neighbor]["statistics"]["sent"][
+                                        "messages"
+                                    ]
+                                ),
+                                str(
+                                    bgp_stats[neighbor]["statistics"]["sent"][
+                                        "queues"
+                                    ]
+                                ),
+                            ),
+                            end="",
+                        )
+                    # Print spacing for any additional families
+                    elif num_families > 1:
+                        print(
+                            " " * 46,
+                            end="",
+                        )
                     print(
                         bright_cyan
                         + str(
                             bgp_stats[neighbor]["statistics"]["family-prefix"][
-                                "ipv4"
+                                family.lower()
                             ]["received"]
                         )
                         + reset_color
@@ -271,51 +296,19 @@ def show_router_bgp_asn_output(connection_object, asn):
                         + bright_green
                         + str(
                             bgp_stats[neighbor]["statistics"]["family-prefix"][
-                                "ipv4"
+                                family.lower()
                             ]["received"]
                         )
                         + reset_color
                         + "/"
                         + str(
                             bgp_stats[neighbor]["statistics"]["family-prefix"][
-                                "ipv4"
+                                family.lower()
                             ]["sent"]
                         )
-                        + " (IPv4)"
-                    )
-                elif (
-                    str(bgp_stats[neighbor]["statistics"]["negotiated-family"])
-                    == "['IPv6']"
-                ):
-                    print(
-                        bright_cyan
-                        + str(
-                            bgp_stats[neighbor]["statistics"]["family-prefix"][
-                                "ipv6"
-                            ]["received"]
-                        )
-                        + reset_color
-                        + "/"
-                        + bright_green
-                        + str(
-                            bgp_stats[neighbor]["statistics"]["family-prefix"][
-                                "ipv6"
-                            ]["received"]
-                        )
-                        + reset_color
-                        + "/"
-                        + str(
-                            bgp_stats[neighbor]["statistics"]["family-prefix"][
-                                "ipv6"
-                            ]["sent"]
-                        )
-                        + " (IPv6)"
-                    )
-                else:
-                    print(
-                        bright_green
-                        + +bgp_stats[neighbor]["statistics"]["session-state"]
-                        + reset_color
+                        + " ("
+                        + str(family)
+                        + ")"
                     )
             elif (
                 str(bgp_stats[neighbor]["statistics"]["session-state"])
@@ -351,14 +344,21 @@ def show_router_bgp_asn_output(connection_object, asn):
                     + reset_color
                 )
 
-            # Print line 5
-            print(
-                "{0:<13} {1:>13}/{2:<13}".format(
-                    "",
-                    str(bgp_stats[neighbor]["statistics"]["sent"]["messages"]),
-                    str(bgp_stats[neighbor]["statistics"]["sent"]["queues"]),
+            # Print line 5 only if there's 1 family and we haven't printed it before
+            if num_families == 1:
+                print(
+                    "{0:<13} {1:>13}/{2:<13}".format(
+                        "",
+                        str(
+                            bgp_stats[neighbor]["statistics"]["sent"][
+                                "messages"
+                            ]
+                        ),
+                        str(
+                            bgp_stats[neighbor]["statistics"]["sent"]["queues"]
+                        ),
+                    )
                 )
-            )
 
     # Print the total neighbors
     print("-" * 80)
