@@ -1,4 +1,4 @@
-# Copyright 2021-2023 Nokia
+# Copyright 2021-2024 Nokia
 
 import copy
 import json

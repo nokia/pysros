@@ -1,4 +1,4 @@
-# Copyright 2021-2023 Nokia
+# Copyright 2021-2024 Nokia
 
 from .errors import *
 from .errors import make_exception
