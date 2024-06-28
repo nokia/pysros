@@ -7,15 +7,15 @@
 
 """Example to show how to set data"""
 
+import random
+import string
+
 # Import the required libraries
 import sys
-import string
-import random
-from pysros.management import connect
 
 # Import the exceptions so they can be caught on error.
 from pysros.exceptions import ModelProcessingError
-
+from pysros.management import connect
 
 # Global credentials dictionary for the purposes of this example.  Global variables
 # discouraged in operational applications.

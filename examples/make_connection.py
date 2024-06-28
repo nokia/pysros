@@ -6,15 +6,14 @@
 
 """Example to show how to make a connection and handle exceptions"""
 
-
 # Import sys for returning specific exit codes
 import sys
 
-# Import the connect method from the management pySROS sub-module
-from pysros.management import connect
-
 # Import the exceptions that are referenced so they can be caught on error.
 from pysros.exceptions import ModelProcessingError
+
+# Import the connect method from the management pySROS sub-module
+from pysros.management import connect
 
 
 def get_connection(host=None, credentials=None):

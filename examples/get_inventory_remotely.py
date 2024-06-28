@@ -6,13 +6,14 @@
 
 """Example to show obtaining a hardware inventory of multiple devices"""
 
-# Import the required libraries
-import sys
 import ipaddress
 import json
-from pysros.management import connect, sros
-from pysros.exceptions import ModelProcessingError
 
+# Import the required libraries
+import sys
+
+from pysros.exceptions import ModelProcessingError
+from pysros.management import connect, sros
 
 # Global credentials dictionary for the purposes of this example.  Global variables
 # discouraged in operational applications.

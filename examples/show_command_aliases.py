@@ -7,7 +7,7 @@
 # pylint: disable=import-error, import-outside-toplevel, line-too-long, too-many-branches, too-many-locals, too-many-statements
 
 """
-Tested on: SR OS 23.10.R2
+Tested on: SR OS 24.3.R1
 
 Show command aliaseses.
 
@@ -58,8 +58,8 @@ def get_remote_connection(my_username, my_host, my_password):
     # Import the exceptions so they can be caught on error
     # fmt: off
     from pysros.exceptions import ModelProcessingError
-    # fmt: on
 
+    # fmt: on
     # The try statement and except statements allow an operation
     # attempt with specific error conditions handled gracefully
     try:
@@ -99,11 +99,12 @@ def get_remote_connection(my_username, my_host, my_password):
 def show_command_aliases_output(connection_object):
     """Main function for the show_command_aliases command"""
 
-    bright_red = "\u001b[31;1m"
-    bright_green = "\u001b[32;1m"
-    bright_blue = "\u001b[34;1m"
-    bright_cyan = "\u001b[36;1m"
-    reset_color = "\u001b[0m"
+    bright_blue = "\033[1;34m"
+    bright_cyan = "\033[1;36m"
+    bright_green = "\033[1;32m"
+    bright_red = "\033[1;31m"
+    bright_yellow = "\033[1;33m"
+    reset_color = "\033[0m"
 
     # Get environment configuration data
     try:
@@ -155,7 +156,7 @@ def show_command_aliases_output(connection_object):
         ):
             print(
                 "Alias name    : "
-                + bright_cyan
+                + bright_blue
                 + alias_name
                 + reset_color
                 + " ("
@@ -168,11 +169,11 @@ def show_command_aliases_output(connection_object):
         else:
             print(
                 "Alias name    : "
-                + bright_cyan
+                + bright_blue
                 + alias_name
                 + reset_color
                 + " ("
-                + bright_red
+                + bright_yellow
                 + "disabled"
                 + reset_color,
                 end="",
@@ -246,7 +247,7 @@ def show_command_aliases_output(connection_object):
                 if mount_point == "global":
                     print(
                         "Availability  : "
-                        + bright_blue
+                        + bright_cyan
                         + alias_name
                         + reset_color
                         + " (global)"
@@ -254,7 +255,7 @@ def show_command_aliases_output(connection_object):
                 else:
                     print(
                         "Availability  : "
-                        + bright_blue
+                        + bright_cyan
                         + mount_point.replace("/", "")
                         + " "
                         + alias_name
@@ -264,7 +265,7 @@ def show_command_aliases_output(connection_object):
                 if mount_point == "global":
                     print(
                         "              : "
-                        + bright_blue
+                        + bright_cyan
                         + alias_name
                         + reset_color
                         + " (global)"
@@ -283,7 +284,7 @@ def show_command_aliases_output(connection_object):
     print("-" * 80)
     print(
         "Total aliases : "
-        + bright_cyan
+        + bright_blue
         + str(num_admin_up_aliases + num_admin_down_aliases)
         + reset_color
         + " ("
@@ -291,7 +292,7 @@ def show_command_aliases_output(connection_object):
         + str(num_admin_up_aliases)
         + reset_color
         + " enabled, "
-        + bright_red
+        + bright_yellow
         + str(num_admin_down_aliases)
         + reset_color
         + " disabled, "

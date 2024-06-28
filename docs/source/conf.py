@@ -10,8 +10,8 @@ copyright = '2021-2024, Nokia'
 author = 'Nokia'
 
 # The full version, including alpha/beta/rc tags
-version = '24.3.2'
-release = '24.3.2'
+version = '24.3.3'
+release = '24.3.3'
 
 
 # -- General configuration ---------------------------------------------------

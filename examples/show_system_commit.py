@@ -7,7 +7,7 @@
 # pylint: disable=import-error, import-outside-toplevel, line-too-long, too-many-branches, too-many-locals, too-many-statements
 
 """
-Tested on: SR OS 22.2.R1
+Tested on: SR OS 24.3.R1
 
 Show the commit history in an alternate format.
 
@@ -56,16 +56,15 @@ def get_connection():
     # Else if the application is executed remotely
     else:
         # Import sys for returning specific exit codes
-        import sys
-
         # Import getpass to read the password
         import getpass
+        import sys
 
         # Import the exceptions so they can be caught on error
         # fmt: off
         from pysros.exceptions import ModelProcessingError
-        # fmt: on
 
+        # fmt: on
         # Make sure we have the right number of arguments, the host can
         # be an IP address or a hostname
         if len(sys.argv) != 2:

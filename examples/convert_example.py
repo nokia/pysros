@@ -12,11 +12,11 @@ Tested on: SR OS 22.10.R1
 # Import sys library
 import sys
 
-# Import the connect method from the management pySROS sub-module
-from pysros.management import connect
-
 # Import the exceptions that are referenced so they can be caught on error.
 from pysros.exceptions import ModelProcessingError
+
+# Import the connect method from the management pySROS sub-module
+from pysros.management import connect
 
 
 class Data:  # pylint: disable=too-few-public-methods

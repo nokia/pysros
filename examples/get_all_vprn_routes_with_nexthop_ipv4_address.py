@@ -6,10 +6,11 @@
 
 """Example to get all VPRN routes with a given next-hop IP address"""
 
-import sys
 import ipaddress
-from pysros.management import connect
+import sys
+
 from pysros.exceptions import ModelProcessingError
+from pysros.management import connect
 from pysros.pprint import Table  # pylint: disable=no-name-in-module
 
 credentials = {

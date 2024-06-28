@@ -7,7 +7,7 @@
 # pylint: disable=import-error, import-outside-toplevel, line-too-long, too-many-branches, too-many-locals, too-many-statements
 
 """
-Tested on: SR OS 23.10.R2
+Tested on: SR OS 24.3.R1
 
 Show port counters.
 
@@ -36,11 +36,11 @@ native MD-CLI command.
 /configure system { management-interface cli md-cli environment command-alias alias "counters" mount-point "/show port" }
 """
 
-# Import sys for parsing arguments and returning specific exit codes
-import sys
-
 # Import datetime to get and display the date and time
 import datetime
+
+# Import sys for parsing arguments and returning specific exit codes
+import sys
 
 # Import the connect and sros methods from the management pySROS submodule
 from pysros.management import connect, sros
@@ -302,8 +302,8 @@ def get_remote_connection(my_username, my_host, my_password):
     # Import the exceptions so they can be caught on error
     # fmt: off
     from pysros.exceptions import ModelProcessingError
-    # fmt: on
 
+    # fmt: on
     # The try statement and except statements allow an operation
     # attempt with specific error conditions handled gracefully
     try:
@@ -372,10 +372,10 @@ def print_row_with_spacing(spacer, column, name, value):
 def show_port_counters_output(connection_object, language):
     """Main function for the show_port_counters command"""
 
-    bright_green = "\u001b[32;1m"
-    bright_red = "\u001b[31;1m"
-    bright_yellow = "\u001b[33;1m"
-    reset_color = "\u001b[0m"
+    bright_green = "\033[1;32m"
+    bright_red = "\033[1;31m"
+    bright_yellow = "\033[1;33m"
+    reset_color = "\033[0m"
 
     # Define local language oper-state strings and colors
     oper_state_str = {

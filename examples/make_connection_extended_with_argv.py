@@ -42,8 +42,8 @@ def get_remote_connection(my_username, my_host, my_password):
     # Import the exceptions so they can be caught on error
     # fmt: off
     from pysros.exceptions import ModelProcessingError
-    # fmt: on
 
+    # fmt: on
     # The try statement and except statements allow an operation
     # attempt with specific error conditions handled gracefully
     try:

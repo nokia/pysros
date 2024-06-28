@@ -17,13 +17,15 @@ Execution on SR OS
 Execution on remote machine
     Not supported.
 """
+
 import builtins
+import json
 
 # Required imports
 import sys
-import json
-from pysros.management import connect
+
 from pysros.exceptions import ModelProcessingError
+from pysros.management import connect
 
 
 def get_connection():

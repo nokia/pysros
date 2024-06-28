@@ -6,10 +6,10 @@
 
 """Example to get all routers and VPRNs"""
 
-
 import sys
-from pysros.management import connect
+
 from pysros.exceptions import ModelProcessingError
+from pysros.management import connect
 from pysros.pprint import Table  # pylint: disable=no-name-in-module
 
 credentials = {
