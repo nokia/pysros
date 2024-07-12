@@ -1,4 +1,4 @@
-# Copyright 2021 Nokia
+# Copyright 2021-2024 Nokia
 
 from setuptools import setup
 
@@ -7,7 +7,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name='pysros',
-    version='24.3.1',
+    version='24.7.1',
     packages=['pysros'],
     url='https://www.nokia.com',
     license='Copyright 2021-2024 Nokia.  License available in the LICENSE.md file.',

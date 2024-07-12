@@ -7,7 +7,7 @@
 # pylint: disable=import-error, import-outside-toplevel, line-too-long, too-many-branches, too-many-locals, too-many-statements
 
 """
-Tested on: SR OS 23.10.R2
+Tested on: SR OS 24.3.R1
 
 Show all BGP peers for an ASN.
 
@@ -32,11 +32,11 @@ native MD-CLI command.
 /configure system { management-interface cli md-cli environment command-alias alias "asn" mount-point "/show router bgp" }
 """
 
-# Import sys for parsing arguments and returning specific exit codes
-import sys
-
 # Import datetime to get and display the date and time
 import datetime
+
+# Import sys for parsing arguments and returning specific exit codes
+import sys
 
 # Import the connect and sros methods from the management pySROS submodule
 from pysros.management import connect, sros
@@ -61,8 +61,8 @@ def get_remote_connection(my_username, my_host, my_password):
     # Import the exceptions so they can be caught on error
     # fmt: off
     from pysros.exceptions import ModelProcessingError
-    # fmt: on
 
+    # fmt: on
     # The try statement and except statements allow an operation
     # attempt with specific error conditions handled gracefully
     try:
@@ -102,11 +102,15 @@ def get_remote_connection(my_username, my_host, my_password):
 def show_router_bgp_asn_output(connection_object, asn):
     """Main function for the show_router_bgp_asn command"""
 
-    bright_cyan = "\u001b[36;1m"
-    bright_green = "\u001b[32;1m"
-    bright_red = "\u001b[31;1m"
-    bright_yellow = "\u001b[33;1m"
-    reset_color = "\u001b[0m"
+    bright_cyan = "\033[1;36m"
+    bright_black = "\033[1;30m"
+    bright_blue = "\033[1;34m"
+    bright_green = "\033[1;32m"
+    bright_magenta = "\033[1;35m"
+    bright_red = "\033[1;31m"
+    bright_yellow = "\033[1;33m"
+    cyan = "\033[0;36m"
+    reset_color = "\033[0m"
     bgp_stats = None
 
     oper_name = connection_object.running.get(
@@ -133,11 +137,11 @@ def show_router_bgp_asn_output(connection_object, asn):
         if "peer-as" not in bgp_config[neighbor]:
             # If not, try to get the peer-as from the neighbor's group
             try:
-                bgp_config[neighbor][
-                    "peer-as"
-                ] = connection_object.running.get(
-                    "/nokia-conf:configure/router[router-name=Base]/bgp/group[group-name=%s]/peer-as"
-                    % bgp_config[neighbor]["group"]
+                bgp_config[neighbor]["peer-as"] = (
+                    connection_object.running.get(
+                        "/nokia-conf:configure/router[router-name=Base]/bgp/group[group-name=%s]/peer-as"
+                        % bgp_config[neighbor]["group"]
+                    )
                 )
             except LookupError as lookup_error:
                 print(
@@ -196,14 +200,18 @@ def show_router_bgp_asn_output(connection_object, asn):
     )
     print(
         " State|"
-        + bright_cyan
+        + bright_blue
         + "Rcv"
         + reset_color
         + "/"
         + bright_green
         + "Act"
         + reset_color
-        + "/Sent (Addr Family)"
+        + "/"
+        + bright_magenta
+        + "Sent"
+        + reset_color
+        + " (Addr Family)"
     )
     print("{0:<13} {1:<13}/{2:<13}".format("", "Messages Sent", "Out Queue"))
     print("-" * 80)
@@ -215,13 +223,21 @@ def show_router_bgp_asn_output(connection_object, asn):
     for neighbor in sorted(bgp_config):
         if asn == 0 or int(asn) == bgp_config[neighbor]["peer-as"].data:
             # Print line 1
+            print(bright_cyan, end="")
             print(
-                "{0:<45} {1} ({2})".format(
+                "{0:<45}{1} {2}{3}{4} {5}({6}{7}{8}){9}".format(
                     neighbor,
+                    reset_color,
+                    cyan,
                     bgp_stats[neighbor]["statistics"]["last-established-time"],
+                    reset_color,
+                    bright_black,
+                    cyan,
                     bgp_stats[neighbor]["statistics"][
                         "established-transitions"
                     ],
+                    bright_black,
+                    reset_color,
                 )
             )
 
@@ -284,13 +300,13 @@ def show_router_bgp_asn_output(connection_object, asn):
                             end="",
                         )
                     print(
-                        bright_cyan
+                        bright_blue
                         + str(
                             bgp_stats[neighbor]["statistics"]["family-prefix"][
                                 family.lower()
                             ]["received"]
                         )
-                        + reset_color
+                        + bright_black
                         + "/"
                         + bright_green
                         + str(
@@ -298,13 +314,15 @@ def show_router_bgp_asn_output(connection_object, asn):
                                 family.lower()
                             ]["received"]
                         )
-                        + reset_color
+                        + bright_black
                         + "/"
+                        + bright_magenta
                         + str(
                             bgp_stats[neighbor]["statistics"]["family-prefix"][
                                 family.lower()
                             ]["sent"]
                         )
+                        + reset_color
                         + " ("
                         + str(family)
                         + ")"
@@ -363,7 +381,7 @@ def show_router_bgp_asn_output(connection_object, asn):
     print("-" * 80)
     print(
         "Total neighbors : "
-        + bright_cyan
+        + bright_blue
         + str(num_up_neighbors + num_down_neighbors + num_disabled_neighbors)
         + reset_color
         + " ("
@@ -446,7 +464,9 @@ def get_connection_with_argv():
             sys.exit(2)
 
         # Get the password
-        password = getpass.getpass()
+        password = getpass.getpass(
+            prompt="Password (press Enter to use SSH key): "
+        )
 
         # Get a remote Connection object
         connection_object = get_remote_connection(

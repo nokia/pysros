@@ -8,10 +8,10 @@
 
 # Import the required libraries
 import sys
-from pysros.management import connect
 
 # Import the exceptions so they can be caught on error.
 from pysros.exceptions import ModelProcessingError
+from pysros.management import connect
 
 
 def get_connection(host=None, credentials=None):

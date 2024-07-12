@@ -7,7 +7,7 @@
 # pylint: disable=import-error, import-outside-toplevel, line-too-long, too-many-branches, too-many-locals, too-many-statements
 
 """
-Tested on: SR OS 23.10.R2
+Tested on: SR OS 24.3.R1
 
 Show who is logged on.
 
@@ -54,8 +54,8 @@ def get_remote_connection(my_username, my_host, my_password):
     # Import the exceptions so they can be caught on error
     # fmt: off
     from pysros.exceptions import ModelProcessingError
-    # fmt: on
 
+    # fmt: on
     # The try statement and except statements allow an operation
     # attempt with specific error conditions handled gracefully
     try:
@@ -135,7 +135,9 @@ def get_connection_with_argv():
             sys.exit(2)
 
         # Get the password
-        password = getpass.getpass()
+        password = getpass.getpass(
+            prompt="Password (press Enter to use SSH key): "
+        )
 
         # Get a remote Connection object
         connection_object = get_remote_connection(
@@ -150,6 +152,13 @@ def get_connection_with_argv():
 def who_output(connection_object, arg):
     """Main function for the who command"""
 
+    bright_cyan = "\033[1;36m"
+    bright_dark_gray = "\033[1;30m"
+    cyan = "\033[0;36m"
+    reset_color = "\033[0m"
+    user_color = reset_color
+    separator_color = reset_color
+
     # Get the users state
     users = connection_object.running.get("/nokia-state:state/users/session")
 
@@ -163,11 +172,23 @@ def who_output(connection_object, arg):
             ):
                 continue
 
+            # Set color on the active session
+            if str(users[session_id]["current-active-session"]) == "True":
+                user_color = bright_cyan
+                separator_color = bright_dark_gray
+                text_color = cyan
+            else:
+                user_color = reset_color
+                separator_color = reset_color
+                text_color = reset_color
+
             # Print session info in who(1) format
             # GNU who displays "%-8s" for user, use same format
+            print(user_color, end="")
             print(
-                "{0:8.8} {1}/{2}\t{3}".format(
+                "{0:8.8} {1}{2}/{3}\t{4}".format(
                     str(users[session_id]["user"]),
+                    reset_color,
                     str(users[session_id]["connection-type"]),
                     str(session_id),
                     str(users[session_id]["login-time"]),
@@ -177,11 +198,18 @@ def who_output(connection_object, arg):
 
             if "connection-ip" in users[session_id]:
                 print(
-                    " ("
+                    " "
+                    + separator_color
+                    + "("
+                    + text_color
                     + str(users[session_id]["router-instance"])
+                    + separator_color
                     + "/"
+                    + text_color
                     + str(users[session_id]["connection-ip"])
+                    + separator_color
                     + ")"
+                    + reset_color
                 )
             else:
                 print()

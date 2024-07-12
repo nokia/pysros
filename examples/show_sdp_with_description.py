@@ -8,11 +8,11 @@
 
 # Import the required libraries for the application.
 import sys
-from pysros.management import connect
-from pysros.pprint import Table  # pylint: disable=no-name-in-module
 
 # Import the exceptions so they can be caught on error.
 from pysros.exceptions import ModelProcessingError
+from pysros.management import connect
+from pysros.pprint import Table  # pylint: disable=no-name-in-module
 
 # Global credentials dictionary for the purposes of this example.  Global variables
 # discouraged in operational applications.

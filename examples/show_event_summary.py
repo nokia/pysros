@@ -32,9 +32,9 @@ native MD-CLI command.
 
 """
 
+from pysros.exceptions import InternalError, InvalidPathError, SrosMgmtError
 from pysros.management import connect, sros
-from pysros.pprint import Table
-from pysros.exceptions import InvalidPathError, SrosMgmtError, InternalError
+from pysros.pprint import Table  # pylint: disable=no-name-in-module
 
 
 def get_connection():
@@ -56,16 +56,16 @@ def get_connection():
     # Else if the application is executed remotely
     else:
         # Import sys for returning specific exit codes
-        import sys  # pylint: disable=import-outside-toplevel
-
         # Import getpass to read the password
         import getpass  # pylint: disable=import-outside-toplevel
+        import sys  # pylint: disable=import-outside-toplevel
 
         # Import the exceptions so they can be caught on error
         # fmt: off
-        from pysros.exceptions import ModelProcessingError  # pylint: disable=import-error disable=import-outside-toplevel
-        # fmt: on
+        from pysros.exceptions import \
+            ModelProcessingError  # pylint: disable=import-error disable=import-outside-toplevel
 
+        # fmt: on
         # Make sure we have the right number of arguments, the host can
         # be an IP address or a hostname
         if len(sys.argv) != 2:
@@ -79,7 +79,9 @@ def get_connection():
             sys.exit(2)
 
         # Get the password
-        password = getpass.getpass()
+        password = getpass.getpass(
+            prompt="Password (press Enter to use SSH key): "
+        )
 
         # The try statement coupled with the except statements allow an
         # operation(s) to be attempted and specific error conditions handled

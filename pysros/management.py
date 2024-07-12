@@ -1,4 +1,4 @@
-# Copyright 2021-2023 Nokia
+# Copyright 2021-2024 Nokia
 
 import base64
 import contextlib
@@ -191,6 +191,8 @@ class Connection:
 
     :ivar running: running datastore
     :vartype running: .Datastore
+    :ivar intended: intended datastore
+    :vartype intended: .Datastore
     :ivar candidate: candidate datastore
     :vartype candidate: .Datastore
 
@@ -207,6 +209,7 @@ class Connection:
             ) from None
 
         self.running = Datastore(self, 'running')
+        self.intended = Datastore(self, 'intended')
         self.candidate = Datastore(self, 'candidate')
 
         self.yang_directory = yang_directory
@@ -664,6 +667,19 @@ class Connection:
             destination_format, pretty_print, action_io
         )
 
+    def session_id(self):
+        """Returns the current connections session-id.
+
+        :returns: Current connections session-id.
+        :rtype: int
+
+        .. Reviewed by PLM 20240523
+        .. Reviewed by TechComms 20240529
+        """
+        try:
+            return int(self._nc._session.id)
+        except:
+            return self._nc._session.id
 
 class Datastore:
     """Datastore object that can be used to perform multiple operations on a specified datastore.
@@ -680,7 +696,7 @@ class Datastore:
         delete = auto()
 
     def __init__(self, connection, target):
-        if target != 'running' and target != 'candidate':
+        if target not in ('running', 'candidate', 'intended'):
             raise make_exception(pysros_err_invalid_target)
         self.connection = connection
         self.nc = connection._nc
@@ -696,8 +712,8 @@ class Datastore:
             if '' in k.values():
                 raise make_exception(pysros_err_filter_empty_string)
 
-    def _prepare_root_ele(self, subtree, path):
-        root = etree.Element("filter")
+    def _prepare_root_ele(self, subtree, path, filter_tag = "filter"):
+        root = etree.Element(filter_tag)
         root.extend(subtree)
         if self.debug:
             print("GET request for path ", path)
@@ -717,6 +733,23 @@ class Datastore:
             return self.nc.get_config(source=self.target, filter=root, with_defaults=self._get_defaults(defaults))
         else:
             return self.nc.get_config(source=self.target, with_defaults=self._get_defaults(defaults))
+
+    def _operation_get_data(self, subtree, defaults, path):
+        ds_pfx = "ds"
+        xml_get = etree.Element("get-data", nsmap = {None : "urn:ietf:params:xml:ns:yang:ietf-netconf-nmda"})
+        xml_ds = etree.SubElement(xml_get, "datastore", nsmap = {ds_pfx : "urn:ietf:params:xml:ns:yang:ietf-datastores"})
+        xml_ds.text = f"{ds_pfx}:{self.target}"
+
+        if subtree:
+            root = self._prepare_root_ele(subtree, path, "subtree-filter")
+            xml_filter = etree.SubElement(xml_get, "subtree-filter")
+            xml_filter.extend(root)
+
+        if defaults:
+            xml_defaults = etree.SubElement(xml_get, "with-defaults")
+            xml_defaults.text = "report-all"
+
+        return self.nc.rpc(xml_get)
 
     def _get(self, path, *, defaults=False, custom_walker=None, config_only=False, filter=None):
         model_walker = custom_walker if custom_walker else FilteredDataModelWalker.user_path_parse(self.connection.root, path)
@@ -740,12 +773,13 @@ class Datastore:
             else:
                 response = self._operation_get(config, defaults, path)
         else:
+            get_method = self._operation_get_data if self.target == "intended" else self._operation_get_config
             if model_walker.current.config == False:
                 raise make_exception(
                     pysros_err_can_get_state_from_running_only
                 )
             model_walker.config_only = True
-            response = self._operation_get_config(config, defaults, path)
+            response = get_method(config, defaults, path)
 
         if self.debug:
             print("GET response")
@@ -811,7 +845,7 @@ class Datastore:
         return rd
 
     def _set(self, path, value, action, method="default", annotations_only=False):
-        if self.target == 'running':
+        if self.target in ('running', 'intended'):
             raise make_exception(pysros_err_cannot_modify_config)
         if method not in ("default", "merge", "replace"):
             raise make_exception(pysros_err_unsupported_set_method)
@@ -873,7 +907,7 @@ class Datastore:
         if model_walker.current.config == False:
             if exist_reason == Datastore._ExistReason.delete:
                 raise make_exception(pysros_err_cannot_delete_from_state)
-            elif self.target == "candidate":
+            elif self.target in ("candidate", "intended"):
                 raise make_exception(
                     pysros_err_can_check_state_from_running_only
                 )
@@ -953,7 +987,7 @@ class Datastore:
         return [*current.to_model()]
 
     def _compare(self, output_format, user_path):
-        if self.target == 'running':
+        if self.target != 'candidate':
             raise make_exception(pysros_err_unsupported_compare_datastore)
         if output_format not in ("md-cli", "xml"):
             raise make_exception(pysros_err_unsupported_compare_method)
@@ -1240,7 +1274,7 @@ class Datastore:
         .. Reviewed by TechComms 20211202
         """
         with self.connection._process_connected():
-            if self.target == 'running':
+            if self.target in ('running', 'intended'):
                 raise make_exception(pysros_err_cannot_modify_config)
             if not self._exists(path, Datastore._ExistReason.delete):
                 raise make_exception(pysros_err_no_data_found)
@@ -1319,7 +1353,7 @@ class Datastore:
         .. Reviewed by TechComms 20220624
         """
         with self.connection._process_connected():
-            if self.target == "running":
+            if self.target in ("running", "intended"):
                 raise make_exception(pysros_err_cannot_lock_and_unlock_running)
             self.nc.lock(target=self.target)
 
@@ -1336,7 +1370,7 @@ class Datastore:
         .. Reviewed by TechComms 20220624
         """
         with self.connection._process_connected():
-            if self.target == "running":
+            if self.target in ("running", "intended"):
                 raise make_exception(pysros_err_cannot_lock_and_unlock_running)
             self.nc.unlock(target=self.target)
 
@@ -1352,7 +1386,7 @@ class Datastore:
         .. Reviewed by TechComms 20220624
         """
         with self.connection._process_connected():
-            if self.target == 'running':
+            if self.target in ('running', 'intended'):
                 raise make_exception(pysros_err_cannot_modify_config)
             self._commit()
 
@@ -1368,7 +1402,7 @@ class Datastore:
         .. Reviewed by TechComms 20220624
         """
         with self.connection._process_connected():
-            if self.target == 'running':
+            if self.target in ('running', 'intended'):
                 raise make_exception(pysros_err_cannot_modify_config)
             self.nc.discard_changes()
 

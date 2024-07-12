@@ -1,0 +1,16 @@
+Release 24.7
+************
+
+24.7.1
+######
+
+* Support for the ``intended`` NMDA datastore in :py:class:`pysros.management.Connection`
+* Support for :ref:`obtaining user inputs<obtaining_user_inputs>`
+    * Support for the :py:mod:`getpass` module for user inputs
+    * Support for the :py:func:`sys.stdin.readline` function for user inputs
+    * Support for the :py:func:`input` function for user inputs
+* Provides :py:func:`pysros.management.Connection.session_id` which returns the current
+  connections SR OS / NETCONF session-id
+
+.. Reviewed by PLM 20240523
+.. Reviewed by TechComms 20240529

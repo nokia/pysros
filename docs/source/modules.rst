@@ -23,6 +23,7 @@ Python versions of the library are used.
    uio
    uos
    uos.path
+   getpass
 
 .. Reviewed by PLM 20220628
 .. Reviewed by TechComms 20220706

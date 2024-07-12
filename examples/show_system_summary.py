@@ -7,7 +7,7 @@
 # pylint: disable=import-error, import-outside-toplevel, line-too-long, too-many-branches, too-many-locals, too-many-statements
 
 """
-Tested on: SR OS 23.10.R2
+Tested on: SR OS 24.3.R1
 
 Show system summary information.
 
@@ -37,15 +37,17 @@ native MD-CLI command.
 /configure system { management-interface cli md-cli environment command-alias alias "summary" mount-point "/show system" }
 """
 
-# Import sys for parsing arguments and returning specific exit codes
-import sys
-
 # Import datetime to get and display the date and time
 import datetime
+
+# Import sys for parsing arguments and returning specific exit codes
+import sys
 
 # Import the connect and sros methods from the management pySROS submodule
 from pysros.management import connect, sros
 
+# Import the Container and Leaf structures from the wrappers pySROS submodule
+from pysros.wrappers import Container, Leaf
 
 # Define local language strings
 local_str = {
@@ -154,8 +156,8 @@ def get_remote_connection(my_username, my_host, my_password):
     # Import the exceptions so they can be caught on error
     # fmt: off
     from pysros.exceptions import ModelProcessingError
-    # fmt: on
 
+    # fmt: on
     # The try statement and except statements allow an operation
     # attempt with specific error conditions handled gracefully
     try:
@@ -196,18 +198,19 @@ def print_rows(input_data, column):
     """Print table rows in the specified format"""
 
     for k in sorted(input_data):
-        # Elements with no data are not displayed
-        if input_data[k].data:
-            # If the input data is a dict like from
-            # /nokia-state:state/system/alarms/active then recurse
-            if isinstance(input_data[k].data, dict):
-                print_rows(input_data[k].data, column)
-            else:
-                print(
-                    "{0:<{width}} : {1}".format(
-                        k, str(input_data[k].data), width=column
-                    )
+        # If the input data is a Leaf, and has data
+        # (elements with no data are not displayed)
+        if isinstance(input_data[k], Leaf) and input_data[k].data:
+            print(
+                "{0:<{width}} : {1}".format(
+                    k, str(input_data[k].data), width=column
                 )
+            )
+        # If the input data is a Container like from
+        # /nokia-state:state/system/alarms/active then recurse
+        elif isinstance(input_data[k], Container):
+            print_rows(input_data[k].data, column)
+        # Else the input data is not a Leaf or Container, so ignore it
 
 
 def set_column_width(input_data):
@@ -248,10 +251,10 @@ def print_row_mixed_spacing(language, column, name, value):
 def show_system_summary_output(connection_object, language):
     """Main function for the show_system_summary command"""
 
-    bright_green = "\u001b[32;1m"
-    bright_red = "\u001b[31;1m"
-    bright_yellow = "\u001b[33;1m"
-    reset_color = "\u001b[0m"
+    bright_green = "\033[1;32m"
+    bright_red = "\033[1;31m"
+    bright_yellow = "\033[1;33m"
+    reset_color = "\033[0m"
 
     # Define local language oper-state strings and colors
     oper_state_str = {
@@ -491,7 +494,9 @@ def get_connection_with_argv():
             sys.exit(2)
 
         # Get the password
-        password = getpass.getpass()
+        password = getpass.getpass(
+            prompt="Password (press Enter to use SSH key): "
+        )
 
         # Get a remote Connection object
         connection_object = get_remote_connection(

@@ -12,6 +12,7 @@ Tested on: SR OS 22.7.R1
 # pylint: disable=broad-except, eval-used, unspecified-encoding
 
 import sys
+
 from pysros.management import connect, sros
 
 

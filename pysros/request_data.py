@@ -1,4 +1,4 @@
-# Copyright 2021-2023 Nokia
+# Copyright 2021-2024 Nokia
 
 import copy
 import json
@@ -153,7 +153,7 @@ class RequestData:
 
         .. Reviewed by TechComms 20210712
         """
-        d = value.xpath("/ncbase:rpc-reply/ncbase:data", namespaces={"ncbase": "urn:ietf:params:xml:ns:netconf:base:1.0"})
+        d = value.xpath("/ncbase:rpc-reply/*[local-name() = 'data']", namespaces={"ncbase": "urn:ietf:params:xml:ns:netconf:base:1.0"})
         if len(d) != 1:
             raise make_exception(pysros_err_wrong_netconf_response)
         d = d[0]

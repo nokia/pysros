@@ -1,4 +1,4 @@
-# Copyright 2021-2023 Nokia
+# Copyright 2021-2024 Nokia
 
 import contextlib
 import copy
@@ -602,3 +602,4 @@ class ActionOutputFilteredDataModelWalker(FilteredDataModelWalker):
         Model.StatementType.choice_, Model.StatementType.case_,
         Model.StatementType.output_
     )
+

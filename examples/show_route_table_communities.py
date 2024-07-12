@@ -8,11 +8,11 @@
 
 import re
 import sys
-from pysros.management import connect
-from pysros.pprint import Table  # pylint: disable=no-name-in-module
 
 # Import the exceptions so they can be caught on error.
 from pysros.exceptions import ModelProcessingError
+from pysros.management import connect
+from pysros.pprint import Table  # pylint: disable=no-name-in-module
 
 credentials = {
     "host": "192.168.1.1",

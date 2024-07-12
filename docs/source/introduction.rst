@@ -607,7 +607,7 @@ Obtaining data
 Use the :py:meth:`pysros.management.Datastore.get` method to obtain model-driven data from an SR OS device.  
 This method takes a single JSON instance path (see the :ref:`modeled-paths` section) and returns a data structure.
 
-The :py:meth:`pysros.management.Datastore.get` method can be performed against the ``running`` or the ``candidate`` datastore
+The :py:meth:`pysros.management.Datastore.get` method can be performed against the ``running``, ``intended`` or ``candidate`` datastores
 when *configuration* data is required.  When *state* data is required, it can only be performed against the
 ``running`` datastore.
 
@@ -619,7 +619,7 @@ when *configuration* data is required.  When *state* data is required, it can on
 Example:
 
 .. code-block:: python
-   :caption: Get example using :py:meth:`pysros.management.Datastore.get`
+   :caption: Get example using :py:meth:`pysros.management.Datastore.get` from the ``running`` datastore
    :name: get-example
 
    >>> from pysros.management import connect
@@ -633,10 +633,7 @@ Example:
               'add-paths': Container({'ipv4': Container({'receive': Leaf(True), 'send': Leaf('multipaths')})}),
               'admin-state': Leaf('enable')})}, 'admin-state': Leaf('enable')})
 
-
-.. Reviewed by PLM 20210902
-.. Reviewed by TechComms 20210902
-
+.. Reviewed by PLM 20240506
 
 Configuring SR OS routers
 *************************

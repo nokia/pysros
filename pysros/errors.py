@@ -1,4 +1,4 @@
-# Copyright 2021-2023 Nokia
+# Copyright 2021-2024 Nokia
 
 from .exceptions import (ActionTerminatedIncompleteError, InternalError,
                          InvalidPathError, JsonDecodeError,
@@ -22,8 +22,8 @@ pysros_err_can_have_one_semicolon = (InvalidPathError, "Identifier can contain o
 pysros_err_can_not_find_yang = (ModelProcessingError, "Cannot find yang '{yang_name}'")
 pysros_err_cannot_call_go_to_parent = (InvalidPathError, "Cannot call go_to_parent on root")
 pysros_err_cannot_delete_from_state = (SrosMgmtError, "Cannot delete from state tree")
-pysros_err_cannot_lock_and_unlock_running = (SrosMgmtError, "Cannot lock and unlock running config")
-pysros_err_cannot_modify_config = (SrosMgmtError, "Cannot modify running config")
+pysros_err_cannot_lock_and_unlock_running = (SrosMgmtError, "Cannot lock and unlock running or intended config")
+pysros_err_cannot_modify_config = (SrosMgmtError, "Cannot modify running or intended config")
 pysros_err_cannot_modify_state = (SrosMgmtError, "Cannot modify state tree")
 pysros_err_cannot_pars_path = (ModelProcessingError, "Cannot parse path {path!r}")
 pysros_err_cannot_remove_node = (ModelProcessingError, "Cannot remove {node}")

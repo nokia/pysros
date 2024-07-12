@@ -37,16 +37,13 @@ def get_connection():
     # Else if the application is executed remotely
     else:
         # Import sys for returning specific exit codes
-        import sys  # pylint: disable=import-outside-toplevel
-
         # Import getpass to read the password
         import getpass  # pylint: disable=import-outside-toplevel
+        import sys  # pylint: disable=import-outside-toplevel
 
         # Import the exceptions so they can be caught on error
         # pylint: disable=import-outside-toplevel
-        from pysros.exceptions import (
-            ModelProcessingError,
-        )
+        from pysros.exceptions import ModelProcessingError
 
         # Make sure we have the right number of arguments, the host can
         # be an IP address or a hostname
@@ -61,7 +58,9 @@ def get_connection():
             sys.exit(2)
 
         # Get the password
-        password = getpass.getpass()
+        password = getpass.getpass(
+            prompt="Password (press Enter to use SSH key): "
+        )
 
         # The try statement and except statements allow an operation
         # attempt with specific error conditions handled gracefully

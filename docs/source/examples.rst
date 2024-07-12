@@ -330,10 +330,10 @@ The following is an example of how to use these exceptions to handle specific er
    :caption: make_connection.py
    :name: make-connection-example
    :language: python
-   :emphasize-lines: 16-17, 26-64
+   :emphasize-lines: 15-16, 25-63
 
-.. Reviewed by PLM 20210902
-.. Reviewed by TechComms 20210902
+
+.. Reviewed by PLM 20240522
 
 
 Obtaining data and formatted output
@@ -345,9 +345,39 @@ various formats.
 .. Reviewed by PLM 20210902
 .. Reviewed by TechComms 20210902
 
+Obtaining data from the intended datastore
+******************************************
 
-Show SDP state and descriptions
-*******************************
+The ``intended`` datastore provides a read-only view into the expanded configuration.  On SR OS
+the ``intended`` datastore can be used to deliver a view of the expanded configuration as 
+created by configuration groups.  A configuration group is defined using the
+``/configure groups group <name>`` command and is applied using the ``apply-groups`` command.
+
+The following example creates a configuration group template and an interface.  The group is
+then applied to the interface and the configuration of that interface is obtained from both
+the ``running`` datastore and the ``intended`` datastore to demonstrate the difference:
+
+.. literalinclude:: ../../examples/intended_datastore_get.py
+   :caption: intended_datastore_get.py
+   :name: intended-datastore-get-example
+   :language: python
+   :emphasize-lines: 108-119
+
+The output shows that in the ``running`` configuration you can see the ``apply-groups`` statement that
+applies the template to the interface.  You cannot see the ``ip-mtu`` as this configuration item exists 
+in the template.  When displaying the configuration in the ``intended`` datastore the ``ip-mtu`` can be 
+seen applied to the interface and the ``apply-groups`` statement cannot be seen.  The output looks 
+like this:
+
+.. code-block:: python
+
+   Running: {'interface-name': Leaf('example-pysros'), 'apply-groups': LeafList(['test']), 'description': Leaf('Example interface')}
+   Intended: {'interface-name': Leaf('example-pysros'), 'description': Leaf('Example interface'), 'ip-mtu': Leaf(4444)}
+
+.. Reviewed by PLM 20240506
+
+Creating SR OS style show commands from configuration and state data
+********************************************************************
 
 This examples creates a new show command that displays a list of the SDPs and their ID, description,
 administrative state, operational state, and far-end IP address.
@@ -360,7 +390,7 @@ create SR OS style table output.
    :caption: show_sdp_with_description.py
    :name: show-sdp-with-description-example
    :language: python
-   :emphasize-lines: 12, 52-70, 84-94
+   :emphasize-lines: 15, 52-72, 82-96
 
 The example output for this application is shown here:
 
@@ -476,7 +506,7 @@ instantaneous data available.
    :caption: filesystem_example.py
    :name: filesystem-example
    :language: python
-   :emphasize-lines: 18-60
+   :emphasize-lines: 19-61
 
 The example output of this application is shown below.
 
@@ -501,6 +531,59 @@ The example output of this application is shown below.
    The difference between the last run and this run is: 19
 
 .. Reviewed by PLM 20220901
+
+.. _obtaining_user_inputs:
+
+Obtaining user input
+####################
+
+Some activities require the user to provide input into the Python application
+in order to progress.  In its simplest form, this may be confirmed with a yes/no 
+prompt before taking an action.  In other use-cases, the input required might 
+be more extensive.
+
+User input can be obtained in Python in a number of ways.  When a pySROS application
+is executed remotely, the standard Python libraries are available.  When executing
+on an SR OS node, pySROS provides the :py:func:`input` and :py:func:`sys.stdin.readline`
+procedures for obtaining input and the :py:mod:`getpass` module for obtaining password
+information (without displaying it to the screen).
+
+.. note::
+
+   The :py:func:`input` and :py:func:`getpass.getpass` functions are preferred for 
+   user input as they have better performance, particularly when using large inputs.
+
+Each of these methods interacts with the SR OS pager.  If the output delivered by 
+the Python application exceeds the screen length, the pager is activated.  The
+pager obtains the key-presses until the pager session is concluded.  At this point,
+the consumption of the key-presses returns to the Python application.
+
+.. note::
+
+   Caution should be taken when chaining Python applications together with the pipe 
+   modifier.  Only one Python application in this chain should request user input.
+
+This example prompts the user to reset a linecard of their choosing and then confirms
+that they wish to do this (using the :py:func:`input` function) before performing the 
+YANG-modeled operation using the :py:meth:`pysros.management.Connection.action` method.
+
+.. literalinclude:: ../../examples/reset_card.py
+   :caption: reset_card.py
+   :name: example-reset-card
+   :language: python3
+   :emphasize-lines: 24, 26
+
+This next example shows various options for obtaining user input.
+
+.. literalinclude:: ../../examples/user_input_example.py
+   :caption: user_input_example.py
+   :name: example-user-input
+   :language: python3
+
+
+.. Reviewed by PLM 20240612
+.. Reviewed by TechComms 20240612
+
 
 .. _Converting Data Formats:
 
