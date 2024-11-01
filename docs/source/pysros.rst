@@ -57,6 +57,14 @@
 
 .. include:: ehs.rst
 
+:mod:`pysros.esm` - Functions for the enhanced subscriber management system (ESM)
+---------------------------------------------------------------------------------
+
+.. module:: pysros.esm
+   :synopsis: Functions for the SR OS enhanced subscriber management system (ESM)
+
+.. include:: esm.rst
+
 :mod:`pysros.syslog` - Functions for syslog event handling
 ----------------------------------------------------------
 

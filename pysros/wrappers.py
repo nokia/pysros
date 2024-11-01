@@ -101,18 +101,28 @@ class Schema:
         if attr == "units" and self._model.units:
             return self._model.units
         if attr == "default" and self._model.default:
-            assert isinstance(self._model.default, str)
-            if self._model.yang_type.json_name() == "boolean":
-                if self._model.default == "true":
-                    return True
-                if self._model.default == "false":
-                    return False
-            if self._model.yang_type.json_name() in INTEGRAL_LEAF_TYPE:
-                try:
-                    return int(self._model.default)
-                except ValueError:
-                    pass
-            return self._model.default
+            assert isinstance(self._model.default, (list, str))
+            default = self._model.default
+            res = []
+            if isinstance(default, str):
+                default = [default]
+            for d in default:
+                if self._model.yang_type.json_name() == "boolean":
+                    if d == "true":
+                        res.append(True)
+                    if d == "false":
+                        res.append(False)
+                    continue
+                if self._model.yang_type.json_name() in INTEGRAL_LEAF_TYPE:
+                    try:
+                        res.append(int(d))
+                    except ValueError:
+                        pass
+                    continue
+                res.append(d)
+            if isinstance(self._model.default, str):
+                res = res[0]
+            return res
         if attr == "mandatory":
             if self._model.data_def_stm in (
                 self._model.StatementType.leaf_,
@@ -745,8 +755,8 @@ class Annotations(collections.UserList):
 
     An :py:class:`.Annotation` in pySROS is treated in a similar way as any
     other YANG structure such as a :py:class:`.Leaf`.  A :py:class:`.Annotation`
-    class wrapper encodes the structures required to define and use a YANG modeled annotation.  Unlike other
-    wrappers, because a YANG modeled annotation can be in a different YANG namespace from the node it is
+    class wrapper encodes the structures required to define and use a YANG-modeled annotation.  Unlike other
+    wrappers, because a YANG-modeled annotation can be in a different YANG namespace from the node it is
     attached to, additional information is needed.
 
     The :py:meth:`pysros.management.Connection.convert` method and the :py:meth:`pysros.management.Datastore.set`

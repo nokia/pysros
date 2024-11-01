@@ -20,8 +20,8 @@ class ModelPath:
         for p in self._path:
             if p.is_valid():
                 continue
-            if only_absolute_path or p.name != "..":
-                return False
+            if only_absolute_path or p.name != ".." or p.name != ".":
+                return True
         return True
 
     def repr_path(self):
@@ -32,3 +32,6 @@ class ModelPath:
 
     def __eq__(self, other):
         return isinstance(other, ModelPath) and self._path == other._path
+
+    def __str__(self):
+        return "/" + "/".join(i.debug_string for i in self._path)

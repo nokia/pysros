@@ -28,7 +28,11 @@ from .model import Model
 from .model_builder import ModelBuilder
 from .model_walker import (ActionInputFilteredDataModelWalker,
                            ActionOutputFilteredDataModelWalker,
-                           FilteredDataModelWalker)
+                           FilteredDataModelWalker,
+                           JsonInstanceDataModelWalker,
+                           JsonInstanceModelWalkerWithActionInput,
+                           JsonInstanceModelWalkerWithActionOutput,
+                           JsonInstanceModelWalkerActionOnly)
 from .request_data import COMMON_NAMESPACES, RequestData
 from .singleton import Empty
 from .wrappers import Container, LeafList, Annotation
@@ -208,6 +212,8 @@ class Connection:
                 pysros_err_could_not_create_conn, reason=e
             ) from None
 
+        self.debug = False
+
         self.running = Datastore(self, 'running')
         self.intended = Datastore(self, 'intended')
         self.candidate = Datastore(self, 'candidate')
@@ -218,11 +224,12 @@ class Connection:
         self._ns_map = types.MappingProxyType({model.name: model.namespace for model in self._models})
         self._ns_map_rev = {v: k for k, v in self._ns_map.items()}
         self._mod_revs = {model.name: model.revision for model in self._models}
+        self._mod_revs.update((i.name, i.revision) for j in self._models for i in j.submodules)
+        self._sros = any(map(lambda x:x.startswith("urn:nokia.com:sros:ns:yang:sr:major-release"), self._nc.server_capabilities))
         self.root, self.metadata = self._get_root(self._models)
         self._metadata_map = {i.name.model_string: i for i in self.metadata}
         self._metadata_map_no_module = {}
-        self.debug = False
-        self.intensive_checks = False
+        self._intensive_checks = False
 
         for v in self.metadata:
             self._metadata_map_no_module.setdefault(v.name.name, []).append(v)
@@ -233,6 +240,7 @@ class Connection:
         hasher.update(b"Schema ver 5\n")
         hasher.update(b"Schema features\nBEGIN\n")
         hasher.update(b"ANNOTATIONS\n")
+        hasher.update(b"SRL\n")
         hasher.update(b"END\n")
         for m in yangs:
             hasher.update(f"mod:{m.name};rev:{m.revision};".encode())
@@ -249,7 +257,7 @@ class Connection:
                     return (Model(storage, 0, None), metadata)
 
         # attempt to pickle. If load fails, we need to create a new tree
-        model_builder = ModelBuilder(self._yang_getter, self._ns_map)
+        model_builder = ModelBuilder(self._yang_getter, self._ns_map, self._sros)
         for mod in yangs:
             model_builder.register_yang(mod.name)
         model_builder.process_all_yangs()
@@ -268,21 +276,21 @@ class Connection:
 
         return (model_builder.root, model_builder.metadata)
 
-    def _yang_getter(self, yang_name, *, debug=False):
+    def _yang_getter(self, yang_name):
         if self.yang_directory:
-            if debug:
+            if self.debug:
                 print(f"open local file {yang_name}")
             with open(self._find_module(yang_name), "r", encoding="utf8") as f:
                 return f.read()
 
         # download using netconf protocol
-        if debug:
+        if self.debug:
             start = datetime.datetime.now()
             print(f"GET SCHEMA {yang_name}")
 
-        response = self._nc.get_schema(yang_name)
+        response = self._nc.get_schema(yang_name, self._mod_revs[yang_name])
         data = response.xpath("/ncbase:rpc-reply/monitoring:data", COMMON_NAMESPACES)[0].text
-        if debug:
+        if self.debug:
             print(f" * {len(data)/1024:.1f} kB downloaded in {(datetime.datetime.now()-start).total_seconds():.3f} sec")
 
         return data
@@ -308,13 +316,13 @@ class Connection:
         with self._process_connected():
             yangs_resp = self._nc.get(filter=("subtree", subtree))
 
-        result = []
         modules = yangs_resp.xpath(
             "/ncbase:rpc-reply/ncbase:data/library:modules-state/library:module",
             COMMON_NAMESPACES
         )
 
         get_text = lambda e, path: e.findtext(path, namespaces=COMMON_NAMESPACES)
+        rev_map = {}
         for m in modules:
             submodules = []
             for sm in m.xpath("./library:submodule", namespaces=COMMON_NAMESPACES):
@@ -323,25 +331,30 @@ class Connection:
                     revision=get_text(sm, "./library:revision"),
                 ))
             submodules.sort(key=lambda sm: sm.name)
-            result.append(YangModule(
-                name=get_text(m, "./library:name"),
+            name = get_text(m, "./library:name")
+            rev_map.setdefault(name, []).append(YangModule(
+                name=name,
                 namespace=get_text(m, "./library:namespace"),
                 revision=get_text(m, "./library:revision"),
                 submodules=tuple(submodules)
             ))
-        return tuple(result)
+        return tuple(sorted(i, key=(lambda m: m.revision))[-1] for i in rev_map.values())
 
     def _request_data(self, **kwargs):
         return RequestData(
             self.root, self._metadata_map,
             self._metadata_map_no_module, self._ns_map,
-            self._ns_map_rev, **kwargs
+            self._ns_map_rev, self._sros, **kwargs
         )
+
+    def _check_accessibility(self):
+        if not self._sros:
+            raise make_exception(pysros_err_unsupported_node_method)
 
     def _action(self, path, value):
         rd = self._request_data(walker=ActionInputFilteredDataModelWalker)
         current = rd.process_path(path)
-        if self.intensive_checks:
+        if self._intensive_checks:
             rd.sanity_check()
         if not current.is_action():
             raise make_exception(pysros_err_unsupported_action_path)
@@ -371,7 +384,7 @@ class Connection:
         # data should be wrapped in dummy root. RPC reply can be dummy root if does not have attributes
         response.xpath('.')[0].attrib.clear()
         rd.set_action_as_xml(path, response)
-        if self.intensive_checks:
+        if self._intensive_checks:
             rd.sanity_check()
         current = rd.process_path(path, strict=True)
         model = current.to_model()
@@ -417,7 +430,7 @@ class Connection:
         else:
             raise NotImplementedError()
 
-        if self.intensive_checks:
+        if self._intensive_checks:
             rd.sanity_check()
 
         if dst_fmt == "pysros":
@@ -493,6 +506,7 @@ class Connection:
 
         .. Reviewed by PLM 20220901
         """
+        self._check_accessibility()
         with self._process_connected():
             output = self._nc.md_cli_raw_command(command)
         status = output.xpath(
@@ -511,20 +525,20 @@ class Connection:
         return output[0].text if output else ""
 
     def action(self, path, value={}):
-        """Perform a YANG modeled action on SR OS by providing the *json-instance-path* to the
+        """Perform a YANG-modeled action on SR OS by providing the *json-instance-path* to the
         action statement in the chosen operations YANG model, and the pySROS data structure to
-        match the YANG modeled input for that action.
+        match the YANG-modeled input for that action.
         This method provides structured data input and output for available operations.
 
         :param path: *json-instance-path* to the YANG action.
         :type path: str
         :param value: pySROS data structure providing the input data for the chosen action.
         :type value: pySROS data structure
-        :returns: YANG modeled, structured data representing the output of the modeled action (operation)
+        :returns: YANG-modeled, structured data representing the output of the modeled action (operation)
         :rtype: pySROS data structure
 
         .. code-block:: python
-           :caption: Example calling the **ping** YANG modeled action (operation)
+           :caption: Example calling the **ping** YANG-modeled action (operation)
            :name: pysros-action-example
 
            >>> from pysros.management import connect
@@ -616,6 +630,7 @@ class Connection:
         .. Reviewed by PLM 20220908
 
         """
+        self._check_accessibility()
         with self._process_connected():
             return self._action(path, value)
 
@@ -626,7 +641,7 @@ class Connection:
         object that :py:meth:`convert` is being called against.
 
         :param path: *json-instance-path* to the location in the YANG schema that the
-                     payload uses as its YANG modeled root.
+                     payload uses as its YANG-modeled root.
         :type path: str
         :param payload: Input data for conversion.  The payload must be valid data according
                         to the YANG schema associated with the :py:class:`Connection` object and
@@ -641,7 +656,7 @@ class Connection:
         :type destination_format: str
         :param pretty_print: Format the output for human consumption.
         :type pretty_print: bool, optional
-        :param action_io: When converting the input/output of a YANG modeled operation (action), it is possible
+        :param action_io: When converting the input/output of a YANG-modeled operation (action), it is possible
                           for there to be conflicting fields in the input and output sections of the YANG.  This
                           parameter selects whether to consider the payload against the ``input`` or ``output``
                           section of the YANG. Default: ``output``.
@@ -666,6 +681,143 @@ class Connection:
             path, payload, source_format,
             destination_format, pretty_print, action_io
         )
+
+    def list_paths(self, path="/", *, action_io=None):
+        """Obtain the JSON instance paths supported by a specific
+        :py:class:`.Connection` object.  The :ref:`modeled-paths`
+        section describes more details about the JSON instance
+        path format.  The method returns the supported schema
+        nodes and does not provide any instance data.
+
+        YANG-modeled operations (called ``action`` in YANG) are not
+        returned by default.  Use the ``action_io`` parameter to
+        output YANG-modeled operations.  The path to the action
+        statement, or the paths to the actions input or output
+        parameters may be chosen.
+
+        .. note::
+
+          List keys are shown in the JSON instance path but do not contain the list key's value
+          as this is instance data.
+
+        :param path: Path to start the list of the supported paths from. The path
+                    is an instance-identifier based on
+                    `RFC 6020 <https://datatracker.ietf.org/doc/html/rfc6020#section-9.13>`_
+                    and `RFC 7951 <https://datatracker.ietf.org/doc/html/rfc7951#section-6.11>`_.
+                    The path can be obtained from an SR OS device using the
+                    ``pwc json-instance-path`` MD-CLI command.
+                    The path may point to a YANG Container, List, Leaf or a Leaf-List.
+                    The default is to provide all supported JSON instance paths from the root.
+        :type path: str
+        :param action_io: Obtain YANG action paths.  Supported values are: ``action_only``, 
+                          ``input`` or ``output``.
+        :type action_io: str
+
+        :return: A :py:class:`generator` object containing the supported JSON instance paths.
+        :rtype: :class:`generator`
+
+        :raises KeyError: Unsupported ``action_io`` option.
+
+        .. code-block:: python
+          :caption: Example printing all supported paths
+          :name: pysros-management-connection-list-paths-all-example
+          :emphasize-lines: 5-6
+
+           from pysros.management import connect
+
+           connection_object = connect()
+           
+           for path in connection_object.list_paths():
+               print(path)
+               
+        .. code-block:: python
+          :caption: Example printing all supported paths that contain the word "openconfig"
+          :name: pysros-management-connection-list-paths-all-openconfig-example
+          :emphasize-lines: 5-7
+
+           from pysros.management import connect
+
+           connection_object = connect()
+           
+           for path in connection_object.list_paths():
+               if "openconfig" in path:
+                   print(path)
+
+        .. code-block:: python
+          :caption: Example printing all supported paths in a specific path
+          :name: pysros-management-connection-list-paths-specific-path-example
+          :emphasize-lines: 5-6
+
+           from pysros.management import connect
+
+           connection_object = connect()
+           
+           for path in connection_object.list_paths("/nokia-conf:configure/router[router-name]/static-routes"):
+                   print(path)
+
+        .. code-block:: python
+          :caption: Example printing all input and output parameters to all ``perform card`` operations
+          :name: pysros-management-connection-list-paths-specific-path-actions-example
+          :emphasize-lines: 5-10
+
+           from pysros.management import connect
+
+           connection_object = connect()
+           
+           for direction in ["input", "output"]:
+               print("=" * 79)
+               print("%s paramaters" % direction)
+               print("-" * 79)
+               for path in c.list_paths("/nokia-oper-perform:perform/card", action_io=direction):
+                   print(path)
+
+
+        .. Reviewed by PLM 20241003
+
+
+        """
+        with self._process_connected():
+            walkers = {
+                None    :       JsonInstanceDataModelWalker,
+                "input" :       JsonInstanceModelWalkerWithActionInput,
+                "output":       JsonInstanceModelWalkerWithActionOutput,
+                "action_only":  JsonInstanceModelWalkerActionOnly,
+            }
+            try:
+                walker            = walkers[action_io](self.root, self._sros)
+                validation_walker = walkers[action_io](self.root, self._sros)
+            except KeyError:
+                raise make_exception(pysros_err_unsupported_action_io)
+            if path == "/":
+                return walker.export_paths()
+            exception_with_key_value    = None
+            exception_without_key_value = None
+            try:
+                walker = walker.user_path_parse(self.root, path, self._sros, verify_keys=True)
+            except Exception as e:
+                exception_with_key_value = e
+            for node, keys in zip(walker.path, walker.keys):
+                validation_walker.go_to_child(node.name)
+                if not keys: continue
+                for key, value in keys.items():
+                    if all((key != child.name.name and str(child.data_def_stm) == "leaf"
+                        for child in validation_walker.current.children)):
+                        raise make_exception(pysros_err_invalid_key_in_path)
+                    with validation_walker.visit_child(key):
+                        type_adjusted_value = validation_walker.get_type().to_value(value)
+                        if not validation_walker.check_field_value(value=type_adjusted_value):
+                            raise make_exception(pysros_err_invalid_key_in_path)
+            if exception_with_key_value is None:
+                return walker.export_paths()
+            try:
+                walker = walker.user_path_parse(self.root, path, self._sros, verify_keys=False)
+                return walker.export_paths()
+            except Exception as e:
+                exception_without_key_value = e
+            if exception_with_key_value is None and exception_without_key_value is not None:
+                raise exception_without_key_value
+            else:
+                raise exception_with_key_value
 
     def session_id(self):
         """Returns the current connections session-id.
@@ -696,13 +848,16 @@ class Datastore:
         delete = auto()
 
     def __init__(self, connection, target):
-        if target not in ('running', 'candidate', 'intended'):
+        if target not in ('running', 'candidate', 'intended', ):
             raise make_exception(pysros_err_invalid_target)
         self.connection = connection
-        self.nc = connection._nc
         self.target = target
         self.transaction = None
-        self.debug = False
+        self.debug = self.connection.debug
+
+    @property
+    def _nc(self):
+        return self.connection._nc
 
     def _get_defaults(self, defaults):
         return "report-all" if defaults else None
@@ -723,16 +878,16 @@ class Datastore:
     def _operation_get(self, subtree, defaults, path):
         if subtree:
             root = self._prepare_root_ele(subtree, path)
-            return self.nc.get(filter=root, with_defaults=self._get_defaults(defaults))
+            return self._nc.get(filter=root, with_defaults=self._get_defaults(defaults))
         else:
-            return self.nc.get(with_defaults=self._get_defaults(defaults))
+            return self._nc.get(with_defaults=self._get_defaults(defaults))
 
     def _operation_get_config(self, subtree, defaults, path):
         if subtree:
             root = self._prepare_root_ele(subtree, path)
-            return self.nc.get_config(source=self.target, filter=root, with_defaults=self._get_defaults(defaults))
+            return self._nc.get_config(source=self.target, filter=root, with_defaults=self._get_defaults(defaults))
         else:
-            return self.nc.get_config(source=self.target, with_defaults=self._get_defaults(defaults))
+            return self._nc.get_config(source=self.target, with_defaults=self._get_defaults(defaults))
 
     def _operation_get_data(self, subtree, defaults, path):
         ds_pfx = "ds"
@@ -749,10 +904,10 @@ class Datastore:
             xml_defaults = etree.SubElement(xml_get, "with-defaults")
             xml_defaults.text = "report-all"
 
-        return self.nc.rpc(xml_get)
+        return self._nc.rpc(xml_get)
 
     def _get(self, path, *, defaults=False, custom_walker=None, config_only=False, filter=None):
-        model_walker = custom_walker if custom_walker else FilteredDataModelWalker.user_path_parse(self.connection.root, path)
+        model_walker = custom_walker if custom_walker else FilteredDataModelWalker.user_path_parse(self.connection.root, path, self.connection._sros)
 
         if config_only and model_walker.is_state:
             raise make_exception(pysros_err_no_data_found)
@@ -789,7 +944,7 @@ class Datastore:
         rd = self.connection._request_data()
         rd.set_as_xml(response)
 
-        if self.connection.intensive_checks:
+        if self.connection._intensive_checks:
             rd.sanity_check()
 
         try:
@@ -853,7 +1008,8 @@ class Datastore:
             raise make_exception(pysros_err_annotation_invalid_type)
         model_walker = FilteredDataModelWalker.user_path_parse(
             self.connection.root,
-            path
+            path,
+            self.connection._sros
         )
         if model_walker.current.config == False:
             raise make_exception(pysros_err_cannot_modify_state)
@@ -879,7 +1035,7 @@ class Datastore:
             elif method == "merge":
                 current.merge()
 
-        if self.connection.intensive_checks:
+        if self.connection._intensive_checks:
             rd.sanity_check()
 
         children = rd.to_xml()
@@ -890,7 +1046,7 @@ class Datastore:
             print("SET request")
             print(f"path: '{path}', value: '{value}'")
             print(etree.dump(config))
-        self.nc.edit_config(
+        self._nc.edit_config(
             target=self.target,
             default_operation=default_operation,
             config=config
@@ -900,7 +1056,7 @@ class Datastore:
         self._set(path, None, Datastore._SetAction.delete, annotations_only=annotations_only)
 
     def _exists(self, path, exist_reason):
-        model_walker = FilteredDataModelWalker.user_path_parse(self.connection.root, path)
+        model_walker = FilteredDataModelWalker.user_path_parse(self.connection.root, path, self.connection._sros)
         # if exists is called as a check before deletion, check for path to avoid
         # incorrect errors such as pysros_err_can_check_state_from_running_only
         # as we want to handle state delete related errors first
@@ -933,7 +1089,8 @@ class Datastore:
     def _get_list_keys(self, path, defaults):
         model_walker = FilteredDataModelWalker.user_path_parse(
             self.connection.root,
-            path
+            path,
+            self.connection._sros
         )
         self._check_empty_string(model_walker)
 
@@ -947,7 +1104,7 @@ class Datastore:
 
         current.entry_get_keys()
 
-        if self.connection.intensive_checks:
+        if self.connection._intensive_checks:
             rd.sanity_check()
 
         config = rd.to_xml()
@@ -965,7 +1122,7 @@ class Datastore:
         rd = self.connection._request_data()
         rd.set_as_xml(response)
 
-        if self.connection.intensive_checks:
+        if self.connection._intensive_checks:
             rd.sanity_check()
 
         try:
@@ -997,14 +1154,15 @@ class Datastore:
         if path:
             model_walker = FilteredDataModelWalker.user_path_parse(
                 self.connection.root,
-                path
+                path,
+                self.connection._sros
             )
             if model_walker.current.config == False:
                 raise make_exception(pysros_err_unsupported_compare_endpoint)
             rd = self.connection._request_data()
             current = rd.process_path(model_walker)
 
-            if self.connection.intensive_checks:
+            if self.connection._intensive_checks:
                 rd.sanity_check()
 
             if not current.is_compare_supported_endpoint():
@@ -1031,7 +1189,7 @@ class Datastore:
             print("COMPARE request")
             print(etree.dump(xml_action))
 
-        reply = self.nc.rpc(xml_action)
+        reply = self._nc.rpc(xml_action)
 
         if self.debug:
             print("COMPARE reply")
@@ -1054,11 +1212,11 @@ class Datastore:
 
     def _commit(self):
         try:
-            self.nc.commit()
+            self._nc.commit()
         except nc_RPCError as e:
             if e.message and e.message.find("MGMT_CORE #2703:") > -1:
-                self.nc.discard_changes()
-                self.nc.commit()
+                self._nc.discard_changes()
+                self._nc.commit()
                 raise make_exception(
                     pysros_err_commit_conflicts_detected
                 ) from None
@@ -1249,7 +1407,7 @@ class Datastore:
         :type path: str
         :param commit: Specify whether commit should be executed after delete.  Default True.
         :type commit: bool
-        :param annotations_only: If specified, object where path is pointing is not deleted but 
+        :param annotations_only: If specified, object where path is pointing is not deleted but
                                  only the annotation attached to the object.
         :type annotations_only: bool
 
@@ -1353,9 +1511,9 @@ class Datastore:
         .. Reviewed by TechComms 20220624
         """
         with self.connection._process_connected():
-            if self.target in ("running", "intended"):
-                raise make_exception(pysros_err_cannot_lock_and_unlock_running)
-            self.nc.lock(target=self.target)
+            if self.target not in ("candidate", "running"):
+                raise make_exception(pysros_err_cannot_lock_and_unlock_readonly_ds)
+            self._nc.lock(target=self.target)
 
     def unlock(self):
         """Unlock the configuration datastore.  Transitions an exclusive candidate configuration to a candidate
@@ -1370,9 +1528,9 @@ class Datastore:
         .. Reviewed by TechComms 20220624
         """
         with self.connection._process_connected():
-            if self.target in ("running", "intended"):
-                raise make_exception(pysros_err_cannot_lock_and_unlock_running)
-            self.nc.unlock(target=self.target)
+            if self.target not in ("candidate", "running"):
+                raise make_exception(pysros_err_cannot_lock_and_unlock_readonly_ds)
+            self._nc.unlock(target=self.target)
 
     def commit(self):
         """Commit the candidate configuration.
@@ -1404,7 +1562,7 @@ class Datastore:
         with self.connection._process_connected():
             if self.target in ('running', 'intended'):
                 raise make_exception(pysros_err_cannot_modify_config)
-            self.nc.discard_changes()
+            self._nc.discard_changes()
 
     def compare(self, path="", *, output_format):
         """Perform a comparison of the uncommitted candidate configuration with the baseline
@@ -1452,6 +1610,7 @@ class Datastore:
         .. Reviewed by PLM 20221005
 
         """
+        self.connection._check_accessibility()
         with self.connection._process_connected():
             return self._compare(output_format, path)
 

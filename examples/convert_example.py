@@ -195,7 +195,7 @@ def converting(input_format, output_format, data, connection_object):
     """
     print("-" * 79)
     print("Converting", input_format, "to", output_format, "\n")
-    print("The path used as the YANG modeled root for the data is:")
+    print("The path used as the YANG-modeled root for the data is:")
     print(data.path, "\n")
     print("The payload is:")
     print(data.payload, "\n")

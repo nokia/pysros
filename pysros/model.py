@@ -3,13 +3,55 @@
 import copy
 import locale
 import sys
+import functools
+from decimal import Decimal
 from enum import Enum, IntEnum, IntFlag
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from .errors import *
 from .errors import make_exception
 from .identifier import Identifier
 from .yang_type import YangType
+
+
+class YangVersion:
+    ver1_0: "YangVersion"
+    ver1_1: "YangVersion"
+
+    def __init__(self, version: str = "1.0"):
+        self.value = version
+
+    @property
+    def value(self):
+        return self._val
+
+    @value.setter
+    def value(self, version: str):
+        self._val = Decimal(version)
+
+    def __lt__(self, other):
+        return self._val < other._val
+
+    def __le__(self, other):
+        return self._val <= other._val
+
+    def __eq__(self, other):
+        return self._val == other._val
+
+    def __ne__(self, other):
+        return self._val != other._val
+
+    def __gt__(self, other):
+        return self._val > other._val
+
+    def __ge__(self, other):
+        return self._val >= other._val
+
+    def __repr__(self):
+        return f"YangVersion('{self._val}')"
+
+YangVersion.ver1_0 = YangVersion("1.0")
+YangVersion.ver1_1 = YangVersion("1.1")
 
 
 class AModel:
@@ -38,14 +80,32 @@ class AModel:
         deviation_ = 21
         deviate_ = 22
         annotate_ = 23
+        belongs_to_ = 24
+        refine_ = 25
+        extended = 26
 
     __slots__ = ()
 
+    name: Identifier
+    children: "List[AModel]"
+    yang_type: Optional[YangType]
+    units: Optional[str]
+    namespace: Optional[str]
+    default: Optional[Union[str, List[str]]]
+    mandatory: Optional[str]
+    status: Optional[str]
+    presence_container: bool
+    user_ordered = False
+    local_keys: List[str]
+    data_def_stm: StatementType
+    parent: "AModel"
+    config: bool
+
     def recursive_walk(self, cb):
         cont = cb(self)
-        if cont == False:
+        if cont is False:
             return
-        for i in self.children:
+        for i in self.children[:]:  # during iteration you can modify children
             i.recursive_walk(cb)
 
     def __str__(self):
@@ -57,7 +117,7 @@ class AModel:
     def __deepcopy__(self, memo):
         raise make_exception(pysros_err_use_deepcopy)
 
-    def debug_print(self, prefix="", last=False):
+    def debug_print(self, prefix="", last=False, with_blueprints=False):
         class Colors:
             RED = '\033[1;31;48m'
             GREEN = '\033[1;32;48m'
@@ -114,13 +174,22 @@ class AModel:
             t_sufix.append(colorize(self.target_path, Colors.PURPLE))
 
         print(f"""{prefix[:-1]}{field_prefix}{self.debug_flags()} {self.name} [{" ".join((t,*t_sufix))}]""")
+        if with_blueprints and self.blueprint:
+            blueprint_prefix = prefix + "    "
+            for b in self.blueprint:
+                if b[0]:
+                    print(f"{blueprint_prefix}> {' '.join(map(str, b[1]))} {{")
+                    blueprint_prefix = blueprint_prefix + "    "
+                else:
+                    blueprint_prefix = blueprint_prefix[:-4]
+                    print(f"{blueprint_prefix}> }}")
 
         remain = self.children_size - 1
         for i in self.children:
             new_prefix = prefix + ("    " if not remain else AsciiArt.VERTICAL_LINE)
             if not prefix:
                 new_prefix = new_prefix[3:]
-            i.debug_print(new_prefix, not remain)
+            i.debug_print(new_prefix, not remain, with_blueprints=with_blueprints)
             remain -= 1
 
     def debug_flags(self) -> str:
@@ -198,15 +267,18 @@ class BuildingModel(AModel):
         "_parent",
         "config",
         "blueprint",
+        "arg",
+        "nsmap",
+        "yang_version",
     )
 
-    def __init__(self, name: Identifier, data_def_stm: AModel.StatementType, parent):
+    def __init__(self, name: Union[Identifier, str], data_def_stm: AModel.StatementType, parent, yang_version):
         self.name = Identifier.builtin(name) if type(name) == str else name
         self.children: List[Model] = []
         self.yang_type: Optional[YangType] = None
         self.units: Optional[str] = None
         self.namespace: Optional[str] = None
-        self.default: Optional[str] = None
+        self.default: Optional[Union[str, List[str]]] = None
         self.mandatory: Optional[str] = None
         self.status: Optional[str] = None
         self.presence_container = False
@@ -218,6 +290,9 @@ class BuildingModel(AModel):
         self.identity_bases = None if data_def_stm != AModel.StatementType.identity_ else []
         self.config: bool = True
         self.blueprint = []
+        self.arg = None
+        self.nsmap = None
+        self.yang_version = yang_version
 
     @property
     def parent(self):
@@ -262,6 +337,12 @@ class BuildingModel(AModel):
                 )
         del self.parent.children[idx]
         self.parent = None
+        return self
+
+    def annihilate(self):
+        for child in self.children:
+            child.parent = self.parent
+        self.delete_from_parent(quiet=False)
 
     def deepcopy(self, parent):
         cls = self.__class__

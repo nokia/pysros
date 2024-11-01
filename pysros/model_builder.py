@@ -1,15 +1,17 @@
 # Copyright 2021-2024 Nokia
 
 import copy
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from itertools import chain
-from typing import DefaultDict, Dict, Optional, Set, Union
+from typing import DefaultDict, Dict, Optional, Set, Union, List
+from decimal import Decimal
 
 from .errors import *
 from .errors import InvalidPathError, make_exception
-from .identifier import Identifier, LazyBindModule
-from .model import AModel, BuildingModel, Model, StorageConstructionModel
+from .identifier import Identifier, LazyBindModule, Wildcard
+from .model import AModel, BuildingModel, Model, StorageConstructionModel, YangVersion
 from .model_path import ModelPath
+from .path_utils import get_path
 from .model_walker import DataModelWalker, ModelWalker
 from .request_data import COMMON_NAMESPACES
 from .tokenizer import yang_parser
@@ -24,12 +26,12 @@ class YangHandler:
     """Handler for yang processing."""
     TAGS_WITH_MODEL = (
         "container", "list", "leaf", "typedef", "module", "submodule", "uses",
-        "leaf-list", "import", "identity", "notification", "rpc",
-        "input", "output", "choice", "case", "deviate", "action"
+        "leaf-list", "import", "identity", "notification", "rpc", "belongs-to",
+        "input", "output", "choice", "case", "deviate", "action",
     )
     TAGS_FORCE_MODULE = (
         "grouping", "identity", "typedef", "uses", "augment",
-        "deviation", "type", "base"
+        "deviation", "type", "base", "refine",
     )
     TAGS_ARG_IS_IDENTIFIER = ("base", "type", )
     TAGS_ARG_IS_YANG_PATH_NOT_ABSOLUTE_SCHEMA_ID = ("path", )
@@ -75,11 +77,10 @@ class YangHandler:
         "list",
         "mandatory",
         "max-elements",
-        "md:annotation",
         "min-elements",
         "modifier",
         "module",
-        "must",
+        # "must",
         "namespace",
         "notification",
         "ordered-by",
@@ -119,54 +120,61 @@ class YangHandler:
         self.in_type = 0
         self.derived_identities: Dict[Identifier, Set[Identifier]] = {}
         self.include_stack = [{}]
+        self.yang_version_stack = [YangVersion()]
         self.module = None
-        self.prefix = None
+        self._prefix = [None]
         self.ignore_depth = 0
 
     def enter(self, name, arg):
-        if self.ignore_depth or name not in self.TAGS_SHOULD_BE_PROCESSED:
+        if self.ignore_depth or (name not in self.TAGS_SHOULD_BE_PROCESSED and ":" not in name):
             self.ignore_depth += 1
             return
         self.full_path.append(name)
 
-        if name in ("input", "output"):
+        if name in ("input", "output", ):
             arg = name
         if name == "case" and not arg:
             arg = "unnamed"
         if name == 'typedef':
             new_id = self.get_identifier(arg, name in self.TAGS_FORCE_MODULE)
             assert not new_id.is_lazy_bound()
-            new = BuildingModel(new_id, BuildingModel.StatementType.typedef_, None)
+            new = BuildingModel(new_id, BuildingModel.StatementType.typedef_, None, self.yang_version)
             self.path.append(new)
         elif name in self.TAGS_WITH_MODEL:
             new_id = self.get_identifier(arg, name in self.TAGS_FORCE_MODULE)
-            new = BuildingModel(new_id, BuildingModel.StatementType[name.replace("-", "_") + "_"], self.model)
+            new = BuildingModel(new_id, BuildingModel.StatementType[name.replace("-", "_") + "_"], self.model, self.yang_version)
             self.path.append(new)
-        elif name in ("augment", "deviation"):
+        elif name in ("augment", "deviation", "refine", ):
             new_id = self.get_identifier(name, name in self.TAGS_FORCE_MODULE)
-            new = BuildingModel(new_id, BuildingModel.StatementType[name + "_"], None)
-            new.target_path = self.yang_path_to_model_path(arg)
-            (self.builder.augments if name == "augment" else self.builder.deviations).append(new)
+            if self.model.data_def_stm == Model.StatementType.uses_:
+                new = BuildingModel(new_id, BuildingModel.StatementType[name + "_"], self.model, self.yang_version)
+                new.target_path = get_path(arg, absolute_path_allowed=False, relative_path_allowed=True, key_allowed=False, prefix_resolver=self.resolve_prefix)
+            else:
+                # global augment or deviation
+                new = BuildingModel(new_id, BuildingModel.StatementType[name + "_"], None, self.yang_version)
+                (self.builder.augments if name == "augment" else self.builder.deviations).append(new)
+                new.target_path = get_path(arg, absolute_path_allowed=True, relative_path_allowed=False, key_allowed=False, prefix_resolver=self.resolve_prefix)
             self.path.append(new)
         elif name == "grouping":
             new_id = self.get_identifier(arg, name in self.TAGS_FORCE_MODULE)
-            new = BuildingModel(new_id, BuildingModel.StatementType[name.replace("-", "_") + "_"], None)
+            new = BuildingModel(new_id, BuildingModel.StatementType[name.replace("-", "_") + "_"], None, self.yang_version)
             self.path.append(new)
             assert new_id not in self.builder.groupings
             self.builder.groupings[new_id] = new
-        elif name == "md:annotation":
-            new_id = self.get_identifier(arg, name in self.TAGS_FORCE_MODULE)
-            new = BuildingModel(new_id, BuildingModel.StatementType.annotate_, None)
+        elif ":" in name:
+            new_id = Identifier.from_model_string(name)
+            new = BuildingModel(new_id, BuildingModel.StatementType.extended, self.model, self.yang_version)
+            new.arg = f"{self.module}:{arg}"
+            new.nsmap = self.prefixModuleMapping
             self.path.append(new)
-            self.builder.metadata.append(new)
         else:
             if name in self.TAGS_ARG_IS_IDENTIFIER:
                 if name == "type" and should_be_buildin(arg):
                     arg = Identifier.builtin(arg)
                 else:
-                    arg = self.get_identifier(arg, name in self.TAGS_FORCE_MODULE)
+                    arg = self.get_identifier(arg, name in self.TAGS_FORCE_MODULE, force_allow_yang_string=True)
             elif name in self.TAGS_ARG_IS_YANG_PATH_NOT_ABSOLUTE_SCHEMA_ID:
-                arg = self.yang_path_to_model_path(arg, absolute_schema_id=False)
+                arg = get_path(arg, absolute_path_allowed=True, relative_path_allowed=True, key_allowed=True, key_expect_path=True, prefix_resolver=self.resolve_prefix, default_module=self.module)
             self.model.blueprint.append((True, (name, arg)))
 
         handle_name = f'handle_early_{name.replace("-", "_DASH_")}'
@@ -199,7 +207,7 @@ class YangHandler:
 
         popped = self.full_path.pop()
         assert popped == name
-        if name in (*self.TAGS_WITH_MODEL, "grouping", "augment", "deviation", "md:annotation"):
+        if name in (*self.TAGS_WITH_MODEL, "grouping", "augment", "deviation", "refine",) or ":" in name:
             self.path.pop()
         else:
             self.model.blueprint.append((False, name))
@@ -229,28 +237,15 @@ class YangHandler:
             handler = getattr(self, handle_name)
             handler(arg)
 
-    def get_identifier(self, s, force_module=False):
+    def get_identifier(self, s, force_module=False, force_allow_yang_string=False):
+        assert not force_module or self.module is not None
         if self.module is not None:
             module = LazyBindModule() if (self.grouping_depth and not force_module) else self.module
             return Identifier.from_yang_string(s, module, self.prefixModuleMapping)
+        parts = s.split(":")
+        if force_allow_yang_string and len(parts) > 1:
+            return Identifier(parts[0], parts[1])
         return Identifier.builtin(s)
-
-    @staticmethod
-    def model_path_from_string(path: str, default_module: str, prefixModuleMapping: Dict[str, str], *,  absolute_schema_id):
-        assert isinstance(path, str)
-        if not path.startswith(('/', '../')):
-            raise make_exception(pysros_err_cannot_pars_path, path=path)
-
-        tokens = ModelWalker.tokenize_path(path, absolute_schema_id)
-        result = ModelPath(Identifier.from_yang_string(
-            p, default_module, prefixModuleMapping) for p in tokens)
-        if not result.is_valid(only_absolute_path=absolute_schema_id):
-            raise make_exception(pysros_err_invalid_yang_path, path=path)
-        return result
-
-    def yang_path_to_model_path(self, path, absolute_schema_id=True):
-        default_module = self.module if absolute_schema_id else LazyBindModule()
-        return self.model_path_from_string(path, default_module, self.prefixModuleMapping, absolute_schema_id=absolute_schema_id)
 
     @property
     def model(self):
@@ -263,6 +258,14 @@ class YangHandler:
     @property
     def prefixModuleMapping(self):
         return self.include_stack[-1]
+
+    @property
+    def yang_version(self)->YangVersion:
+        return self.yang_version_stack[-1]
+
+    @yang_version.setter
+    def yang_version(self, name):
+        self.yang_version_stack[-1].value = name
 
     @property
     def last_yang_type(self):
@@ -280,7 +283,6 @@ class YangHandler:
 
     def handle_path(self, arg: str):
         if self.in_type:
-            assert isinstance(self.last_yang_type, LeafRef)
             self.last_yang_type.set_path(arg)
 
     def handle_type(self, identifier: str):
@@ -299,8 +301,14 @@ class YangHandler:
         self.model.namespace = arg
 
     def handle_default(self, arg: str):
-        assert self.model.default is None
-        self.model.default = arg
+        if self.model.data_def_stm == Model.StatementType.leaf_list_:
+            if self.model.default is None:
+                self.model.default = [arg]
+            else:
+                self.model.default.append(arg)
+        else:
+            assert self.model.default is None
+            self.model.default = arg
 
     def handle_mandatory(self, arg: str):
         assert self.model.mandatory is None
@@ -326,17 +334,17 @@ class YangHandler:
 
     def handle_enum(self, value: str):
         if self.in_type:
-            assert isinstance(self.last_yang_type, Enumeration), f"expected Enumeration, got {self.last_yang_type}"
+            assert isinstance(self.last_yang_type, (Enumeration, UnresolvedIdentifier, )), f"expected Enumeration, got {self.last_yang_type}"
             self.last_yang_type.add_enum(value)
 
     def handle_bit(self, value: str):
         if self.in_type:
-            assert isinstance(self.last_yang_type, Bits)
-            self.last_yang_type.add(value)
+            assert isinstance(self.last_yang_type, (Bits, UnresolvedIdentifier, ))
+            self.last_yang_type.add_bit(value)
 
     def handle_value(self, value: str):
         if self.in_type:
-            assert isinstance(self.last_yang_type, Enumeration)
+            assert isinstance(self.last_yang_type, (Enumeration, UnresolvedIdentifier, ))
             self.last_yang_type.set_last_enum_value(int(value))
 
     def handle_presence(self, _arg):
@@ -351,7 +359,9 @@ class YangHandler:
 
     def handle_early_include(self, arg):
         self.include_stack.append({})
+        self.yang_version_stack.append(YangVersion())
         self.builder.perform_parse(arg, self)
+        self.yang_version_stack.pop()
         self.include_stack.pop()
 
     def handle_key(self, arg):
@@ -364,16 +374,23 @@ class YangHandler:
         self.grouping_depth += 1
 
     def handle_early_prefix(self, arg):
-        if self.full_path[-2] == "module":
-            self.prefix = arg
-        if self.full_path[-2] in ("import", "module"):
+        if self.full_path[-2] in ("belongs-to", ):
+            assert arg not in self.prefixModuleMapping
+            self.prefixModuleMapping[arg] = self.module
+        if self.full_path[-2] in ("import", "module", ):
             assert arg not in self.prefixModuleMapping
             self.prefixModuleMapping[arg] = self.model.name.name
+
+    def handle_early_yang_DASH_version(self, arg):
+        self.yang_version = arg
 
     def handle_config(self, arg: str):
         if arg not in ('false', 'true'):
             raise make_exception(pysros_err_invalid_config)
         self.model.config = (arg == 'true')
+
+    def resolve_prefix(self, prefix: str):
+        return self.prefixModuleMapping[prefix]
 
 
 def _dummy_getter(filename):
@@ -382,11 +399,12 @@ def _dummy_getter(filename):
 
 class ModelBuilder:
     """API for walking model tree."""
-    def __init__(self, yang_getter=_dummy_getter, ns_map={}):
+    def __init__(self, yang_getter=_dummy_getter, ns_map={}, sros=True):
         self.root = BuildingModel(
             "root",
             BuildingModel.StatementType["container_"],
-            None
+            None,
+            YangVersion.ver1_1
         )
         self.metadata = []
         self.types_to_resolve = dict()
@@ -400,6 +418,7 @@ class ModelBuilder:
         self.registered_modules = {}
         self._ns_map = ns_map
         self.yang_getter = yang_getter
+        self._sros = sros
 
     def get_module_content(self, yang_name):
         if yang_name in self.registered_modules:
@@ -420,6 +439,8 @@ class ModelBuilder:
         if module_name not in self.all_yangs:
             self.all_yangs.add(module_name)
             self.parsed_yangs.add(module_name)
+        if module_name not in self._ns_map:
+            self._ns_map[module_name] = f"NS:{module_name}"
         yang_parser(f, YangHandler(self, self.root))
 
     def DEBUG_register_module(self, module_name, f):
@@ -443,6 +464,7 @@ class ModelBuilder:
         self.resolve_config()
         self.resolve_namespaces()
         self.delete_blueprints()
+        self.resolve_metadata()
         self.resolve_metadata_exceptions()
         self.convert_model()
 
@@ -461,28 +483,6 @@ class ModelBuilder:
             yang_handler or YangHandler(self, self.root)
         )
 
-    def add_child_to_uses(self, m: BuildingModel):
-        if m.data_def_stm == BuildingModel.StatementType.uses_:
-            assert not m.has_children
-            i = m
-            while True:
-                if i.data_def_stm == BuildingModel.StatementType.module_:
-                    module = i.name.name
-                    break
-                elif i.data_def_stm == BuildingModel.StatementType.augment_:
-                    module = i.name.prefix
-                    break
-                i = i.parent
-
-            def resolve_unresolved(m: BuildingModel):
-                if m.name.prefix is LazyBindModule():
-                    m.prefix = module
-
-            for i in self.groupings[m.name].children:
-                i.deepcopy(m)
-            m.recursive_walk(resolve_unresolved)
-            return False
-
     def set_correct_types(self, m: BuildingModel):
         if isinstance(m.yang_type, (UnresolvedIdentifier, YangUnion)):
             tdm = resolve_typedefs_deep(TypeDefModel(m), self.resolved_types)
@@ -490,7 +490,7 @@ class ModelBuilder:
             m.default = tdm.default
             m.units = tdm.units
         #RFC6020: If the type referenced by the leaf-list has a default value, it has no effect in the leaf-list.
-        if m.data_def_stm == AModel.StatementType.leaf_list_ and m.default:
+        if m.data_def_stm == AModel.StatementType.leaf_list_ and m.default and m.yang_version == YangVersion.ver1_0:
             m.default = None
 
     def resolve_typedefs(self):
@@ -611,39 +611,72 @@ class ModelBuilder:
             if not isinstance(m.yang_type, LeafRef):
                 return
 
-            w = DataModelWalker(m)
+            w = DataModelWalker(m, self._sros)
             assert m.data_def_stm in (
                 BuildingModel.StatementType.leaf_,
                 BuildingModel.StatementType.leaf_list_
             )
 
             while isinstance(w.current.yang_type, LeafRef):
-                path = w.current.yang_type.path
-                module_name = w.current.name.prefix
-                if path._path and path._path[0].name != '..':
-                    # absolute path - go to root
-                    while not w.is_root:
-                        w.go_to_parent()
-                w.go_to(path, module_name)
+                w.current.yang_type.path.move_walker(w, default_module=w.current.prefix)
             m.yang_type = w.current.yang_type
         self.walk_models(replace_leafrefs)
 
     def resolve_groupings(self):
-        def inner(m: BuildingModel):
+        module = None
+        def resolve_grouping(m: BuildingModel):
             if m.data_def_stm == BuildingModel.StatementType.uses_:
-                if m.has_children:
-                    return False
-                for child in self.groupings[m.name].children:
+                grouping: BuildingModel = self.groupings[m.name]
+                grouping.recursive_walk(resolve_grouping)
+                uses_children, m.children = m.children, []
+                for child in grouping.children:
                     child.deepcopy(m)
+                self.process_uses_substmts(m, uses_children)
+                m.annihilate()
+                return False
+        def resolve_common(m: BuildingModel, module: str):
+            assert module is not LazyBindModule()
+            def resolve_unresolved_prefix(m: BuildingModel):
+                if m.prefix is LazyBindModule():
+                    m.prefix = module
+            grouping: BuildingModel = self.groupings[m.name]
+            uses_children, m.children = m.children, []
+            for child in grouping.children:
+                child.deepcopy(m).recursive_walk(resolve_unresolved_prefix)
+            self.process_uses_substmts(m, uses_children)
+            m.annihilate()
+            return False
+        def resolve_data(m: BuildingModel):
+            nonlocal module
+            if m.data_def_stm == BuildingModel.StatementType.module_:
+                module = m.name.name
+            if m.data_def_stm == BuildingModel.StatementType.uses_:
+                return resolve_common(m, module)
+        def resolve_augment(m: BuildingModel):
+            if m.data_def_stm == BuildingModel.StatementType.uses_:
+                module = augment.prefix
+                return resolve_common(m, module)
         for grouping in self.groupings.values():
-            grouping.recursive_walk(inner)
-        self.root.recursive_walk(self.add_child_to_uses)
+            grouping.recursive_walk(resolve_grouping)
+        self.root.recursive_walk(resolve_data)
         for augment in self.augments:
-            augment.recursive_walk(self.add_child_to_uses)
+            augment.recursive_walk(resolve_augment)
+
+    def process_uses_substmts(self, uses: BuildingModel, substmts: List[BuildingModel]):
+        for m in substmts:
+            if m.data_def_stm == BuildingModel.StatementType.refine_:
+                w = ModelWalker(uses, self._sros)
+                m.target_path.move_walker(w, Wildcard())
+                self.resolve_deviations_replace(w.current, m)
+            if m.data_def_stm == BuildingModel.StatementType.augment_:
+                w = ModelWalker(uses, self._sros)
+                m.target_path.move_walker(w, Wildcard())
+                for i in m.children:
+                    i.deepcopy(w.current)
 
     def process_augment(self, m: BuildingModel):
         if m.data_def_stm == BuildingModel.StatementType.augment_:
-            w = ModelWalker.path_parse(self.root, m.target_path)
+            w = ModelWalker.path_parse(self.root, self._sros, m.target_path, True)
             for i in m.children:
                 i.deepcopy(w.current)
 
@@ -652,7 +685,7 @@ class ModelBuilder:
         while current:
             remaining = []
             for augment in current:
-                w = ModelWalker(self.root)
+                w = ModelWalker(self.root, self._sros)
                 try:
                     w.go_to(augment.target_path)
                     node = w.current
@@ -681,7 +714,7 @@ class ModelBuilder:
 
     def resolve_deviations(self):
         for deviation in self.deviations:
-            w = ModelWalker(self.root)
+            w = ModelWalker(self.root, self._sros)
             w.go_to(deviation.target_path)
             for deviate in deviation.children:
                 if deviate.name.name == "add":
@@ -691,14 +724,17 @@ class ModelBuilder:
                         if instruction[0]:
                             w.current.blueprint = list(self.filter_blueprint(lambda b: b[0:1] != instruction[1][0:1], w.current.blueprint))
                 if deviate.name.name == "replace":
-                    depth = 0
-                    for instruction in deviate.blueprint:
-                        if not depth:
-                            w.current.blueprint = list(self.filter_blueprint(lambda b: b[0] != instruction[1][0], w.current.blueprint))
-                        depth += 1 if instruction[0] else -1
-                    w.current.blueprint = list(w.current.blueprint) + deviate.blueprint
+                    self.resolve_deviations_replace(w.current, deviate)
                 if deviate.name.name == "not-supported":
                     w.current.delete_from_parent(quiet=False)
+
+    def resolve_deviations_replace(self, target: BuildingModel, deviate: BuildingModel):
+        depth = 0
+        for instruction in deviate.blueprint:
+            if not depth:
+                target.blueprint = list(self.filter_blueprint(lambda b: b[0] != instruction[1][0], target.blueprint))
+            depth += 1 if instruction[0] else -1
+        target.blueprint = list(target.blueprint) + deviate.blueprint
 
     def resolve_namespaces(self):
         def ns_set(m: BuildingModel):
@@ -730,8 +766,22 @@ class ModelBuilder:
 
         self.walk_models(resolver)
 
+    def resolve_metadata(self):
+        def resolver(m: BuildingModel):
+            if m.data_def_stm == Model.StatementType.extended:
+                m.name = Identifier.from_yang_string(m.name.model_string, None, m.nsmap)
+
+                if m.name == Identifier("ietf-yang-metadata", "annotation"):
+                    m.delete_from_parent()
+                    m.data_def_stm = Model.StatementType.annotate_
+                    m.name = Identifier.from_model_string(m.arg)
+                    m.namespace = self._ns_map[m.name.prefix]
+                    self.metadata.append(m)
+                    return False
+        self.root.recursive_walk(resolver)
+
     def resolve_metadata_exceptions(self):
-        new = BuildingModel(Identifier("ietf-netconf", "operation"), BuildingModel.StatementType.annotate_, None)
+        new = BuildingModel(Identifier("ietf-netconf", "operation"), BuildingModel.StatementType.annotate_, None, YangVersion.ver1_0)
         new.namespace = COMMON_NAMESPACES["ncbase"]
         type = Enumeration()
         type.add_enums("merge", "replace", "create", "delete", "remove")
@@ -740,7 +790,7 @@ class ModelBuilder:
 
     def convert_model(self):
         new_root = StorageConstructionModel("root", BuildingModel.StatementType["container_"], None)
-        w = DataModelWalker(self.root)
+        w = DataModelWalker(self.root, self._sros)
 
         stack = [new_root]
 
@@ -823,7 +873,8 @@ def resolve_typedefs_shallow(t: TypeDefModel, typedefs: Dict[Identifier, TypeDef
         u_range = yang_type.yang_range
         frac_d = yang_type.fraction_digits
         length = yang_type.length
-        if any((u_range, frac_d, length)):
+        enums = yang_type.enums
+        if any((u_range, frac_d, length, enums, )):
             yang_type = copy.copy(r_model.yang_type)
             if u_range:
                 yang_type.yang_range = merge_typedef_ranges(yang_type.yang_range, u_range)
@@ -831,6 +882,11 @@ def resolve_typedefs_shallow(t: TypeDefModel, typedefs: Dict[Identifier, TypeDef
                 yang_type.fraction_digits = frac_d
             if length:
                 yang_type.length = length
+            if enums:
+                if isinstance(yang_type, (Enumeration, Bits, )):
+                    yang_type.enums = OrderedDict(filter(lambda e: e[0] in enums, yang_type.enums.items()))
+                else:
+                    yang_type.enums = enums
         else:
             yang_type = r_model.yang_type
         default = default or r_model.default

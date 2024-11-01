@@ -98,6 +98,10 @@ class XmlDecodeError(Exception):
     pass
 
 
+class NotSupportedNodeMethodError(Exception):
+    """Exception raised when method which is not supported by box is called."""
+
+
 def make_exception(arg, **kwarg):
     """Create an exception.
 

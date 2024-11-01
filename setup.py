@@ -1,13 +1,14 @@
 # Copyright 2021-2024 Nokia
 
 from setuptools import setup
+from pysros import __version__
 
 with open("README.md", "r", encoding="utf-8") as f:
     long_description = f.read()
 
 setup(
     name='pysros',
-    version='24.7.1',
+    version=__version__,
     packages=['pysros'],
     url='https://www.nokia.com',
     license='Copyright 2021-2024 Nokia.  License available in the LICENSE.md file.',

@@ -138,14 +138,13 @@ the event handling system (EHS).
       .. Reviewed by PLM 20220118
       .. Reviewed by TechComms 20220124
 
-.. class:: EventParams
+.. class:: pysros.ehs.EventParams
 
    The additional parameters of the specific :py:class:`pysros.ehs.Event`.
    This class is *read-only*.  Specific additional parameters may be
    accessed using standard Python subscript syntax.
 
-   .. Reviewed by PLM 20220118
-   .. Reviewed by TechComms 20220124
+   .. Reviewed by PLM 20240828
 
    .. py:method:: keys
 

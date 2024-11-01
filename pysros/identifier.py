@@ -1,6 +1,7 @@
 # Copyright 2021-2024 Nokia
 
 import re
+import functools
 
 from .errors import *
 from .errors import make_exception
@@ -29,6 +30,18 @@ class NoModule(metaclass=_Singleton):
         return self is other
 
 
+class Wildcard(metaclass=_Singleton):
+    def __str__(self):
+        return f"{self.__class__.__name__}()"
+
+    def __hash__(self):
+        return id(self)
+
+    def __eq__(self, other):
+        return self is other
+
+
+@functools.total_ordering
 class Identifier:
     """Class to hold prefix-name pair for single YANG entry"""
     __slots__ = "_name", "_prefix"
@@ -92,12 +105,15 @@ class Identifier:
 
     def __eq__(self, other):
         if type(other) is Identifier:
-            return self._name == other._name and self._prefix == other._prefix
+            return self._name == other._name and (self._prefix == other._prefix or Wildcard() in (self._prefix, other._prefix, ))
         elif type(other) == str:
             if ":" in other:
                 return self == Identifier.from_model_string(other)
             return self.name == other
         return False
+
+    def __lt__(self, other):
+        return self.debug_string < other.debug_string
 
     def __ne__(self, other):
         return not (self == other)
@@ -123,3 +139,11 @@ class Identifier:
     @property
     def model_string(self):
         return f"{self.prefix+':' if self.prefix else ''}{self.name}"
+
+    @property
+    def debug_string(self):
+        if self.is_lazy_bound():
+            return f"LazyBound():{self._name}"
+        if self.is_builtin():
+            return f"Builtin():{self._name}"
+        return self.model_string

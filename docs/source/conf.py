@@ -1,7 +1,7 @@
 import os
 import sys
 sys.path.insert(0, os.path.relpath('../'))
-
+from pysros import __version__
 
 # -- Project information -----------------------------------------------------
 
@@ -10,9 +10,14 @@ copyright = '2021-2024, Nokia'
 author = 'Nokia'
 
 # The full version, including alpha/beta/rc tags
-version = '24.7.1'
-release = '24.7.1'
+version = __version__
+release = __version__ 
 
+rst_epilog = """
+.. |pySROSProjectVersion| replace:: {versionnum}
+""".format(
+versionnum = version,
+)
 
 # -- General configuration ---------------------------------------------------
 

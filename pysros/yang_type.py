@@ -233,6 +233,7 @@ class UnresolvedIdentifier(YangTypeBase):
         self.yang_range = yang_range
         self.fraction_digits = fraction_digits
         self.length = length
+        self.enums: Set[str] = set()  # Also for bits
         assert not self.identifier.is_builtin()
 
     def __str__(self):
@@ -269,6 +270,15 @@ class UnresolvedIdentifier(YangTypeBase):
 
     def check_field_value(self, value: Any, json=False, strict=False, is_convert=False, metadata=None) -> bool:
         return False
+
+    def add_enum(self, name: str):
+        self.enums.add(name)
+
+    def add_bit(self, name: str):
+        self.add_enum(name)
+
+    def set_last_enum_value(self, val: int):
+        pass
 
 
 class YangUnion(YangTypeBase):
@@ -357,18 +367,54 @@ class YangUnion(YangTypeBase):
         return super().as_storage_type(obj,  is_convert, idref_cb)
 
 
-class Enumeration(OrderedDict, YangTypeBase):
+class Enumeration(YangTypeBase):
+    def __init__(self, *args, **kwargs):
+        self.enums = OrderedDict(*args, **kwargs)
+
     def __str__(self):
         return f"enumeration[{'|'.join(map(str, self.keys()))}]"
 
     def __hash__(self):
         return hash(tuple(self))
 
+    def __iter__(self):
+        return iter(self.enums)
+
+    def __reversed__(self):
+        return reversed(self.enums)
+
+    def __len__(self):
+        return len(self.enums)
+
+    def __getitem__(self, name):
+        return self.enums[name]
+
+    def __setitem__(self, name, val):
+        self.enums[name] = val
+
+    def __delitem__(self, name):
+        del self.enums[name]
+
+    def __eq__(self, rhs):
+        return self.enums == rhs.enums
+
+    def __repr__(self):
+        return f"Enumeration({repr(self.enums)})"
+
+    def keys(self):
+        return self.enums.keys()
+
+    def values(self):
+        return self.enums.values()
+
+    def items(self):
+        return self.enums.items()
+
     def add_enum(self, name: str):
         val = 1 + max(self.values()) if self else 0
         self[name] = val
 
-    def add_enums(self, *names: Iterable[str]):
+    def add_enums(self, *names: str):
         for name in names:
             self.add_enum(name)
 
@@ -388,21 +434,41 @@ class Enumeration(OrderedDict, YangTypeBase):
         return isinstance(value, str)
 
 
-class Bits(set, YangTypeBase):
+class Bits(YangTypeBase):
+    def __init__(self, vals=()):
+        self.enums = {}
+        for i in vals:
+            self.add_bit(i)
+
+    def __iter__(self):
+        return iter(self.enums)
+
+    def __reversed__(self):
+        return reversed(self.enums)
+
+    def __len__(self):
+        return len(self.enums)
+
+    def __eq__(self, rhs):
+        return self.enums == rhs.enums
+
+    def __repr__(self):
+        return f"Bits({repr(list(self.keys()))})"
+
+    def keys(self):
+        return self.enums.keys()
+
+    def values(self):
+        return self.enums.values()
+
+    def items(self):
+        return self.enums.items()
+
     def __str__(self):
         return f"bits[{' '.join(sorted(self))}]"
 
-    def __repr__(self):
-        return f"Bits(({', '.join(map(repr, sorted(self)))}))"
-
     def __hash__(self):
         return hash(frozenset(self))
-
-    def __eq__(self, other):
-        return (
-            YangTypeBase.__eq__(self, other) and
-            frozenset(self) == frozenset(other)
-        )
 
     def is_valid_value(self, val: Any) -> bool:
         return isinstance(val, str)
@@ -419,6 +485,9 @@ class Bits(set, YangTypeBase):
             return True
         return self.is_valid_value(value)
 
+    def add_bit(self, name):
+        self.enums[name] = None
+
 
 class LeafRef(YangTypeBase):
     def __init__(self, path=None):
@@ -429,7 +498,6 @@ class LeafRef(YangTypeBase):
         self._path = ModelPath(path)
 
     def set_path(self, path: ModelPath):
-        assert isinstance(path, ModelPath)
         self._path = path
 
     def __eq__(self, other):

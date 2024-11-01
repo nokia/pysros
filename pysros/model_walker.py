@@ -9,7 +9,7 @@ from typing import List, Optional, Union
 from .errors import *
 from .errors import InvalidPathError, SrosMgmtError, make_exception
 from .identifier import Identifier
-from .model import Model
+from .model import Model, AModel
 from .wrappers import Container, Leaf, LeafList
 from .yang_type import *
 
@@ -39,15 +39,16 @@ class ModelWalker:
         Model.StatementType.augment_
     )
 
-    def __init__(self, model: Model):
+    def __init__(self, model: Model, sros: bool):
         self.path: List[Model] = []
         self.keys = []
         while model.parent is not None:
-            if model.data_def_stm in self._expected_dds:
+            if model.data_def_stm in self._expected_dds or not self.path:
                 self.path.insert(0, model)
                 self.keys.insert(0, dict())
             model = model.parent
         self.model = model
+        self._sros = sros
 
     @property
     def current(self):
@@ -91,12 +92,14 @@ class ModelWalker:
                 self.go_to_parent()
                 continue
 
-            prefix = self.path[-1].name.prefix if self.path else module
-            assert prefix
+            #prefix = self.path[-1].name.prefix if self.path else None
+            prefix = None
 
             try:
-                self.go_to_child(
-                    Identifier(prefix, p.name))
+                if prefix:
+                    self.go_to_child(Identifier(prefix, p.name))
+                else:
+                    self.go_to_child(p.name)
             except SrosMgmtError as e:
                 raise InvalidPathError(*e.args) from None
 
@@ -115,7 +118,7 @@ class ModelWalker:
             assert False, "Checking field value for non-field walker"
 
     def get_parent(self):
-        res = self.__class__(self.model)
+        res = self.__class__(self.model, self._sros)
         if self.path:
             res.path = self.path[:-1]
             res.keys = self.keys[:-1]
@@ -128,7 +131,7 @@ class ModelWalker:
         return res
 
     def copy(self):
-        res = self.__class__(self.model)
+        res = self.__class__(self.model, self._sros)
         res.path = self.path[:]
         res.keys = copy.deepcopy(self.keys)
         return res
@@ -218,6 +221,18 @@ class ModelWalker:
             yield
         finally:
             self.go_to_parent()
+
+    @contextlib.contextmanager
+    def visit_parent(self):
+        if not self.path:
+            raise make_exception(pysros_err_cannot_call_go_to_parent)
+        keys, model = self.keys.pop(), self.path.pop()
+        try:
+            yield
+        finally:
+            assert model.parent == self.current
+            self.keys.append(keys)
+            self.path.append(model)
 
     def get_child_type(self, child_name: Union[str, Identifier]):
         return self._get_child(child_name).yang_type
@@ -360,25 +375,21 @@ class ModelWalker:
             res.append(i)
 
     @classmethod
-    def user_path_parse(cls, *args, accept_root=False, **kwargs):
-        res = cls.path_parse(*args, **kwargs)
+    def user_path_parse(cls, model_root, path, sros, *, accept_root=False, verify_keys=True):
+        res = cls.path_parse(model_root, path, sros, verify_keys)
         assert isinstance(res, ModelWalker)
         if not accept_root and res.is_root:
             raise make_exception(pysros_err_root_path)
-        for elem in res.path:
-            if elem.is_region_blocked:
-                raise make_exception(
-                    pysros_err_unknown_element, element=elem.name.name
-                )
         return res
 
     @classmethod
-    def path_parse(cls, model_root, path_string):
+    def path_parse(cls, model_root, path_string, sros, verify_keys):
+        assert isinstance(verify_keys, bool)
         if not isinstance(path_string, str):
             raise make_exception(pysros_err_path_should_be_string)
 
         if path_string == "/":
-            return cls(model_root)
+            return cls(model_root, sros)
 
         if not path_string.startswith('/'):
             if not path_string:
@@ -386,6 +397,10 @@ class ModelWalker:
             raise make_exception(pysros_err_not_found_slash_before_name)
         if path_string.endswith('/'):
             raise make_exception(pysros_err_invalid_identifier)
+
+        correct_char = lambda c: 32 <= ord(c) <= 127 or c in '\t\r\n'
+        if any(not correct_char(c) for c in path_string):
+            raise make_exception(pysros_err_invalid_parse_error)
 
         iterator = iter(cls._tokenize(path_string))
 
@@ -412,7 +427,7 @@ class ModelWalker:
                 return n
             raise make_exception(err, **kwarg)
 
-        res = cls(model_root)
+        res = cls(model_root, sros)
         missing_keys = set()
         elem = 'root'
 
@@ -433,18 +448,23 @@ class ModelWalker:
                     res.go_to_child(elem)
                     missing_keys.update(res.current.local_keys)
                 except Exception:
-                    raise make_exception(
-                        pysros_err_unknown_element,
-                        element=elem) from None
+                    try:
+                        res.go_to_child(Identifier(res.current.name.prefix, elem))
+                        missing_keys.update(res.current.local_keys)
+                    except Exception:
+                        raise make_exception(
+                            pysros_err_unknown_element,
+                            element=elem) from None
                 continue
             if i == "[":
                 _, key_name = next_token(
                     'string', err=pysros_err_invalid_identifier
                 )
-                next_token('=', err=pysros_err_expected_equal_operator)
-                _, value = next_token(
-                    'string', err=pysros_err_invalid_identifier
-                )
+                if verify_keys:
+                    next_token('=', err=pysros_err_expected_equal_operator)
+                    _, value = next_token(
+                        'string', err=pysros_err_invalid_identifier
+                    )
                 next_token(']', err=pysros_err_expected_end_bracket)
                 if key_name not in missing_keys:
                     try:
@@ -457,7 +477,8 @@ class ModelWalker:
                         pysros_err_cannot_specify_non_key_leaf
                     )
                 missing_keys.remove(key_name)
-                res.local_keys[key_name] = value
+                if verify_keys:
+                    res.local_keys[key_name] = value
         return res
 
     @classmethod
@@ -504,14 +525,27 @@ class ModelWalker:
     def __str__(self):
         return "/" + "/".join(str(name.name) + "".join(f"[{key}={value}]" for key, value in keys.items()) for name, keys in zip(self.path, self.keys))
 
+    def has_unique_child(self, child_name: str):
+        try:
+            self._get_child(child_name)
+        except SrosMgmtError:
+            return False
+        return True
+
     def _get_child(self, child_name: Union[str, Identifier]):
         children = list(self.current.children)
+        res = None
         while children:
             child = children.pop()
             if child.name == child_name and child.data_def_stm in self._expected_dds and self._is_allowed(child):
-                return child
+                if res is None:
+                    res = child
+                else:
+                    raise make_exception(pysros_err_ambiguous_model_node)
             if child.data_def_stm in self._recursive_visited_dds:
                 children.extend(child.children)
+        if res is not None:
+            return res
         raise make_exception(
             pysros_err_unknown_child,
             child_name=child_name,
@@ -573,7 +607,57 @@ class FilteredDataModelWalker(DataModelWalker):
             return False
         if not self.return_blocked_regions and model.is_region_blocked:
             return False
-        return any(i in model.name.prefix for i in ("nokia", "openconfig"))
+        if self._sros:
+            return any(i in model.name.prefix for i in ("nokia", "openconfig"))
+        return True
+
+    def _construct_path_without_key_values(self):
+        path = ""
+        parent_module_name = None
+        for node in self.path:
+            current_module_name = node.name.prefix
+            current_node_name   = f"{node.name.name}"
+            if node.data_def_stm == AModel.StatementType.list_:
+                current_node_name += "".join((f"[{key}]" for key in node.local_keys))
+            if parent_module_name != current_module_name:
+                path += f"/{current_module_name}:{current_node_name}"
+                parent_module_name = current_module_name
+            else:
+                path += f"/{current_node_name}"
+        yield path
+
+    def iterate_children(self, *, enter_fnc=None, action_io):
+        children = list(self.current.children)
+        while children:
+            child = children.pop()
+            if child.data_def_stm in self._expected_dds and self._is_allowed(child):
+                self.path.append(child)
+                self.keys.append(dict())
+                if enter_fnc:
+                    yield from enter_fnc(self, action_io)
+                yield from self.iterate_children(enter_fnc=enter_fnc, action_io=action_io)
+                self.path.pop()
+                self.keys.pop()
+            if child.data_def_stm in self._recursive_visited_dds:
+                children.extend(child.children)
+
+    def _export_paths(self, args, action_io):
+        if self.current is None:
+            return
+        if not self.is_root:
+            if self.current.name.name in self.current.parent.local_keys:
+                return
+            if self.current.status:
+                if action_io in ("input", "output"):
+                    if len(self.path) > 1:
+                        if any((node.data_def_stm == Model.StatementType.action_ for node in self.path)):
+                            yield from self._construct_path_without_key_values()
+                elif action_io == "action_only":
+                    if len(self.path) > 1:
+                        if self.path[-1].data_def_stm == Model.StatementType.action_:
+                            yield from self._construct_path_without_key_values()
+                else:
+                    yield from self._construct_path_without_key_values()
 
 
 class ActionInputFilteredDataModelWalker(FilteredDataModelWalker):
@@ -603,3 +687,29 @@ class ActionOutputFilteredDataModelWalker(FilteredDataModelWalker):
         Model.StatementType.output_
     )
 
+class JsonInstanceModelWalkerWithActionInput(ActionInputFilteredDataModelWalker):
+    def export_paths(self):
+        if self.current.data_def_stm in (AModel.StatementType.leaf_, AModel.StatementType.leaf_list_):
+            if any((node.data_def_stm == Model.StatementType.action_ for node in self.path)):
+                yield from self._construct_path_without_key_values()
+        yield from self.iterate_children(enter_fnc=self._export_paths, action_io="input")
+
+
+class JsonInstanceModelWalkerWithActionOutput(ActionOutputFilteredDataModelWalker):
+    def export_paths(self):
+        if self.current.data_def_stm in (AModel.StatementType.leaf_, AModel.StatementType.leaf_list_):
+            if any((node.data_def_stm == Model.StatementType.action_ for node in self.path)):
+                yield from self._construct_path_without_key_values()
+        yield from self.iterate_children(enter_fnc=self._export_paths, action_io="output")
+
+
+class JsonInstanceModelWalkerActionOnly(ActionInputFilteredDataModelWalker):
+    def export_paths(self):
+        yield from self.iterate_children(enter_fnc=self._export_paths, action_io="action_only")
+
+class JsonInstanceDataModelWalker(FilteredDataModelWalker):
+    def export_paths(self):
+        if self.current.data_def_stm in (AModel.StatementType.leaf_, AModel.StatementType.leaf_list_):
+            if all((node.data_def_stm != Model.StatementType.action_ for node in self.path)):
+                yield from self._construct_path_without_key_values()
+        yield from self.iterate_children(enter_fnc=self._export_paths, action_io=None)

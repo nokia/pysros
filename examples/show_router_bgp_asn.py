@@ -7,7 +7,7 @@
 # pylint: disable=import-error, import-outside-toplevel, line-too-long, too-many-branches, too-many-locals, too-many-statements
 
 """
-Tested on: SR OS 24.3.R1
+Tested on: SR OS 24.3.R2
 
 Show all BGP peers for an ASN.
 
@@ -221,6 +221,8 @@ def show_router_bgp_asn_output(connection_object, asn):
     num_down_neighbors = 0
     num_disabled_neighbors = 0
     for neighbor in sorted(bgp_config):
+        num_families = 0
+
         if asn == 0 or int(asn) == bgp_config[neighbor]["peer-as"].data:
             # Print line 1
             print(bright_cyan, end="")
@@ -270,7 +272,6 @@ def show_router_bgp_asn_output(connection_object, asn):
                 == "Established"
             ):
                 num_up_neighbors += 1
-                num_families = 0
                 for family in sorted(
                     bgp_stats[neighbor]["statistics"]["negotiated-family"]
                 ):

@@ -3,7 +3,7 @@
 from .exceptions import (ActionTerminatedIncompleteError, InternalError,
                          InvalidPathError, JsonDecodeError,
                          ModelProcessingError, SrosConfigConflictError,
-                         SrosMgmtError, XmlDecodeError, make_exception)
+                         SrosMgmtError, XmlDecodeError, NotSupportedNodeMethodError, make_exception)
 
 __doc__ = """This module contains error definitions for pySROS.
 
@@ -22,7 +22,7 @@ pysros_err_can_have_one_semicolon = (InvalidPathError, "Identifier can contain o
 pysros_err_can_not_find_yang = (ModelProcessingError, "Cannot find yang '{yang_name}'")
 pysros_err_cannot_call_go_to_parent = (InvalidPathError, "Cannot call go_to_parent on root")
 pysros_err_cannot_delete_from_state = (SrosMgmtError, "Cannot delete from state tree")
-pysros_err_cannot_lock_and_unlock_running = (SrosMgmtError, "Cannot lock and unlock running or intended config")
+pysros_err_cannot_lock_and_unlock_readonly_ds = (SrosMgmtError, "Cannot lock and unlock read-only datastore")
 pysros_err_cannot_modify_config = (SrosMgmtError, "Cannot modify running or intended config")
 pysros_err_cannot_modify_state = (SrosMgmtError, "Cannot modify state tree")
 pysros_err_cannot_pars_path = (ModelProcessingError, "Cannot parse path {path!r}")
@@ -44,6 +44,7 @@ pysros_err_filter_empty_string = (SrosMgmtError, "Cannot filter by an empty stri
 pysros_err_filter_not_supported_on_leaves = (InvalidPathError, "Filter is not supported for leaves")
 pysros_err_filter_should_be_dict = (TypeError, "Filter argument should be a dict")
 pysros_err_filter_wrong_leaf_value = (TypeError, "Unsupported leaf filter for '{leaf_name}'")
+pysros_err_invalid_parse_error = (InvalidPathError, "Invalid character while parsing string")
 pysros_err_incorrect_leaf_value = (SrosMgmtError, "Invalid value for leaf {leaf_name}")
 pysros_err_invalid_align = (ValueError, "Invalid align: '{align}'")
 pysros_err_invalid_col_description = (TypeError, "Invalid column description")
@@ -55,6 +56,7 @@ pysros_err_invalid_annotation_type = (SrosMgmtError, "Invalid annotation value t
 pysros_err_invalid_module_set_id_or_content_id = (RuntimeError, "Invalid module-set-id")
 pysros_err_invalid_operation_on_key = (InvalidPathError, "Operation cannot be performed on key")
 pysros_err_invalid_operation_on_leaflist = (InvalidPathError, "Operation cannot be performed on leaflist")
+pysros_err_invalid_path_error = (InvalidPathError, "Path does not exist in schema")
 pysros_err_invalid_path_operation_missing_keys = (InvalidPathError, "Cannot perform operation on list without specifying keys")
 pysros_err_invalid_rd_state = (InternalError, "Invalid database state")
 pysros_err_invalid_target = (ValueError, "Invalid target")
@@ -73,7 +75,7 @@ pysros_err_multiple_occurences_of_entry = (SrosMgmtError, "Multiple occurrences 
 pysros_err_no_data_found = (LookupError, "No data found")
 pysros_err_not_connected = (RuntimeError, "Not connected")
 pysros_err_not_found_slash_before_name = (InvalidPathError, "'/' not found before element name")
-pysros_err_path_should_be_string = (TypeError, "path argument should be a string")
+pysros_err_path_should_be_string = (TypeError, "Path argument should be a string")
 pysros_err_prefix_does_not_have_ns = (LookupError, "prefix '{prefix}' of '{name}' does not have corresponding namespace")
 pysros_err_root_path = (InvalidPathError, "Operation cannot be performed on root")
 pysros_err_target_should_be_list = (InvalidPathError, "Target should be a list")
@@ -121,3 +123,5 @@ pysros_err_annotation_invalid_key = (SrosMgmtError, "Invalid annotation key")
 pysros_err_too_many_leaflist_annotations = (SrosMgmtError, "Too many annotations in leaflist")
 pysros_err_expected_type_but_got_another = (TypeError, "expected {expected} object but got {type_name}")
 pysros_err_annotation_invalid_module = (SrosMgmtError, "Invalid annotation module")
+pysros_err_ambiguous_model_node = (SrosMgmtError, "Ambiguous model node")
+pysros_err_unsupported_node_method = (NotSupportedNodeMethodError, "Method not supported by the node")

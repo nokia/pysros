@@ -51,8 +51,13 @@ To use the pySROS libraries, the following pre-requisites must be met:
 All the required software is included and installed automatically on the SR OS node, including
 the Python 3 interpreter and all supported Python libraries.
 
-.. Reviewed by PLM 20210902
-.. Reviewed by TechComms 20210902
+The pySROS libraries have been tested to work with other Network Operating Systems (NOS) using
+standards-based NETCONF implementations, specifically, SR Linux.  When using alternative Network
+Operating Systems, the use of the :py:meth:`pysros.management.Datastore.lock` and 
+:py:meth:`pysros.management.Datastore.unlock` methods is strongly encouraged.
+
+.. Reviewed by PLM 20240926
+.. Reviewed by TechComms 20240927
 
 
 YANG modeling
@@ -125,6 +130,10 @@ See the following for examples:
    Present Working Context:
    /openconfig-interfaces:interfaces/interface[name="1/1/c2/1"]/subinterfaces/subinterface[index=0]/openconfig-if-ip:ipv4/addresses
 
+
+Once a connection to the pySROS interface on the node has been established (see :ref:`making-a-connection`) the 
+:py:meth:`.Connection.list_paths` method can used to obtain a list of the supported YANG-modeled paths for that specific
+router in the JSON instance path format.
 
 .. Reviewed by PLM 20220901
 .. Reviewed by TechComms 20221012
@@ -555,6 +564,9 @@ See the :py:class:`pysros.wrappers.Annotations` class for more details.
 Getting Started
 ###############
 
+
+.. _making-a-connection:
+
 Making a connection
 *******************
 
@@ -599,6 +611,7 @@ Example:
 
 .. Reviewed by PLM 20221012
 .. Reviewed by TechComms 20221012
+
 
 
 Obtaining data
@@ -724,12 +737,12 @@ Performing operations
 
 An operation refers to the execution of an activity on the SR OS node that is not that of
 obtaining data or configuring the device.  The method of performing operations on the SR OS
-node through the pySROS libraries is using YANG modeled actions.
+node through the pySROS libraries is using YANG-modeled actions.
 
-This approach allows for YANG modeled and structured data to be used on both input and
+This approach allows for YANG-modeled and structured data to be used on both input and
 output.  Both input and output are represented as pySROS data structures.
 
-To execute a YANG modeled operation, the :py:meth:`pysros.management.Connection.action`
+To execute a YANG-modeled operation, the :py:meth:`pysros.management.Connection.action`
 method should be used.
 
 The :py:meth:`pysros.management.Connection.action` method uses the YANG schema obtained as
@@ -779,7 +792,7 @@ If the ``do-something`` action was called with the input variables ``myinput-str
 look like this:
 
 .. code-block:: python
-   :caption: Example calling a YANG modeled action (operation)
+   :caption: Example calling a YANG-modeled action (operation)
    :name: calling-yang-action-example
 
    >>> from pysros.management import connect

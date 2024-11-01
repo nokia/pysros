@@ -1,6 +1,14 @@
 Release 24.7
 ************
 
+24.7.2
+######
+
+* No additional features
+
+.. Reviewed by PLM 20240814
+
+
 24.7.1
 ######
 

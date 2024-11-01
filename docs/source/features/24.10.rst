@@ -1,0 +1,21 @@
+Release 24.10
+*************
+
+24.10.1
+#######
+
+* Provides the :py:meth:`.Connection.list_paths` method to describe supported JSON instance
+  paths for the given :py:class:`.Connection` object.  Returns an iterator that can be used
+  to analyze or print the supported paths.
+* Provides :py:mod:`pysros` support from remote servers for alternative operating systems 
+  using standards-based NETCONF implementations, specifically, SR Linux.
+* Introduces the :py:mod:`pysros.esm` module to provide integration with Enhanced Subscriber
+  Management (ESM) of SR OS.  This module is available on SR OS only.  It is not supported
+  on a remote machine.
+  
+  * Provides the :py:meth:`pysros.esm.get_event` method to obtain the data provided from the ESM
+    system that called the Python application.
+
+.. Reviewed by PLM 20240828
+.. Reviewed by TechComms 20240927
+
