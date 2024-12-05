@@ -17,10 +17,11 @@ documentation will be updated accordingly.
 .. list-table::
    :header-rows: 0
 
-   * - pySROS release: 22.10.9
-   * - Document Number: 3HE 18378 AAAO TQZZA
+   * - pySROS release: 22.10.11
+   * - Document Number: 3HE 18378 AAAQ TQZZA
 
-.. Reviewed by PLM 20240627
+.. Reviewed by PLM 20241015
+.. Reviewed by TechComms 20241030
 
 
 
