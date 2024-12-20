@@ -120,6 +120,7 @@ pysros_err_annotation_invalid_type = (TypeError, "Invalid type of argument annot
 pysros_err_annotation_invalid = (TypeError, "Cannot find annotation")
 pysros_err_annotation_cannot_delete = (TypeError, "Cannot delete annotation")
 pysros_err_annotation_invalid_key = (SrosMgmtError, "Invalid annotation key")
+pysros_err_annotation_not_unique = (SrosMgmtError, "Multiple matches for specified annotation {ann_name}")
 pysros_err_too_many_leaflist_annotations = (SrosMgmtError, "Too many annotations in leaflist")
 pysros_err_expected_type_but_got_another = (TypeError, "expected {expected} object but got {type_name}")
 pysros_err_annotation_invalid_module = (SrosMgmtError, "Invalid annotation module")
