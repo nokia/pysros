@@ -6,7 +6,7 @@ from pysros import __version__
 # -- Project information -----------------------------------------------------
 
 project = 'pySROS'
-copyright = '2021-2024, Nokia'
+copyright = '2021-2025, Nokia'
 author = 'Nokia'
 
 # The full version, including alpha/beta/rc tags
