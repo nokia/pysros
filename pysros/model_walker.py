@@ -117,6 +117,12 @@ class ModelWalker:
         else:
             assert False, "Checking field value for non-field walker"
 
+    def check_unsupported_paths(self):
+        unsupported_paths = ("nokia-oper-admin:admin", )
+
+        if self.path and self.path[0].name in unsupported_paths:
+            raise make_exception(pysros_err_management_unknown_element)
+
     def get_parent(self):
         res = self.__class__(self.model, self._sros)
         if self.path:

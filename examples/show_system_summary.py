@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
 ### show_system_summary.py
-#   Copyright 2021-2024 Nokia
+#   Copyright 2021-2025 Nokia
 ###
 
 # pylint: disable=import-error, import-outside-toplevel, line-too-long, too-many-branches, too-many-locals, too-many-statements
 
 """
-Tested on: SR OS 24.3.R1
+Tested on: SR OS 24.10.R2
 
 Show system summary information.
 
@@ -218,11 +218,12 @@ def set_column_width(input_data):
 
     column_width = 0
     for k in sorted(input_data):
-        # If the input data is a dict like from
+        # If the input data is a Container like from
         # /nokia-state:state/system/alarms/active then recurse
-        if isinstance(input_data[k].data, dict):
+        if isinstance(input_data[k].data, Container):
             column_width = set_column_width(input_data[k].data)
         else:
+            # Set the column width
             if len(k) > column_width:
                 column_width = len(k)
     return column_width

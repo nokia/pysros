@@ -290,9 +290,9 @@ def usage():
     else:
         print("Usage:", sys.argv[0], "username@host [<keyword>]")
     print(
-        " <keyword>  - (chinese|english|french|japanese|russian|slovak|spanish|turkish)"
+        " <keyword> - (chinese|english|french|japanese|russian|slovak|spanish|turkish)"
     )
-    print(" Default    - english")
+    print(" Default   - english")
 
 
 def get_remote_connection(my_username, my_host, my_password):

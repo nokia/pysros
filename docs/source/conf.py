@@ -3,6 +3,7 @@ import sys
 sys.path.insert(0, os.path.relpath('../'))
 from pysros import __version__
 
+
 # -- Project information -----------------------------------------------------
 
 project = 'pySROS'
@@ -11,7 +12,7 @@ author = 'Nokia'
 
 # The full version, including alpha/beta/rc tags
 version = __version__
-release = __version__ 
+release = __version__
 
 rst_epilog = """
 .. |pySROSProjectVersion| replace:: {versionnum}

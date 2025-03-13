@@ -631,7 +631,7 @@ class ModelBuilder:
                 uses_children, m.children = m.children, []
                 for child in grouping.children:
                     child.deepcopy(m)
-                self.process_uses_substmts(m, uses_children)
+                process_uses_substmts(m, uses_children)
                 m.annihilate()
                 return False
         def resolve_common(m: BuildingModel, module: str):
@@ -643,7 +643,7 @@ class ModelBuilder:
             uses_children, m.children = m.children, []
             for child in grouping.children:
                 child.deepcopy(m).recursive_walk(resolve_unresolved_prefix)
-            self.process_uses_substmts(m, uses_children)
+            process_uses_substmts(m, uses_children, prefix_resolver=resolve_unresolved_prefix)
             m.annihilate()
             return False
         def resolve_data(m: BuildingModel):
@@ -656,23 +656,25 @@ class ModelBuilder:
             if m.data_def_stm == BuildingModel.StatementType.uses_:
                 module = augment.prefix
                 return resolve_common(m, module)
+        def process_uses_substmts(uses: BuildingModel, substmts: List[BuildingModel], *, prefix_resolver=None):
+            for m in substmts:
+                m.recursive_walk(resolve_grouping)
+                if m.data_def_stm == BuildingModel.StatementType.refine_:
+                    w = ModelWalker(uses, self._sros)
+                    m.target_path.move_walker(w, Wildcard())
+                    self.resolve_deviations_replace(w.current, m)
+                if m.data_def_stm == BuildingModel.StatementType.augment_:
+                    w = ModelWalker(uses, self._sros)
+                    m.target_path.move_walker(w, Wildcard())
+                    for i in m.children:
+                        new = i.deepcopy(w.current)
+                        if prefix_resolver:
+                            new.recursive_walk(prefix_resolver)
         for grouping in self.groupings.values():
             grouping.recursive_walk(resolve_grouping)
         self.root.recursive_walk(resolve_data)
         for augment in self.augments:
             augment.recursive_walk(resolve_augment)
-
-    def process_uses_substmts(self, uses: BuildingModel, substmts: List[BuildingModel]):
-        for m in substmts:
-            if m.data_def_stm == BuildingModel.StatementType.refine_:
-                w = ModelWalker(uses, self._sros)
-                m.target_path.move_walker(w, Wildcard())
-                self.resolve_deviations_replace(w.current, m)
-            if m.data_def_stm == BuildingModel.StatementType.augment_:
-                w = ModelWalker(uses, self._sros)
-                m.target_path.move_walker(w, Wildcard())
-                for i in m.children:
-                    i.deepcopy(w.current)
 
     def process_augment(self, m: BuildingModel):
         if m.data_def_stm == BuildingModel.StatementType.augment_:

@@ -48,7 +48,7 @@ _get_qual_tag_name = lambda x, rev_ns_map: f"""{rev_ns_map.get(_get_tag_ns(x), "
 _text_in_tag_tail = lambda x: x.tail and x.tail.strip()
 _text_in_tag_text = lambda x: x.text and x.text.strip()
 _create_root_ele = lambda: etree.Element("dummy-root", nsmap={"nokia-attr": COMMON_NAMESPACES["attrs"]})
-_metadata_from_xml = lambda e, rev_ns_map: {f"""{rev_ns_map.get(_get_tag_ns(k), "")}:{_get_tag_name(k)}""": v for k, v in e.attrib.items()} if e.attrib else {}
+_metadata_from_xml = lambda e, rev_ns_map: {Identifier(rev_ns_map.get(_get_tag_ns(k), ""),_get_tag_name(k)).model_string: v for k, v in e.attrib.items()} if e.attrib else {}
 
 def subelement(parent, tag, nsmap, text=None, attrib=None, add_ns=None):
     """Wrapper around etree.Subelement, that raises SrosMgmtError instead of ValueError."""
@@ -780,26 +780,28 @@ class _ASetter(ABC):
                     value = [value]
         return value
 
+
     def _find_metadata_model_by_annotation(self, ann: Annotation) -> Model:
         module_name = getattr(ann, "module", None)
         namespace = getattr(ann, "namespace", None)
-        candidates = self.rd._modeled_metadata_no_module.get(ann.key, [])
-        for m in candidates:
-            if m.name == ann.key:
-                if module_name and module_name != m.name.prefix:
-                    continue
-                if namespace and namespace != m.namespace:
-                    continue
-                return m
-        _raise_unknown_attribute(ann)
+        if namespace:
+            if module_name:
+                if self.rd._ns_map.get(module_name, None) != namespace:
+                    _raise_unknown_attribute(ann)
+            else:
+                module_name = self.rd._ns_map_rev.get(namespace, None)
+                if not module_name:
+                    _raise_unknown_attribute(ann)
+        return self._find_metadata_model_by_name(f"{module_name}:{ann.key}" if module_name else ann.key)
 
     def _find_metadata_model_by_name(self, name: str) -> Model:
-        #part of public API - metadata will be most likely set as string
         id = Identifier.from_model_string(name)
         if id.is_lazy_bound():
             candidates = self.rd._modeled_metadata_no_module.get(name)
             if not candidates:
                 _raise_unknown_attribute(name)
+            if len(candidates) > 1:
+                raise make_exception(pysros_err_annotation_not_unique, ann_name = name)
             return candidates[0]
         candidate = self.rd._modeled_metadata.get(name)
         if not candidate:
@@ -939,8 +941,8 @@ class _ASetter(ABC):
             return walker.get_type().as_storage_type(val, self.rd._action == RequestData._Action.convert, self.rd._add_xml_namespace)
 
     def _handle_entry_keys_namespaces(self, entry):
-        """Strip namespace prefixes from entry key names.
-        Also raise an error if there are two identical entry keys, one with the namespace prefix and other one without it.
+        """Strip namespace prefixes from entry key names and raise an error if there
+        are two identical entry keys, one with the namespace prefix and other one without it.
         """
         local_keys = [Identifier(self._walker.get_name().prefix, k) for k in self._walker.get_local_key_names()]
         for k in local_keys:

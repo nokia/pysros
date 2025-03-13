@@ -347,7 +347,7 @@ Two methods are available to modify the syslog message being sent:
       .. Reviewed by PLM 20220929
       .. Reviewed by TechComms 20221005
 
-.. class:: Facility
+.. class:: pysros.syslog.Facility
 
    Class similar to an Enum that defines constants that can be used as values for the
    :py:attr:`pysros.syslog.Event.facility` attribute.

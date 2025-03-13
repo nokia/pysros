@@ -65,6 +65,15 @@
 
 .. include:: esm.rst
 
+:mod:`pysros.esm.cryptolib` - Cryptographic functions for the ESM system
+------------------------------------------------------------------------
+
+.. module:: pysros.esm.cryptolib
+   :synopsis: Cryptographic functions for the SR OS enhanced subscriber management system (ESM)
+   :noindex:
+
+.. include:: esm.cryptolib.rst
+
 :mod:`pysros.syslog` - Functions for syslog event handling
 ----------------------------------------------------------
 

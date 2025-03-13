@@ -48,7 +48,7 @@ def usage():
     if sros():
         print("")
         # Remove hyphens that are added in the python-script "show-router-bgp-asn" name
-        print("", sys.argv[0].replace("-", " "), "[<keyword>]")
+        print("", sys.argv[0].replace("-", " "), "[<number>]")
     else:
         print("Usage:", sys.argv[0], "username@host [<number>]")
     print(" <number>  - <1..4294967295>")

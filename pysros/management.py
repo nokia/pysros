@@ -1057,6 +1057,7 @@ class Datastore:
 
     def _exists(self, path, exist_reason):
         model_walker = FilteredDataModelWalker.user_path_parse(self.connection.root, path, self.connection._sros)
+        model_walker.check_unsupported_paths()
         # if exists is called as a check before deletion, check for path to avoid
         # incorrect errors such as pysros_err_can_check_state_from_running_only
         # as we want to handle state delete related errors first

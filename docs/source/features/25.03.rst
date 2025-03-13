@@ -1,0 +1,13 @@
+Release 25.3
+************
+
+25.3.1
+######
+
+* Provides the :py:mod:`pysros.esm.cryptolib` module for encrypting and
+  decrypting data when Python applications on SR OS are triggered by the
+  Enhanced Subscriber Management (ESM) system.
+
+.. Reviewed by PLM 20250226
+
+
