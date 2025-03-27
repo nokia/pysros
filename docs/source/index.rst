@@ -17,12 +17,11 @@ documentation will be updated accordingly.
 .. list-table::
    :header-rows: 0
 
-   * - pySROS release: 23.10.7
-   * - Document Number: 3HE 19211 AAAL TQZZA
+   * - pySROS release: 23.10.8
+   * - Document Number: 3HE 19211 AAAM TQZZA
 
-.. Reviewed by PLM 20241011
-.. Reviewed by TechComms 20241015
-
+.. Reviewed by PLM 20250306
+.. Reviewed by TechComms 20250306
 
 .. toctree::
    :maxdepth: 2

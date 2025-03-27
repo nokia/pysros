@@ -85,7 +85,7 @@ python3 setup.py install
 
 
 The pySROS libraries are available for
-[download from GitHub](https://github.com/jgcumming/pysros-examples).
+[download from GitHub](https://github.com/nokia/pysros).
 
 The obtained file can be installed using:
 
