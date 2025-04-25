@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 ### set_list.py
-#   Copyright 2021-2024 Nokia
+#   Copyright 2021-2025 Nokia
 ###
 
 """Simple example to explain the various YANG list configuration options"""

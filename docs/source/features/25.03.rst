@@ -1,6 +1,13 @@
 Release 25.3
 ************
 
+25.3.2
+######
+
+* No additional features
+
+.. Reviewed by PLM 20250403
+
 25.3.1
 ######
 

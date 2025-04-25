@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 ### show_log_event_summary.py
-#   Copyright 2021-2024 Nokia
+#   Copyright 2021-2025 Nokia
 ###
 
 # pylint: disable=line-too-long

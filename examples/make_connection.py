@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 ### make_connection.py
-#   Copyright 2021-2024 Nokia
+#   Copyright 2021-2025 Nokia
 ###
 
 """Example to show how to make a connection and handle exceptions"""

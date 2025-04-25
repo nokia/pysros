@@ -1,4 +1,4 @@
-# Copyright 2021-2024 Nokia
+# Copyright 2021-2025 Nokia
 
 __all__ = (
     "SrosMgmtError", "InvalidPathError", "ModelProcessingError",

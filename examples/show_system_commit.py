@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 ### show_system_commit.py
-#   Copyright 2021-2024 Nokia
+#   Copyright 2021-2025 Nokia
 ###
 
 # pylint: disable=import-error, import-outside-toplevel, line-too-long, too-many-branches, too-many-locals, too-many-statements

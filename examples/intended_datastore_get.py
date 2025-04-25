@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 ### intended_datastore_get.py
-#   Copyright 2021-2024 Nokia
+#   Copyright 2021-2025 Nokia
 ###
 
 """

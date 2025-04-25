@@ -2,7 +2,7 @@
 
 
 ### set_user_example.py
-#   Copyright 2021-2024 Nokia
+#   Copyright 2021-2025 Nokia
 ###
 
 """Example to show how to set data"""
