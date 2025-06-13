@@ -1,6 +1,15 @@
 Release 24.10
 *************
 
+24.10.5
+#######
+
+* Calling the :py:meth:`pysros.management.Datastore.commit` method without 
+  any staged changes in the candidate will perform an empty commit on 
+  systems that support that functionality (such as Nokia's SR OS).
+
+.. Reviewed by PLM 20250527
+
 24.10.4
 #######
 

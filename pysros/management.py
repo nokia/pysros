@@ -1536,6 +1536,12 @@ class Datastore:
         """Commit the candidate configuration.
 
         :raises SrosMgmtError: Error if committing the configuration is not possible.
+        
+        .. note::
+           Issuing a :py:meth:`commit` against an empty ``candidate`` configuration datastore
+           is supported by pySROS and some Network Operating Systems (such as Nokia's 
+           SR OS).  Where it is not supported, the :py:exc:`SrosMgmtError` exception
+           will be raised.
 
         .. note::
            The :py:meth:`commit` method may only be called against the ``candidate`` configuration datastore.
