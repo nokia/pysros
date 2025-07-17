@@ -226,6 +226,9 @@ class Connection:
         self._mod_revs = {model.name: model.revision for model in self._models}
         self._mod_revs.update((i.name, i.revision) for j in self._models for i in j.submodules)
         self._sros = any(map(lambda x:x.startswith("urn:nokia.com:sros:ns:yang:sr:major-release"), self._nc.server_capabilities))
+        commit_confirmed_cap = any(map(lambda x:x.startswith("urn:ietf:params:netconf:capability:confirmed-commit:"), self._nc.server_capabilities))
+        candidate_cap = any(map(lambda x:x.startswith("urn:ietf:params:netconf:capability:candidate:"), self._nc.server_capabilities))
+        self._cap_commit_confirmed = commit_confirmed_cap and candidate_cap
         self.root, self.metadata = self._get_root(self._models)
         self._metadata_map = {i.name.model_string: i for i in self.metadata}
         self._metadata_map_no_module = {}
@@ -1057,7 +1060,8 @@ class Datastore:
 
     def _exists(self, path, exist_reason):
         model_walker = FilteredDataModelWalker.user_path_parse(self.connection.root, path, self.connection._sros)
-        model_walker.check_unsupported_paths()
+        if self.connection._sros:
+            model_walker.check_unsupported_paths()
         # if exists is called as a check before deletion, check for path to avoid
         # incorrect errors such as pysros_err_can_check_state_from_running_only
         # as we want to handle state delete related errors first
@@ -1211,9 +1215,33 @@ class Datastore:
             return "\n".join(etree.tostring(xml_tree, pretty_print=True).decode("utf-8").strip() for xml_tree in xml_trees)
         return ""
 
-    def _commit(self):
+    def _commit(self, timer=None, cancel=False, comment=None):
+        if not (isinstance(timer, int) or timer is None):
+            raise make_exception(pysros_err_commit_confirmed_timer_not_int)
+        if isinstance(timer, int) and not timer > 0:
+            raise make_exception(pysros_err_commit_confirmed_timer_negative)
+        if cancel and timer:
+            raise make_exception(pysros_err_commit_confirmed_timer_and_cancel_disjoin)
+        if not self.connection._cap_commit_confirmed and (timer or cancel):
+            raise make_exception(pysros_err_unsupported_node_method)
+        if comment is not None:
+            if not self.connection._sros:
+                raise make_exception(pysros_err_commit_comment_unsupported_node)
+            if not isinstance(comment, str):
+                raise make_exception(pysros_err_commit_comment_not_string)
+            if not comment:
+                raise make_exception(pysros_err_commit_comment_empty)
         try:
-            self._nc.commit()
+            if cancel:
+                self._nc.cancel_commit()
+            else:
+                kwargs = {}
+                if timer is not None:
+                    kwargs["confirmed"] = True
+                    kwargs["timeout"] = str(timer)
+                if comment:
+                    kwargs["comment"] = comment
+                self._nc.commit(**kwargs)
         except nc_RPCError as e:
             if e.message and e.message.find("MGMT_CORE #2703:") > -1:
                 self._nc.discard_changes()
@@ -1254,6 +1282,7 @@ class Datastore:
                 :class:`pysros.wrappers.Container`
         :raises RuntimeError: Error if the connection was lost.
         :raises InvalidPathError: Error if the path is malformed.
+        :raises LookupError: Error if path does not exist.
         :raises SrosMgmtError: Error for broader SR OS issues including
                                (non-exhaustive list): passing invalid objects, and
                                setting to an unsupported branch.
@@ -1533,21 +1562,50 @@ class Datastore:
                 raise make_exception(pysros_err_cannot_lock_and_unlock_readonly_ds)
             self._nc.unlock(target=self.target)
 
-    def commit(self):
+    def commit(self, *, timer=None, cancel=False, comment=None):
         """Commit the candidate configuration.
-
+        
+        Sending a :py:meth:`commit` without a ``cancel`` or ``timer`` parameter  performs
+        an unconfirmed commit, or accept a current in-progress confirmed commit.
+        
+        The ``timer`` and ``cancel`` parameters are mutually exclusive.  
+        
+        :param timer: Providing the timer value, in seconds, between 1 and the maximum supported
+                      on the connected system, triggers a confirmed commit operation.  The commit
+                      automatically rolls back when the timer expires.  A value of ``None``
+                      disables the confirmed commit function.  Sending another :py:meth:`commit` with
+                      the ``timer`` set resets and restarts the confirmed commit timer to the new
+                      value.  Default ``None``.
+        :type timer: int
+        :param cancel: Setting ``cancel`` to ``True`` cancels an ongoing confirmed commit and reverts
+                       the configuration changes in the ``running`` configuration datastore.  The
+                       router returns to the ``candidate`` configuration datastore.
+                       Default ``False``.
+        :type camcel: bool
+        :param comment: Commit comment text.  A commit comment must be either ``None`` or a string of
+                        length 1 to the maximum supported on the platform.  Default ``None``.
+        :type comment: str
         :raises SrosMgmtError: Error if committing the configuration is not possible.
+        
+        .. note::
+           Issuing a :py:meth:`commit` against an empty ``candidate`` configuration datastore
+           is supported by pySROS and some Network Operating Systems (such as Nokia's 
+           SR OS).  Where it is not supported, the :py:exc:`SrosMgmtError` exception
+           is raised.
 
         .. note::
            The :py:meth:`commit` method may only be called against the ``candidate`` configuration datastore.
+           
+        .. note::
+           Commit comments are not supported on all implementations.  Nokia SR OS supports commit comments.
 
-        .. Reviewed by PLM 20220623
-        .. Reviewed by TechComms 20220624
+        .. Reviewed by PLM 20250613
+        .. Reviewed by TechComms 20250617
         """
         with self.connection._process_connected():
             if self.target in ('running', 'intended'):
                 raise make_exception(pysros_err_cannot_modify_config)
-            self._commit()
+            self._commit(timer, cancel, comment)
 
     def discard(self):
         """Discard the current candidate configuration.

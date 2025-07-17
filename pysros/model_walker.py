@@ -31,12 +31,12 @@ class ModelWalker:
         Model.StatementType.augment_, Model.StatementType.notification_,
         Model.StatementType.rpc_, Model.StatementType.input_,
         Model.StatementType.output_, Model.StatementType.choice_,
-        Model.StatementType.case_, Model.StatementType.action_
+        Model.StatementType.case_, Model.StatementType.action_,
     )
     _recursive_visited_dds = (
         Model.StatementType.module_, Model.StatementType.submodule_,
         Model.StatementType.uses_, Model.StatementType.grouping_,
-        Model.StatementType.augment_
+        Model.StatementType.augment_,
     )
 
     def __init__(self, model: Model, sros: bool):
@@ -118,7 +118,14 @@ class ModelWalker:
             assert False, "Checking field value for non-field walker"
 
     def check_unsupported_paths(self):
-        unsupported_paths = ("nokia-oper-admin:admin", )
+        unsupported_paths = (
+            "nokia-oper-admin:admin",
+            "nokia-oper-file:file",
+            "nokia-oper-global:global-operations",
+            "nokia-oper-perform:perform",
+            "nokia-oper-reset:reset",
+            "nokia-oper-test:oper-test"
+        )
 
         if self.path and self.path[0].name in unsupported_paths:
             raise make_exception(pysros_err_management_unknown_element)
@@ -333,6 +340,14 @@ class ModelWalker:
         for i in cls._tokenize_(string):
             yield i
 
+    escaped_chars = {
+        "n": "\n",
+        "r": "\r",
+        "t": "\t",
+        '"': '"',
+        "\\": "\\",
+    }
+
     @classmethod
     def _tokenize_(cls, string):
         res = []
@@ -359,7 +374,14 @@ class ModelWalker:
                         i = next(iterator)
                         if i == '"':
                             break
-                        res.append(i)
+                        elif i == '\\':
+                            i = next(iterator)
+                            c = cls.escaped_chars.get(i, False)
+                            if not c:
+                                raise make_exception(pysros_err_invalid_parse_error)
+                            res.append(c)
+                        else:
+                            res.append(i)
                     except StopIteration:
                         raise make_exception(pysros_err_unended_quoted_string)
                 yield (cls._TokenKind.string, "".join(res))

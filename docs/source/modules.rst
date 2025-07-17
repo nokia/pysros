@@ -19,12 +19,14 @@ Python versions of the library are used.
 .. toctree::
    :maxdepth: 6
 
+   argparse
    utime
    uio
    uos
    uos.path
    getpass
 
-.. Reviewed by PLM 20220628
-.. Reviewed by TechComms 20220706
+.. Reviewed by PLM 20250613
+.. Reviewed by TechComms 20250617
+
 

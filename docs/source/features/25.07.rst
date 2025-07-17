@@ -1,0 +1,14 @@
+Release 25.7
+************
+
+25.7.1
+######
+
+* Adds commit confirmed support to the :py:meth:`pysros.management.Datastore.commit` method
+* Adds commit comments support for SR OS to the :py:meth:`pysros.management.Datastore.commit` method
+* Adds support for the :py:mod:`argparse` module
+
+.. Reviewed by PLM 20250226
+.. Reviewed by TechComms 20250617
+
+

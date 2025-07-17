@@ -11,6 +11,7 @@ from typing import List, Optional, Union
 from .errors import *
 from .errors import make_exception
 from .identifier import Identifier
+from .model_defines import TAGS_WITH_IMPLICIT_CASE
 from .yang_type import YangType
 
 
@@ -100,6 +101,8 @@ class AModel:
     data_def_stm: StatementType
     parent: "AModel"
     config: bool
+
+    DDS_WITH_IMPLICIT_CASE = tuple(map(StatementType.__getitem__, map(lambda s: s.replace("-", "_")+"_", TAGS_WITH_IMPLICIT_CASE)))
 
     def recursive_walk(self, cb):
         cont = cb(self)
@@ -340,8 +343,13 @@ class BuildingModel(AModel):
         return self
 
     def annihilate(self):
+        is_choice = (self.data_def_stm == self.StatementType.choice_)
         for child in self.children:
-            child.parent = self.parent
+            if is_choice and self.data_def_stm in self.DDS_WITH_IMPLICIT_CASE:
+                new = BuildingModel(self.name, BuildingModel.StatementType.case_, self, self.yang_version)
+                child.parent = new
+            else:
+                child.parent = self.parent
         self.delete_from_parent(quiet=False)
 
     def deepcopy(self, parent):

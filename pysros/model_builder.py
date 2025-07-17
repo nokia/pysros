@@ -24,92 +24,8 @@ from .yang_type import (DECIMAL_LEAF_TYPE, INTEGRAL_TYPES_MAX,
 
 class YangHandler:
     """Handler for yang processing."""
-    TAGS_WITH_MODEL = (
-        "container", "list", "leaf", "typedef", "module", "submodule", "uses",
-        "leaf-list", "import", "identity", "notification", "rpc", "belongs-to",
-        "input", "output", "choice", "case", "deviate", "action",
-    )
-    TAGS_FORCE_MODULE = (
-        "grouping", "identity", "typedef", "uses", "augment",
-        "deviation", "type", "base", "refine",
-    )
-    TAGS_ARG_IS_IDENTIFIER = ("base", "type", )
-    TAGS_ARG_IS_YANG_PATH_NOT_ABSOLUTE_SCHEMA_ID = ("path", )
-    assert not ({
-        "config", "default", "fraction-digits", "length", "mandatory",
-        "max-elements", "min-elements", "must", "range", "status", "type",
-        "unique", "units",
-    } & set(TAGS_WITH_MODEL)), "Substmt of deviate can not have model"
-    TAGS_SHOULD_BE_PROCESSED = (
-        "action",
-        "anydata",
-        "anyxml",
-        "argument",
-        "augment",
-        "base",
-        "belongs-to",
-        "bit",
-        "case",
-        "choice",
-        "config",
-        "contact",
-        "container",
-        "default",
-        "description",
-        "deviate",
-        "deviation",
-        "enum",
-        # "error-app-tag",
-        # error-message",
-        # extension",
-        "feature",
-        "fraction-digits",
-        "grouping",
-        "identity",
-        "if-feature",
-        "import",
-        "include",
-        "input",
-        "key",
-        "leaf",
-        "leaf-list",
-        "length",
-        "list",
-        "mandatory",
-        "max-elements",
-        "min-elements",
-        "modifier",
-        "module",
-        # "must",
-        "namespace",
-        "notification",
-        "ordered-by",
-        "organization",
-        "output",
-        "path",
-        "pattern",
-        "position",
-        "prefix",
-        "presence",
-        "range",
-        "reference",
-        "refine",
-        "require-instance",
-        "revision",
-        "revision-date",
-        "rpc",
-        "status",
-        "submodule",
-        "type",
-        "typedef",
-        "unique",
-        "units",
-        "uses",
-        "value",
-        # "when",
-        "yang-version",
-        "yin-element",
-    )
+    from .model_defines import TAGS_WITH_MODEL, TAGS_WITH_IMPLICIT_CASE, TAGS_FORCE_MODULE, TAGS_ARG_IS_IDENTIFIER, \
+                               TAGS_ARG_IS_YANG_PATH_NOT_ABSOLUTE_SCHEMA_ID, TAGS_SHOULD_BE_PROCESSED
 
     def __init__(self, builder: "ModelBuilder", root: BuildingModel):
         self.builder = builder
@@ -124,11 +40,16 @@ class YangHandler:
         self.module = None
         self._prefix = [None]
         self.ignore_depth = 0
+        self.fake_nodes = [None] # dummy first item to ensure self.fake_nodes[-1] can always be used without checking if the list is empty
 
     def enter(self, name, arg):
         if self.ignore_depth or (name not in self.TAGS_SHOULD_BE_PROCESSED and ":" not in name):
             self.ignore_depth += 1
             return
+
+        if name in self.TAGS_WITH_IMPLICIT_CASE and self.full_path[-1] == "choice":
+            self.fake_enter("case", arg)
+
         self.full_path.append(name)
 
         if name in ("input", "output", ):
@@ -182,6 +103,12 @@ class YangHandler:
             handler = getattr(self, handle_name)
             handler(arg)
 
+    def fake_enter(self, name, arg):
+        old_depth = len(self.full_path)
+        self.enter(name, arg)
+        self.fake_nodes.append(len(self.full_path))
+        assert old_depth < self.fake_nodes[-1]
+
     def leave(self, name):
         if self.ignore_depth:
             self.ignore_depth -= 1
@@ -211,6 +138,9 @@ class YangHandler:
             self.path.pop()
         else:
             self.model.blueprint.append((False, name))
+        if len(self.full_path) == self.fake_nodes[-1]:
+            self.fake_nodes.pop()
+            self.leave(self.full_path[-1])
 
     def construct(self, model=None):
         model = model or self.root
@@ -679,8 +609,7 @@ class ModelBuilder:
     def process_augment(self, m: BuildingModel):
         if m.data_def_stm == BuildingModel.StatementType.augment_:
             w = ModelWalker.path_parse(self.root, self._sros, m.target_path, True)
-            for i in m.children:
-                i.deepcopy(w.current)
+            m.deepcopy(w.current).annihilate()
 
     def resolve_augments(self):
         current = self.augments
