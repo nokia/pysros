@@ -114,6 +114,19 @@ class ModelWalker:
         else:
             assert False, "Checking field value for non-field walker"
 
+    def check_unsupported_paths(self):
+        unsupported_paths = (
+            "nokia-oper-admin:admin",
+            "nokia-oper-file:file",
+            "nokia-oper-global:global-operations",
+            "nokia-oper-perform:perform",
+            "nokia-oper-reset:reset",
+            "nokia-oper-test:oper-test"
+        )
+
+        if self.path and self.path[0].name in unsupported_paths:
+            raise make_exception(pysros_err_management_unknown_element)
+
     def get_parent(self):
         res = self.__class__(self.model)
         if self.path:
@@ -386,6 +399,10 @@ class ModelWalker:
             raise make_exception(pysros_err_not_found_slash_before_name)
         if path_string.endswith('/'):
             raise make_exception(pysros_err_invalid_identifier)
+
+        correct_char = lambda c: 32 <= ord(c) <= 127 or c in '\t\r\n'
+        if any(not correct_char(c) for c in path_string):
+            raise make_exception(pysros_err_invalid_parse_error)
 
         iterator = iter(cls._tokenize(path_string))
 
