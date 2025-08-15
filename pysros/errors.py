@@ -70,6 +70,7 @@ pysros_err_key_val_mismatch = (SrosMgmtError, "Cannot change value of key-leaf '
 pysros_err_leaflist_should_be_list = (TypeError, "expected list object but got {type_name}")
 pysros_err_malformed_keys = (TypeError, "Malformed keys for '{full_path}' with value '{value}'")
 pysros_err_malformed_xml = (ValueError, "Malformed XML")
+pysros_err_management_unknown_element = (SrosMgmtError, "Unknown element")
 pysros_err_missing_keys = (InvalidPathError, "Missing keys on element '{element}'")
 pysros_err_multiple_occurences_of_entry = (SrosMgmtError, "Multiple occurrences of list entry")
 pysros_err_no_data_found = (LookupError, "No data found")
