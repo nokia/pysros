@@ -47,7 +47,8 @@ It contains functions to obtain and manipulate configuration and state data.
 
 
 def connect(*, host, port=830, username, password=None, yang_directory=None,
-            rebuild=False, transport="netconf", timeout=300, hostkey_verify=True):
+            rebuild=False, transport="netconf", timeout=300, hostkey_verify=True,
+            use_existing_candidate=False):
     """Create a :class:`.Connection` object.  This function is the main entry point for
     model-driven management of configuration and state for a specific SR OS node using
     the pySROS library.
@@ -74,10 +75,16 @@ def connect(*, host, port=830, username, password=None, yang_directory=None,
     :type timeout: int, optional
     :param hostkey_verify: Enables hostkey verification using the SSH known_hosts file. Default True.
     :type hostkey_verify: bool, optional
+    :param use_existing_candidate: Use the existing sessions candidate. Supported only 
+                                   on SR OS devices 
+                                   when using a pre- or post-commit Python script. Default False.
+    :type use_existing_candidate: bool, optional
     :return: Connection object for specific SR OS node.
     :rtype: :py:class:`Connection`
     :raises RuntimeError: Error occurred during creation of connection
     :raises ModelProcessingError: Error occurred during compilation of the YANG modules
+    :raises NotImplementedError: Functionality not supported.  This functionality is
+                                 supported when executing on SR OS devices only (not remotely).
 
 
     .. note ::
@@ -141,9 +148,11 @@ def connect(*, host, port=830, username, password=None, yang_directory=None,
            connection_object = get_connection()
 
 
-    .. reviewed by PLM 20220621
-    .. reviewed by TechComms 20220624
+    .. reviewed by PLM 20251007
+    .. reviewed by TechComms 20251007
     """
+    if use_existing_candidate:
+        raise NotImplementedError("Supported when executing on SR OS devices only")
     if transport != "netconf":
         raise make_exception(pysros_err_invalid_transport)
     return Connection(host=host, port=port, username=username, password=password,

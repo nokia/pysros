@@ -9,14 +9,14 @@
 """
 Tested on: SR OS 24.3.R1
 
-Show command aliaseses.
+Show command aliases.
 
 Execution on SR OS
     usage: pyexec bin/show_command_aliases.py
 Execution on remote machine
     usage: python show_command_aliases.py username@host
 Execution on remote machine if show_command_aliases.py is executable
-     usage: ./show_command_aliaess.py username@host
+     usage: ./show_command_aliases.py username@host
 
 This application shows the configured command aliases.
 

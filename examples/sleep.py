@@ -46,7 +46,7 @@ def usage():
 def sleep():
     """Parse decimal number and then sleep"""
 
-    # Check the number of arguments is 2
+    # Check if the number of arguments is 2
     if len(sys.argv) != 2:
         usage()
         sys.exit(2)

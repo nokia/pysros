@@ -1,0 +1,12 @@
+Release 25.10
+*************
+
+25.10.1
+#######
+
+* Adds pre and post commit script support when configured and executing on SR OS (see the 
+  `SR OS documentation <https://documentation.nokia.com>`_ for details).
+  As part of this enhancement the :py:meth:`pysros.management.connect` method adds the ``use_existing_candidate`` argument.
+
+.. Reviewed by PLM 20251002
+.. Reviewed by TechComms 20251007
