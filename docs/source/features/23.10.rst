@@ -1,6 +1,14 @@
 Release 23.10
 *************
 
+23.10.10
+########
+
+* No additional features
+
+.. Reviewed by PLM 20251103
+.. Reviewed by TechComms 20251103
+
 23.10.9
 #######
 
