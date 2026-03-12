@@ -1,4 +1,4 @@
-# Copyright 2021-2024 Nokia
+# Copyright 2021-2026 Nokia
 
 import base64
 import contextlib
@@ -75,8 +75,8 @@ def connect(*, host, port=830, username, password=None, yang_directory=None,
     :type timeout: int, optional
     :param hostkey_verify: Enables hostkey verification using the SSH known_hosts file. Default True.
     :type hostkey_verify: bool, optional
-    :param use_existing_candidate: Use the existing sessions candidate. Supported only 
-                                   on SR OS devices 
+    :param use_existing_candidate: Use the existing sessions candidate. Supported only
+                                   on SR OS devices
                                    when using a pre- or post-commit Python script. Default False.
     :type use_existing_candidate: bool, optional
     :return: Connection object for specific SR OS node.
@@ -249,11 +249,7 @@ class Connection:
     def _get_root(self, modules):
         hasher = hashlib.sha256()
         yangs = sorted(modules, key=lambda m: m.name)
-        hasher.update(b"Schema ver 5\n")
-        hasher.update(b"Schema features\nBEGIN\n")
-        hasher.update(b"ANNOTATIONS\n")
-        hasher.update(b"SRL\n")
-        hasher.update(b"END\n")
+        hasher.update(b"Schema ver 6\n")
         for m in yangs:
             hasher.update(f"mod:{m.name};rev:{m.revision};".encode())
             for sm in sorted(m.submodules, key=lambda sm: sm.name):

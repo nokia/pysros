@@ -1,4 +1,4 @@
-# Copyright 2021-2024 Nokia
+# Copyright 2021-2026 Nokia
 
 from .exceptions import (ActionTerminatedIncompleteError, InternalError,
                          InvalidPathError, JsonDecodeError,

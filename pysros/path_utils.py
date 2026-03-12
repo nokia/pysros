@@ -25,6 +25,9 @@ class _Path:
         self._keys: List[Dict[Identifier, Union[str, _Path]]] = []
         self.default_module = None
 
+    def __repr__(self):
+        return f'{self.__class__.__name__}(_path={self._path}, keys={self._keys}, default_module={self.default_module})'
+
     def append(self, i: Identifier):
         self._path.append(i)
         self._keys.append({})

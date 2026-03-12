@@ -1,4 +1,4 @@
-# Copyright 2021-2024 Nokia
+# Copyright 2021-2026 Nokia
 
 import copy
 from collections import defaultdict, OrderedDict
@@ -417,7 +417,9 @@ class ModelBuilder:
         if isinstance(m.yang_type, (UnresolvedIdentifier, YangUnion)):
             tdm = resolve_typedefs_deep(TypeDefModel(m), self.resolved_types)
             m.yang_type = tdm.yang_type
-            m.default = tdm.default
+            if tdm.default is not None:
+                m.default = tdm.default
+                m.default_from_typedef = True
             m.units = tdm.units
         #RFC6020: If the type referenced by the leaf-list has a default value, it has no effect in the leaf-list.
         if m.data_def_stm == AModel.StatementType.leaf_list_ and m.default and m.yang_version == YangVersion.ver1_0:
@@ -689,6 +691,8 @@ class ModelBuilder:
     def resolve_config(self):
         def false_setter(m: BuildingModel):
             m.config = False
+            if m.default_from_typedef is True:
+                m.default = None
 
         def resolver(m: BuildingModel):
             if not m.config:

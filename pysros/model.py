@@ -1,4 +1,4 @@
-# Copyright 2021-2024 Nokia
+# Copyright 2021-2026 Nokia
 
 import copy
 import locale
@@ -273,6 +273,7 @@ class BuildingModel(AModel):
         "arg",
         "nsmap",
         "yang_version",
+        "default_from_typedef",
     )
 
     def __init__(self, name: Union[Identifier, str], data_def_stm: AModel.StatementType, parent, yang_version):
@@ -296,6 +297,7 @@ class BuildingModel(AModel):
         self.arg = None
         self.nsmap = None
         self.yang_version = yang_version
+        self.default_from_typedef = False
 
     @property
     def parent(self):
