@@ -18,9 +18,10 @@ documentation will be updated accordingly.
    :header-rows: 0
 
    * - pySROS release: |pySROSProjectVersion|
-   * - Document Number: 3HE 20087 AAAL TQZZA
+   * - Document Number: 3HE 20087 AAAM TQZZA
 
-.. Reviewed by PLM 20250527
+.. Reviewed by PLM 20260305
+.. Reviewed by TechComms 20260306
 
 .. toctree::
    :maxdepth: 2

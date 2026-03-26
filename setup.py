@@ -1,4 +1,4 @@
-# Copyright 2021-2025 Nokia
+# Copyright 2021-2026 Nokia
 
 from setuptools import setup
 from pysros import __version__
@@ -11,7 +11,7 @@ setup(
     version=__version__,
     packages=['pysros'],
     url='https://www.nokia.com',
-    license='Copyright 2021-2025 Nokia.  License available in the LICENSE.md file.',
+    license='Copyright 2021-2026 Nokia.  License available in the LICENSE.md file.',
     author='Nokia',
     author_email='',
     description='Python for the Nokia Service Router Operating Systems (pySROS)',
