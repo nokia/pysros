@@ -4,4 +4,4 @@ __all__ = ("management", "exceptions", "wrappers", "pprint", )
 
 __doc__ = """Library for management of model-driven nodes."""
 
-__version__ = "25.10.3"
+__version__ = "25.10.4"
