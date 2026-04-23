@@ -75,8 +75,8 @@ def connect(*, host, port=830, username, password=None, yang_directory=None,
     :type timeout: int, optional
     :param hostkey_verify: Enables hostkey verification using the SSH known_hosts file. Default True.
     :type hostkey_verify: bool, optional
-    :param use_existing_candidate: Use the existing sessions candidate. Supported only
-                                   on SR OS devices
+    :param use_existing_candidate: Use the existing sessions candidate. Supported only 
+                                   on SR OS devices 
                                    when using a pre- or post-commit Python script. Default False.
     :type use_existing_candidate: bool, optional
     :return: Connection object for specific SR OS node.
