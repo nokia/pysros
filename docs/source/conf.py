@@ -6,12 +6,12 @@ sys.path.insert(0, os.path.relpath('../'))
 # -- Project information -----------------------------------------------------
 
 project = 'pySROS'
-copyright = '2021-2025, Nokia'
+copyright = '2021-2026, Nokia'
 author = 'Nokia'
 
 # The full version, including alpha/beta/rc tags
-version = '23.10.11'
-release = '23.10.11'
+version = '23.10.12'
+release = '23.10.12'
 
 
 # -- General configuration ---------------------------------------------------
