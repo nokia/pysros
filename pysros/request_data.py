@@ -208,6 +208,35 @@ class RequestData:
     def sanity_check(self):
         self._data.sanity_check()
 
+    def empty_root_setter(self):
+        """Return root setter without populating top-level children."""
+        return _ASetter.create_setter(self._data, self)
+
+    def keep_top_level_containers(self):
+        """Keep only top-level containers/lists and strip their contents."""
+        for name, storage in list(self._data._child.items()):
+            if not isinstance(storage, (_MoStorage, _ListStorage)):
+                del self._data._child[name]
+            elif isinstance(storage, _MoStorage):
+                storage._child.clear()
+                storage._local_keys.clear()
+            else:
+                for entry in storage._entries.values():
+                    entry._child.clear()
+
+    def get_top_level_children(self):
+        """Return identifiers for top-level containers/lists in storage."""
+        return tuple(self._data._child.keys())
+
+    def drop_top_level_containers(self, names):
+        """Drop specified top-level containers/lists from storage."""
+        if not names:
+            return
+        names = tuple(names)
+        for name in list(self._data._child.keys()):
+            if any(name == candidate for candidate in names):
+                del self._data._child[name]
+
     def _unwrap(self, value):
         return value.data if isinstance(value, Wrapper) else value
 
@@ -1182,7 +1211,16 @@ class _ListSetter(_ASetter):
         return {k: v for k, v in zip(self._walker.get_local_key_names(), (t if isinstance(t, tuple) else (t, )))}
 
     def _extract_keys(self, entry):
-        return {self._walker.get_child(k).get_name(): self._as_storage_type(v, child_name=k) for k, v in entry.items() if k in self._walker.get_local_key_names()}
+        def key_value_to_storage(k, v):
+            if v in (FieldValuePlaceholder(), GetValuePlaceholder(), {}, ):
+                return v
+            return self._as_storage_type(v, child_name=k)
+
+        return {
+            self._walker.get_child(k).get_name(): key_value_to_storage(k, v)
+            for k, v in entry.items()
+            if k in self._walker.get_local_key_names()
+        }
 
     def _convert_keys_to_model(self, entry):
         try:
@@ -1626,13 +1664,29 @@ class _MoSetter(_ASetter):
             check_duplicates(name)
 
     def delete(self):
-        self._storage._operation = "delete"
+        if self._storage._walker.is_root:
+            for v in self._storage._child.values():
+                if isinstance(v, _ListStorage):
+                    for entry in v._entries.values():
+                        entry._operation = "delete"
+                else:
+                    v._operation = "delete"
+        else:
+            self._storage._operation = "delete"
 
     def replace(self):
-        self._storage._operation = "replace"
+        if self._storage._walker.is_root:
+            for v in self._storage._child.values():
+                v._operation = "replace"
+        else:
+            self._storage._operation = "replace"
 
     def merge(self):
-        self._storage._operation = "merge"
+        if self._storage._walker.is_root:
+            for v in self._storage._child.values():
+                v._operation = "merge"
+        else:
+            self._storage._operation = "merge"
 
     def is_compare_supported_endpoint(self):
         return True

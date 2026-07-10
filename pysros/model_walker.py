@@ -117,25 +117,19 @@ class ModelWalker:
         else:
             assert False, "Checking field value for non-field walker"
 
-    def check_unsupported_paths(self):
-        unsupported_paths = (
-            "nokia-oper-admin:admin",
-            "nokia-oper-file:file",
-            "nokia-oper-global:global-operations",
-            "nokia-oper-perform:perform",
-            "nokia-oper-reset:reset",
-            "nokia-oper-test:oper-test"
-        )
-
-        if self.path and self.path[0].name in unsupported_paths:
-            raise make_exception(pysros_err_management_unknown_element)
-
     def get_parent(self):
         res = self.__class__(self.model, self._sros)
         if self.path:
             res.path = self.path[:-1]
             res.keys = self.keys[:-1]
         return res
+
+    def get_children(self):
+        children = []
+        for child in self.current.children:
+            if self._is_allowed(child):
+                children.append(child)
+        return children
 
     def get_child(self, child_name: Union[str, Identifier]):
         res = self.copy()
@@ -630,10 +624,15 @@ class FilteredDataModelWalker(DataModelWalker):
         self.config_only = False
         self.return_blocked_regions = False
 
+    def _exclude_nokia_oper(self):
+        return True
+
     def _is_allowed(self, model):
         if self.config_only and not model.config:
             return False
         if not self.return_blocked_regions and model.is_region_blocked:
+            return False
+        if self._exclude_nokia_oper() and model.is_nokia_oper:
             return False
         if self._sros:
             return any(i in model.name.prefix for i in ("nokia", "openconfig"))
@@ -688,7 +687,12 @@ class FilteredDataModelWalker(DataModelWalker):
                     yield from self._construct_path_without_key_values()
 
 
-class ActionInputFilteredDataModelWalker(FilteredDataModelWalker):
+class ActionFilteredDataModelWalker(FilteredDataModelWalker):
+    def _exclude_nokia_oper(self):
+        return False
+
+
+class ActionInputFilteredDataModelWalker(ActionFilteredDataModelWalker):
     _expected_dds = (
         Model.StatementType.container_, Model.StatementType.list_,
         Model.StatementType.leaf_, Model.StatementType.leaf_list_,
@@ -702,7 +706,7 @@ class ActionInputFilteredDataModelWalker(FilteredDataModelWalker):
     )
 
 
-class ActionOutputFilteredDataModelWalker(FilteredDataModelWalker):
+class ActionOutputFilteredDataModelWalker(ActionFilteredDataModelWalker):
     _expected_dds = (
         Model.StatementType.container_, Model.StatementType.list_,
         Model.StatementType.leaf_, Model.StatementType.leaf_list_,
@@ -736,6 +740,9 @@ class JsonInstanceModelWalkerActionOnly(ActionInputFilteredDataModelWalker):
         yield from self.iterate_children(enter_fnc=self._export_paths, action_io="action_only")
 
 class JsonInstanceDataModelWalker(FilteredDataModelWalker):
+    def _exclude_nokia_oper(self):
+        return False
+
     def export_paths(self):
         if self.current.data_def_stm in (AModel.StatementType.leaf_, AModel.StatementType.leaf_list_):
             if all((node.data_def_stm != Model.StatementType.action_ for node in self.path)):

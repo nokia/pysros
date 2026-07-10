@@ -8,6 +8,7 @@ import os.path
 import pathlib
 import pickle
 import re
+import shutil
 import tempfile
 import types
 
@@ -75,9 +76,15 @@ def connect(*, host, port=830, username, password=None, yang_directory=None,
     :type timeout: int, optional
     :param hostkey_verify: Enables hostkey verification using the SSH known_hosts file. Default True.
     :type hostkey_verify: bool, optional
-    :param use_existing_candidate: Use the existing sessions candidate. Supported only
-                                   on SR OS devices
-                                   when using a pre- or post-commit Python script. Default False.
+    :param use_existing_candidate: Connects to the candidate configuration of the session
+                                   that launched the script, instead of creating a new
+                                   private candidate. This functionality is supported when running
+                                   on an SR OS device (not remotely), from within a pre-commit or 
+                                   post-commit script, or when using the ``pyexec`` command.
+                                   The configuration mode of the launching session
+                                   (private, global, exclusive, read-only) governs how
+                                   :py:meth:`Datastore.lock` and :py:meth:`Datastore.unlock`
+                                   behave. Default False.
     :type use_existing_candidate: bool, optional
     :return: Connection object for specific SR OS node.
     :rtype: :py:class:`Connection`
@@ -148,8 +155,8 @@ def connect(*, host, port=830, username, password=None, yang_directory=None,
            connection_object = get_connection()
 
 
-    .. reviewed by PLM 20251007
-    .. reviewed by TechComms 20251007
+    .. reviewed by PLM 20220621
+    .. reviewed by TechComms 20220624
     """
     if use_existing_candidate:
         raise NotImplementedError("Supported when executing on SR OS devices only")
@@ -487,6 +494,60 @@ class Connection:
         """
         with self._process_connected():
             self._nc.close_session()
+
+    def dump_modules(self, destination, *, clean_directory=False):
+        """Write all YANG modules from this connection to a flat directory.
+
+        :param destination: Path to a directory on the local filesystem.
+        :type destination: str
+        :param clean_directory: If ``True``, the destination directory is wiped before
+                                writing. If ``False``, the method raises an
+                                exception if any target file already exists.  
+                                Default: ``False``.
+        :type clean_directory: bool, optional
+        :raises SrosMgmtError: If ``clean_directory`` is ``False`` and a file that 
+                               would be written to disk already exists in the 
+                               destination directory.
+        :raises TypeError: If ``destination`` is not a string.
+        """
+        if destination is None:
+            raise make_exception(pysros_err_path_should_be_string)
+        dest = pathlib.Path(destination)
+
+        # Collect all modules and submodules as (name, revision), deduplicated
+        seen = set()
+        files_to_write = []
+        for mod in self._models:
+            key = (mod.name, mod.revision)
+            if key not in seen:
+                seen.add(key)
+                files_to_write.append(key)
+            for sub in mod.submodules:
+                key = (sub.name, sub.revision)
+                if key not in seen:
+                    seen.add(key)
+                    files_to_write.append(key)
+
+        files_to_write.sort()
+        filenames = [f"{name}@{revision}.yang" for name, revision in files_to_write]
+
+        if clean_directory:
+            if dest.exists():
+                shutil.rmtree(dest)
+            dest.mkdir(parents=True, exist_ok=True)
+        else:
+            dest.mkdir(parents=True, exist_ok=True)
+            for fname in filenames:
+                if (dest / fname).exists():
+                    raise make_exception(pysros_err_dump_modules_file_exists, fname=fname)
+
+        with self._process_connected():
+            for (name, revision), fname in zip(files_to_write, filenames):
+                content = self._yang_getter(name)
+                (dest / fname).write_text(content, encoding="utf-8")
+
+        manifest_path = dest / "manifest.txt"
+        manifest_path.write_text("\n".join(sorted(filenames)) + "\n", encoding="utf-8")
 
     def cli(self, command):
         """Run a single MD-CLI command. A single line of input is allowed.
@@ -875,24 +936,36 @@ class Datastore:
             if '' in k.values():
                 raise make_exception(pysros_err_filter_empty_string)
 
-    def _prepare_root_ele(self, subtree, path, filter_tag = "filter"):
+    def _prepare_root_ele(self, subtree, filter_tag="filter"):
         root = etree.Element(filter_tag)
         root.extend(subtree)
-        if self.debug:
-            print("GET request for path ", path)
-            print(etree.dump(root))
         return root
 
-    def _operation_get(self, subtree, defaults, path):
+    def _debug_get_request(self, method, path, subtree, filter_tag=None, xml_get=None):
+        if not self.debug:
+            return
+        print(f"{method} request for path '{path}'")
         if subtree:
-            root = self._prepare_root_ele(subtree, path)
+            if xml_get is not None:
+                print(etree.dump(xml_get))
+            else:
+                root = self._prepare_root_ele(subtree, filter_tag or "filter")
+                print(etree.dump(root))
+        else:
+            print("no subtree filter")
+
+    def _operation_get(self, subtree, defaults, path):
+        self._debug_get_request("GET", path, subtree, filter_tag="filter")
+        if subtree:
+            root = self._prepare_root_ele(subtree)
             return self._nc.get(filter=root, with_defaults=self._get_defaults(defaults))
         else:
             return self._nc.get(with_defaults=self._get_defaults(defaults))
 
     def _operation_get_config(self, subtree, defaults, path):
+        self._debug_get_request("GET-CONFIG", path, subtree, filter_tag="filter")
         if subtree:
-            root = self._prepare_root_ele(subtree, path)
+            root = self._prepare_root_ele(subtree)
             return self._nc.get_config(source=self.target, filter=root, with_defaults=self._get_defaults(defaults))
         else:
             return self._nc.get_config(source=self.target, with_defaults=self._get_defaults(defaults))
@@ -904,7 +977,7 @@ class Datastore:
         xml_ds.text = f"{ds_pfx}:{self.target}"
 
         if subtree:
-            root = self._prepare_root_ele(subtree, path, "subtree-filter")
+            root = self._prepare_root_ele(subtree, "subtree-filter")
             xml_filter = etree.SubElement(xml_get, "subtree-filter")
             xml_filter.extend(root)
 
@@ -912,27 +985,39 @@ class Datastore:
             xml_defaults = etree.SubElement(xml_get, "with-defaults")
             xml_defaults.text = "report-all"
 
+        self._debug_get_request("GET-DATA", path, subtree, filter_tag="subtree-filter", xml_get=xml_get)
         return self._nc.rpc(xml_get)
 
     def _get(self, path, *, defaults=False, custom_walker=None, config_only=False, filter=None):
-        model_walker = custom_walker if custom_walker else FilteredDataModelWalker.user_path_parse(self.connection.root, path, self.connection._sros)
+        model_walker = custom_walker if custom_walker else FilteredDataModelWalker.user_path_parse(self.connection.root, path, self.connection._sros, accept_root=True)
 
         if config_only and model_walker.is_state:
             raise make_exception(pysros_err_no_data_found)
 
+        if config_only or self.target in ("candidate", "intended"):
+            model_walker.config_only = True
+
         self._check_empty_string(model_walker)
 
         rd = self.connection._request_data()
-        current = rd.process_path(model_walker)
-        if filter is not None:
-            model_walker.validate_get_filter(filter)
-            current.set_filter(filter)
-        config = rd.to_xml()
+        current = None
+        if model_walker.is_root:
+            if filter is None:
+                config = None
+            else:
+                current = rd.empty_root_setter()
+        else:
+            current = rd.process_path(model_walker)
+
+        if current is not None:
+            if filter is not None:
+                model_walker.validate_get_filter(filter)
+                current.set_filter(filter)
+            config = rd.to_xml()
 
         if self.target == "running":
             if config_only:
                 response = self._operation_get_config(config, defaults, path)
-                model_walker.config_only = True
             else:
                 response = self._operation_get(config, defaults, path)
         else:
@@ -941,13 +1026,12 @@ class Datastore:
                 raise make_exception(
                     pysros_err_can_get_state_from_running_only
                 )
-            model_walker.config_only = True
             response = get_method(config, defaults, path)
 
         if self.debug:
             print("GET response")
             print(response)
-        del rd, current
+        rd, current = None, None
 
         rd = self.connection._request_data()
         rd.set_as_xml(response)
@@ -1007,22 +1091,126 @@ class Datastore:
         current.replace()
         return rd
 
+    def _load_root_top_level_config(self):
+        response = self._operation_get_config(None, False, "/")
+        rd = self.connection._request_data()
+        rd.set_as_xml(response)
+        rd.keep_top_level_containers()
+        return rd
+
+    def _build_root_delete_request_data(self, exclude_names=None):
+        rd = self._load_root_top_level_config()
+        if exclude_names:
+            rd.drop_top_level_containers(exclude_names)
+        current = rd.empty_root_setter()
+        current.delete()
+        return rd
+
+    def _build_root_replace_request_data(self, value):
+        rd = self.connection._request_data()
+        current = rd.empty_root_setter()
+        current.set(value)
+        current.replace()
+        return rd
+
+    def _sort_root_children(self, children, ns_map, *, openconfig_first):
+        ns_set = {ns for prefix, ns in ns_map.items() if prefix.startswith("openconfig")}
+        return sorted(
+            children,
+            key=lambda child: etree.QName(child).namespace in ns_set,
+            reverse=openconfig_first
+        )
+
+    def _edit_config_request(self, path, value, children, extra_ns, default_operation=None):
+        config = new_ele_nsmap("config", extra_ns)
+        config.extend(children)
+        if self.debug:
+            print("SET request")
+            print(f"path: '{path}', value: '{value}'")
+            print(etree.dump(config))
+        self._nc.edit_config(
+            target=self.target,
+            default_operation=default_operation,
+            config=config
+        )
+
+    def _replace_root(self, value):
+        payload_rd = self._build_root_replace_request_data(value)
+        delete_rd = self._build_root_delete_request_data(
+            exclude_names=payload_rd.get_top_level_children()
+        )
+
+        if self.connection._intensive_checks:
+            payload_rd.sanity_check()
+            delete_rd.sanity_check()
+
+        delete_children = delete_rd.to_xml()
+        payload_children = payload_rd.to_xml()
+        if not delete_children and not payload_children:
+            return
+
+        delete_children = self._sort_root_children(delete_children, delete_rd._ns_map, openconfig_first=True)
+        payload_children = self._sort_root_children(payload_children, payload_rd._ns_map, openconfig_first=False)
+
+        extra_ns = {}
+        extra_ns.update(delete_rd._extra_ns)
+        extra_ns.update(payload_rd._extra_ns)
+        self._edit_config_request(
+            path="/",
+            value=value,
+            children=[*delete_children, *payload_children],
+            extra_ns=extra_ns
+        )
+
+    def _delete_root(self, annotations_only):
+        if annotations_only:
+            raise make_exception(pysros_err_root_path)
+        rd = self._build_root_delete_request_data()
+        children = rd.to_xml()
+        if not children:
+            return
+
+        children = self._sort_root_children(children, rd._ns_map, openconfig_first=True)
+
+        self._edit_config_request(
+            path="/",
+            value=None,
+            children=children,
+            extra_ns=rd._extra_ns,
+            default_operation="none"
+        )
+
     def _set(self, path, value, action, method="default", annotations_only=False):
         if self.target in ('running', 'intended'):
             raise make_exception(pysros_err_cannot_modify_config)
+        if path == "/" and action == Datastore._SetAction.delete:
+            self._delete_root(annotations_only=annotations_only)
+            return
         if method not in ("default", "merge", "replace"):
             raise make_exception(pysros_err_unsupported_set_method)
         if not isinstance(annotations_only, (bool, list, Annotation)):
             raise make_exception(pysros_err_annotation_invalid_type)
+        if path == "/" and action == Datastore._SetAction.set and method == "replace":
+            self._replace_root(value)
+            return
         model_walker = FilteredDataModelWalker.user_path_parse(
             self.connection.root,
             path,
-            self.connection._sros
+            self.connection._sros,
+            accept_root=True
         )
         if model_walker.current.config == False:
             raise make_exception(pysros_err_cannot_modify_state)
+
+        model_walker.config_only = True
+
         rd = self.connection._request_data()
-        current = rd.process_path(path)
+
+        if model_walker.is_root:
+            current = rd.empty_root_setter()
+        else:
+            current = rd.process_path(model_walker)
+
         replacing_leaflist = method=="replace" and current._walker.is_leaflist
         values_to_delete = []
         if action == Datastore._SetAction.delete:
@@ -1047,17 +1235,12 @@ class Datastore:
             rd.sanity_check()
 
         children = rd.to_xml()
-        config = new_ele_nsmap("config", rd._extra_ns)
-        config.extend(values_to_delete)
-        config.extend(children)
-        if self.debug:
-            print("SET request")
-            print(f"path: '{path}', value: '{value}'")
-            print(etree.dump(config))
-        self._nc.edit_config(
-            target=self.target,
-            default_operation=default_operation,
-            config=config
+        self._edit_config_request(
+            path=path,
+            value=value,
+            children=[*values_to_delete, *children],
+            extra_ns=rd._extra_ns,
+            default_operation=default_operation
         )
 
     def _delete(self, path, annotations_only):
@@ -1065,8 +1248,6 @@ class Datastore:
 
     def _exists(self, path, exist_reason):
         model_walker = FilteredDataModelWalker.user_path_parse(self.connection.root, path, self.connection._sros)
-        if self.connection._sros:
-            model_walker.check_unsupported_paths()
         # if exists is called as a check before deletion, check for path to avoid
         # incorrect errors such as pysros_err_can_check_state_from_running_only
         # as we want to handle state delete related errors first
@@ -1267,8 +1448,9 @@ class Datastore:
                      and `RFC 7951 <https://datatracker.ietf.org/doc/html/rfc7951#section-6.11>`_.
                      The path can be obtained from an SR OS device using the
                      ``pwc json-instance-path`` MD-CLI command.
-                     The path may point to a YANG Container, List, Leaf, Leaf-List or a
-                     specific List entry.
+                     The path may point to a YANG :py:class:`.Container`, :py:class:`.List`, 
+                     :py:class:`.Leaf`, :py:class:`.LeafList`, a specific List entry or the 
+                     root of a tree (indicated by the ``/`` path).
         :type path: str
         :param defaults: Obtain default values in addition to specifically set values.
         :type defaults: bool
@@ -1378,6 +1560,9 @@ class Datastore:
 
         :param path: Path to the target node in the datastore.  See the path parameter definition in
                      :py:meth:`pysros.management.Datastore.get` for details.
+                     The path may point to a YANG :py:class:`.Container`, :py:class:`.List`, 
+                     :py:class:`.Leaf`, :py:class:`.LeafList`, a specific List entry or the 
+                     root of a tree (indicated by the ``/`` path).
         :type path: str
 
         :param value: Value to set the node to. When ``path`` points to a Leaf, the
@@ -1439,6 +1624,9 @@ class Datastore:
 
         :param path: Path to the node in the datastore.  See the path parameter definition in
                      :py:meth:`pysros.management.Datastore.get` for details.
+                     The path may point to a YANG :py:class:`.Container`, :py:class:`.List`, 
+                     :py:class:`.Leaf`, :py:class:`.LeafList`, a specific List entry or the 
+                     root of a tree (indicated by the ``/`` path).
         :type path: str
         :param commit: Specify whether commit should be executed after delete.  Default True.
         :type commit: bool
@@ -1469,9 +1657,12 @@ class Datastore:
         with self.connection._process_connected():
             if self.target in ('running', 'intended'):
                 raise make_exception(pysros_err_cannot_modify_config)
-            if not self._exists(path, Datastore._ExistReason.delete):
-                raise make_exception(pysros_err_no_data_found)
-            self._delete(path, annotations_only)
+            if path == "/":
+                self._delete_root(annotations_only=annotations_only)
+            else:
+                if not self._exists(path, Datastore._ExistReason.delete):
+                    raise make_exception(pysros_err_no_data_found)
+                self._delete(path, annotations_only)
             if commit:
                 self._commit()
 
@@ -1542,8 +1733,20 @@ class Datastore:
            Only one lock may be obtained per SR OS system.  Attempting to obtain another lock raises
            an exception.
 
-        .. Reviewed by PLM 20220621
-        .. Reviewed by TechComms 20220624
+        .. note::
+           When the connection is created with ``use_existing_candidate=True``, the behavior
+           follows the configuration mode of the session that launched the script:
+
+           * private    - The candidate becomes exclusive
+           * global     - The shared candidate is locked by this session, permitted even when existing uncommitted changes exist in the candidate configuration
+           * exclusive  - Rejected, because the session already holds an exclusive lock
+           * read-only  - Rejected
+
+           If the script does not call :py:meth:`lock`, the launching session's existing
+           lock and mode are left unchanged when the script ends.
+
+        .. Reviewed by PLM 20260611
+        .. Reviewed by TechComms 20260611
         """
         with self.connection._process_connected():
             if self.target not in ("candidate", "running"):
@@ -1559,8 +1762,17 @@ class Datastore:
         .. note::
            The :py:meth:`unlock` method may only be called against the ``candidate`` configuration datastore.
 
-        .. Reviewed by PLM 20220621
-        .. Reviewed by TechComms 20220624
+        .. note::
+           When the connection is created with ``use_existing_candidate=True``, the behavior
+           follows the configuration mode of the session that launched the script:
+
+           * private    - Candidate edits are retained
+           * global     - The candidate is discarded and the session returns to global
+           * exclusive  - The candidate is discarded and the session returns to global
+           * read-only  - Rejected, because the session does not have a lock
+
+        .. Reviewed by PLM 20260611
+        .. Reviewed by TechComms 20260611
         """
         with self.connection._process_connected():
             if self.target not in ("candidate", "running"):

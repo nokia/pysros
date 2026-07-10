@@ -28,7 +28,7 @@ setup(
     ],
     install_requires=[
         "ncclient~=0.6.12",
-        "lxml~=5.3.0",
+        "lxml~=6.1.0",
     ],
     python_requires=">=3.10",
     long_description=long_description,

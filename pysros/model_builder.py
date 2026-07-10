@@ -417,6 +417,7 @@ class ModelBuilder:
         if isinstance(m.yang_type, (UnresolvedIdentifier, YangUnion)):
             tdm = resolve_typedefs_deep(TypeDefModel(m), self.resolved_types)
             m.yang_type = tdm.yang_type
+            m.type_from_typedef = True
             if tdm.default is not None:
                 m.default = tdm.default
                 m.default_from_typedef = True
@@ -550,7 +551,9 @@ class ModelBuilder:
             )
 
             while isinstance(w.current.yang_type, LeafRef):
-                w.current.yang_type.path.move_walker(w, default_module=w.current.prefix)
+                path_obj = w.current.yang_type.path
+                default_module = path_obj.default_module if w.current.type_from_typedef else w.current.prefix
+                path_obj.move_walker(w, default_module=default_module)
             m.yang_type = w.current.yang_type
         self.walk_models(replace_leafrefs)
 

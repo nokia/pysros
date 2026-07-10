@@ -1,0 +1,21 @@
+Release 26.7
+************
+
+26.7.1
+######
+
+* Updates :py:mod:`lxml` dependency to version 6.1.0 mainline
+* Extends the :py:meth:`pysros.management.Datastore.get` method to support root ``/`` path queries
+* Extends the :py:meth:`pysros.management.Datastore.set` method to support root ``/`` path queries
+* Extends the :py:meth:`pysros.management.Datastore.delete` method to support root ``/`` path queries
+* Extends the :py:meth:`pysros.management.connect` method to support ``use_existing_candidate=True``
+  when called from an existing candidate session such as when using the ``pyexec`` model-driven SR OS
+  CLI command
+* Introduces the :py:meth:`pysros.management.Connection.dump_modules` method to dump the device's 
+  supported YANG modules to a flat file structure on the local filesystem
+
+.. Reviewed by PLM 20260611
+.. Reviewed by TechComms 20260611
+
+
+

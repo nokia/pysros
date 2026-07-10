@@ -274,6 +274,7 @@ class BuildingModel(AModel):
         "nsmap",
         "yang_version",
         "default_from_typedef",
+        "type_from_typedef",
     )
 
     def __init__(self, name: Union[Identifier, str], data_def_stm: AModel.StatementType, parent, yang_version):
@@ -298,6 +299,7 @@ class BuildingModel(AModel):
         self.nsmap = None
         self.yang_version = yang_version
         self.default_from_typedef = False
+        self.type_from_typedef = False
 
     @property
     def parent(self):
@@ -500,6 +502,14 @@ class Model(StorageModel):
             "nokia-bof-state", "nokia-li-state", "nokia-debug-state",
             "nokia-li-conf", "nokia-bof-conf", "nokia-debug-conf"
         )
+
+    @property
+    def is_nokia_oper(self):
+        return self.prefix.startswith("nokia-oper")
+
+    @property
+    def is_openconfig(self):
+        return self.prefix.startswith("openconfig")
 
     @property
     def local_keys(self):
