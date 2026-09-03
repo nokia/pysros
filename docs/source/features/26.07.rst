@@ -1,6 +1,14 @@
 Release 26.7
 ************
 
+26.7.2
+######
+
+* No additional features
+
+.. Reviewed by PLM 20260811
+.. Reviewed by TechComms 20260811
+
 26.7.1
 ######
 

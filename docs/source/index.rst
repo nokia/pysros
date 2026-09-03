@@ -18,12 +18,10 @@ documentation will be updated accordingly.
    :header-rows: 0
 
    * - pySROS release: |pySROSProjectVersion|
-   * - Document Number: 3HE 22296 AAAD TQZZA
+   * - Document Number: 3HE 22296 AAAE TQZZA
 
-.. todo: Change release numbers for new branch
-
-.. Reviewed by PLM 20220621
-.. Reviewed by TechComms 20260611
+.. Reviewed by PLM 20260811
+.. Reviewed by TechComms 20260811
 
 .. toctree::
    :maxdepth: 2
